@@ -1,0 +1,268 @@
+diff --git a/adapter/preview/build/platform.gni b/adapter/preview/build/platform.gni
+index 0b18db5e13..e0b8c3a9ea 100644
+--- a/adapter/preview/build/platform.gni
++++ b/adapter/preview/build/platform.gni
+@@ -30,6 +30,9 @@ if (use_mingw_win) {
+ if (use_mac) {
+   mac_platform = {
+     name = "mac"
++
++    # Phase 0 path X: admit mac into ace_platforms under is_arkui_x.
++    cross_platform_support = true
+     config = {
+       import("config_mac.gni")
+     }
+diff --git a/rosen/modules/2d_graphics/BUILD.gn b/rosen/modules/2d_graphics/BUILD.gn
+index 5b13b75c75..26e99626cd 100755
+--- a/rosen/modules/2d_graphics/BUILD.gn
++++ b/rosen/modules/2d_graphics/BUILD.gn
+@@ -518,8 +518,12 @@ if (!is_arkui_x) {
+ }
+ 
+ group("2d_graphics_packages") {
+-  deps = [
+-    "$drawing_root:2d_graphics",
+-    "$drawing_root/drawing_ndk:native_drawing_ndk",
+-  ]
++  deps = [ "$drawing_root:2d_graphics" ]
++
++  # Phase 0 path X: native_drawing_ndk.so is only defined for !is_arkui_x
++  # (see drawing_ndk/BUILD.gn). Don't reference it on cross-platform arkui-x
++  # builds (e.g. target_os=mac), otherwise gn reports an unresolved dependency.
++  if (!is_arkui_x) {
++    deps += [ "$drawing_root/drawing_ndk:native_drawing_ndk" ]
++  }
+ }
+diff --git a/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h b/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
+index 77462ad90e..e618383590 100644
+--- a/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
++++ b/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
+@@ -22,7 +22,7 @@
+ #include "common/rs_rect.h"
+ #include "render_context/render_context.h"
+ 
+-#ifdef ROSEN_IOS
++#if defined(ROSEN_IOS) || defined(ROSEN_MAC)
+ #include "render_context/render_context_egl_defines.h"
+ #else
+ #include "EGL/egl.h"
+@@ -79,7 +79,7 @@ public:
+         return eglDisplay_;
+     }
+ 
+-#ifdef ROSEN_IOS
++#if defined(ROSEN_IOS) || defined(ROSEN_MAC)
+     std::shared_ptr<Drawing::ColorSpace> ColorSpace() const { return color_space_; }
+     bool UpdateStorageSizeIfNecessary();
+     bool ResourceMakeCurrent();
+@@ -87,7 +87,7 @@ public:
+ #endif
+ 
+ protected:
+-#ifdef ROSEN_IOS
++#if defined(ROSEN_IOS) || defined(ROSEN_MAC)
+     std::shared_ptr<Drawing::ColorSpace> color_space_ = nullptr;
+     void *layer_ = nullptr;
+     static EGLContext resourceContext;
+@@ -107,7 +107,7 @@ private:
+     }
+ 
+     void CreatePbufferSurface();
+-#ifndef ROSEN_IOS
++#if !defined(ROSEN_IOS) && !defined(ROSEN_MAC)
+     static PFNEGLSETDAMAGEREGIONKHRPROC GetEGLSetDamageRegionKHRFunc();
+     static bool CheckEglExtension(const char* extensions, const char* extension);
+     static EGLDisplay GetPlatformEglDisplay(EGLenum platform, void* native_display, const EGLint* attrib_list);
+diff --git a/rosen/modules/2d_graphics/src/render_context/render_context.h b/rosen/modules/2d_graphics/src/render_context/render_context.h
+index 3b05f70e04..18ee8e929e 100644
+--- a/rosen/modules/2d_graphics/src/render_context/render_context.h
++++ b/rosen/modules/2d_graphics/src/render_context/render_context.h
+@@ -21,7 +21,10 @@
+ #include <functional>
+ #include <atomic>
+ #include "common/rs_rect.h"
+-#ifdef ROSEN_IOS
++// Phase 1 path X: native macOS reuses the iOS EGL-type shim (void* typedefs)
++// instead of real EGL/GLES headers, since the desktop GL backend is driven via
++// NSOpenGLContext, not EGL.
++#if defined(ROSEN_IOS) || defined(ROSEN_MAC)
+ #include "render_context_egl_defines.h"
+ #else
+ #include "EGL/egl.h"
+diff --git a/rosen/modules/composer/vsync/BUILD.gn b/rosen/modules/composer/vsync/BUILD.gn
+index 8bac328be4..f205d084c6 100644
+--- a/rosen/modules/composer/vsync/BUILD.gn
++++ b/rosen/modules/composer/vsync/BUILD.gn
+@@ -80,6 +80,12 @@ config("vsync_public_config") {
+   }
+ }
+ 
++# Phase 0 path X: libvsync.so is an OHOS-device target (depends on samgr/safwk/
++# access_token, which are not present in the arkui-x cross-platform tree). It is
++# only referenced for its header config (vsync_public_config) on cross-platform.
++# Guard the whole .so so loading this BUILD.gn for target_os=mac does not try to
++# resolve the OHOS-only external_deps. The config above stays available.
++if (is_ohos) {
+ ohos_shared_library("libvsync") {
+   sanitize = {
+     boundary_sanitize = true
+@@ -158,11 +164,18 @@ ohos_shared_library("libvsync") {
+   part_name = "graphic_2d"
+   subsystem_name = "graphic"
+ }
++}  # if (is_ohos) — libvsync.so guard (path X)
+ 
+ ## Build libvsync.so
+ 
+ group("test") {
+   testonly = true
+ 
+-  deps = [ "test:test" ]
++  # Phase 0 path X: vsync tests depend on libvsync.so (OHOS-only, guarded above),
++  # so only expose them on OHOS. Avoids dangling deps on cross-platform builds.
++  if (is_ohos) {
++    deps = [ "test:test" ]
++  } else {
++    deps = []
++  }
+ }
+diff --git a/rosen/modules/platform/BUILD.gn b/rosen/modules/platform/BUILD.gn
+index d6b7be2e55..a500221987 100644
+--- a/rosen/modules/platform/BUILD.gn
++++ b/rosen/modules/platform/BUILD.gn
+@@ -75,7 +75,7 @@ ohos_source_set("impl_eventhandler") {
+ 
+ # hilog {{{
+ ohos_source_set("hilog") {
+-  if (current_os == "android" || current_os == "ios") {
++  if (current_os == "android" || current_os == "ios" || current_os == "mac") {
+     public_deps = hilog_deps
+   } else {
+     public_external_deps = [ "hilog:libhilog" ]
+@@ -90,7 +90,7 @@ ohos_source_set("hilog") {
+ group("image_native") {
+   if (platform == "ohos") {
+     public_external_deps = [ "image_framework:image_native" ]
+-  } else if (platform == "android" || platform == "ios") {
++  } else if (platform == "android" || platform_ios_like) {
+     public_external_deps = [ "image_framework:image_native" ]
+   } else {
+     public_deps = [ ":mock_image_native" ]
+@@ -98,7 +98,7 @@ group("image_native") {
+ }
+ 
+ config("image_native_config") {
+-  if (!(platform == "ohos" || platform == "android" || platform == "ios")) {
++  if (!(platform == "ohos" || platform == "android" || platform_ios_like)) {
+     include_dirs = [ "image_native" ]
+   }
+ }
+@@ -150,22 +150,22 @@ ohos_source_set("mock_ipc_core") {
+ group("utils") {
+   if (platform == "ohos") {
+     public_external_deps = [ "c_utils:utils" ]
+-  } else if (platform == "android" || platform == "ios") {
++  } else if (platform == "android" || platform_ios_like) {
+     public_external_deps = [ "c_utils:utilsbase" ]
+   } else {
+     public_deps = [ ":mock_utils" ]
+   }
+-  if (platform == "ios") {
++  if (platform_ios_like) {
+     public_configs = [ ":ios_utils_config" ]
+   }
+ }
+ 
+ config("utils_config") {
+-  if (!(platform == "ohos" || platform == "android" || platform == "ios")) {
++  if (!(platform == "ohos" || platform == "android" || platform_ios_like)) {
+     include_dirs = [ "utils" ]
+   }
+ 
+-  if (platform == "ios") {
++  if (platform_ios_like) {
+     defines = [ "IOS_PLATFORM" ]
+   }
+ }
+diff --git a/rosen/modules/platform/config.gni b/rosen/modules/platform/config.gni
+index 322b6b6707..de43aa0157 100644
+--- a/rosen/modules/platform/config.gni
++++ b/rosen/modules/platform/config.gni
+@@ -16,7 +16,13 @@ if (current_os == "mingw") {
+   platform = "windows"
+ }
+ 
+-cross_platform = platform == "ios" || platform == "android"
++# Phase 0 path X: macOS reuses the iOS cross-platform graphic shim wiring
++# (registered external_deps + frameworks) rather than the desktop mock/preview
++# path. This var marks platforms that behave like iOS for the shim groups below.
++platform_ios_like = platform == "ios" || platform == "mac"
++
++cross_platform =
++    platform == "ios" || platform == "android" || platform == "mac"
+ 
+ if (platform == "ohos") {
+   eventhandler_deps = [
+@@ -30,6 +36,9 @@ if (platform == "ohos") {
+   ]
+   utils_deps = [ "c_utils:utils" ]
+ } else {
++  # Path X: mac has its own libhilog_mac (generated from the mac ace_platform);
++  # the libhilog_source template has a proper platform=="mac" branch that drops
++  # the OHOS-only socket/ioctl/param sources.
+   hilog_deps = [
+     "//base/hiviewdfx/hilog/interfaces/native/innerkits:libhilog_$platform",
+   ]
+diff --git a/rosen/modules/render_service_base/config.gni b/rosen/modules/render_service_base/config.gni
+index e0f512356d..95f222e4bd 100644
+--- a/rosen/modules/render_service_base/config.gni
++++ b/rosen/modules/render_service_base/config.gni
+@@ -25,7 +25,16 @@ rs_common_define = []
+ rosen_cross_platform =
+     current_os == "mac" || current_os == "mingw" || current_os == "linux" ||
+     current_os == "android" || current_os == "ios"
+-rosen_preview = rosen_is_mac || rosen_is_win || rosen_is_linux
++
++# Phase 0 path X: route native macOS to the same graphic backend iOS uses
++# (appframework graphic_2d, CALayer-direct) instead of the darwin/previewer
++# offscreen-GLFW backend. When true, mac does NOT enter the rosen_preview path.
++declare_args() {
++  mac_use_ios_backend = true
++}
++
++rosen_preview =
++    (rosen_is_mac && !mac_use_ios_backend) || rosen_is_win || rosen_is_linux
+ 
+ if (rosen_cross_platform) {
+   rs_common_define += [
+@@ -68,6 +77,12 @@ if (rosen_is_ios) {
+ 
+ if (rosen_is_mac) {
+   rs_common_define += [ "ROSEN_MAC" ]
++  # Phase 1 path X: macOS uses the arkui-x cross-platform render context surface
++  # bookkeeping (AddSurface/DeleteSurface/cleanUpHelper_/surface_count_), the same
++  # members iOS/Android rely on under ROSEN_ARKUI_X.
++  if (mac_use_ios_backend) {
++    rs_common_define += [ "ROSEN_ARKUI_X" ]
++  }
+ }
+ 
+ if (rosen_is_win) {
+diff --git a/rosen/modules/render_service_base/src/platform/BUILD.gn b/rosen/modules/render_service_base/src/platform/BUILD.gn
+index 985d62ecee..5422001c87 100644
+--- a/rosen/modules/render_service_base/src/platform/BUILD.gn
++++ b/rosen/modules/render_service_base/src/platform/BUILD.gn
+@@ -19,9 +19,11 @@ group("platform") {
+     public_deps = [ "ohos" ]
+   } else if (rosen_is_win || current_os == "linux") {
+     public_deps = [ "windows" ]
+-  } else if (rosen_is_mac) {
++  } else if (rosen_is_mac && !mac_use_ios_backend) {
+     public_deps = [ "darwin" ]
+-  } else if (rosen_is_ios || rosen_is_android) {
++  } else if (rosen_is_ios || rosen_is_android ||
++             (rosen_is_mac && mac_use_ios_backend)) {
++    # Path X: macOS reuses the iOS appframework graphic backend.
+     public_deps = [ "$appframework_root/graphic_2d:platform" ]
+   } else if (rosen_is_linux) {
+   } else {

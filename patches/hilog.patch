@@ -1,0 +1,29 @@
+diff --git a/frameworks/libhilog/BUILD.gn b/frameworks/libhilog/BUILD.gn
+index 09f1c97..00e5006 100644
+--- a/frameworks/libhilog/BUILD.gn
++++ b/frameworks/libhilog/BUILD.gn
+@@ -96,6 +96,8 @@ template("libhilog_source") {
+         "-Wno-deprecated-declarations",
+       ]
+       defines += [ "__MAC__" ]
++      # Phase 1 path X: securec.h (vsnprintf/output_p.inl) for the mac variant.
++      include_dirs = [ "//third_party/bounds_checking_function/include" ]
+     } else if (platform == "linux") {
+       cflags_cc = [ "-std=c++17" ]
+       defines += [ "__LINUX__" ]
+diff --git a/interfaces/native/innerkits/BUILD.gn b/interfaces/native/innerkits/BUILD.gn
+index 19a9fee..f58b182 100644
+--- a/interfaces/native/innerkits/BUILD.gn
++++ b/interfaces/native/innerkits/BUILD.gn
+@@ -70,7 +70,10 @@ if (is_mingw || is_mac || is_linux || is_ohos) {
+ 
+ template("libhilog") {
+   forward_variables_from(invoker, "*")
+-  if (current_os == "android" || current_os == "ios") {
++  if (current_os == "android" || current_os == "ios" || current_os == "mac") {
++    # Phase 1 path X: macOS builds hilog as a static lib (like iOS/Android), not
++    # a .dylib — avoids OHOS shared-lib ldflags (-segprot) and the securec
++    # shared-link that don't apply to the desktop static backend.
+     ohos_static_library(target_name) {
+       public_configs = [ ":libhilog_pub_config" ]
+       deps = [ "../../../platform:libhilog_platform_source_$platform" ]

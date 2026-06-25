@@ -1,0 +1,587 @@
+diff --git a/config/BUILDCONFIG.gn b/config/BUILDCONFIG.gn
+index 9aea049f..c84f4739 100755
+--- a/config/BUILDCONFIG.gn
++++ b/config/BUILDCONFIG.gn
+@@ -564,6 +564,11 @@ if (is_standard_system) {
+         _default_toolchain = "//build_plugins/toolchain/ios:ios_clang_x64_sim"
+       }
+     }
++  } else if (target_os == "mac") {
++    # Phase 0: native macOS (AppKit) desktop target. Reuses the darwin clang
++    # toolchain machinery (same clang/ld/linker_driver as ios_clang_x64 which
++    # already builds with current_os="mac") but points sysroot at the macOS SDK.
++    _default_toolchain = "//build_plugins/toolchain/mac:mac_clang_$target_cpu"
+   } else {
+     assert(false, "Unsupported target_os: $target_os")
+   }
+diff --git a/config/mac/BUILD.gn b/config/mac/BUILD.gn
+index c3b9d0aa..a5a39f29 100644
+--- a/config/mac/BUILD.gn
++++ b/config/mac/BUILD.gn
+@@ -39,6 +39,26 @@ config("compiler") {
+   asmflags = common_mac_flags
+   cflags = common_mac_flags
+ 
++  # Phase 1 path X: Xcode's clang is newer than the prebuilt OHOS clang-15 and
++  # promotes several warnings to errors that the OHOS codebase trips on. Demote
++  # them so the desktop build compiles the existing sources unchanged.
++  cflags += [
++    "-Wno-error=deprecated-literal-operator",
++    "-Wno-error=unnecessary-virtual-specifier",
++    "-Wno-error=thread-safety-analysis",
++    "-Wno-error=thread-safety-reference-return",
++    "-Wno-error=vla-cxx-extension",
++    "-Wno-error=missing-template-arg-list-after-template-kw",
++    "-Wno-error=cast-function-type-mismatch",
++    "-Wno-error=nontrivial-memaccess",
++    "-Wno-error=c++11-narrowing-const-reference",
++    "-Wno-error=extra-qualification",
++    "-Wno-error=deprecated-declarations",
++    "-Wno-error=invalid-unevaluated-string",
++    "-Wno-error=enum-constexpr-conversion",
++    "-Wno-unknown-warning-option",
++  ]
++
+   # Without this, the constructors and destructors of a C++ object inside
+   # an Objective C struct won't be called, which is very bad.
+   cflags_objcc = [ "-fobjc-call-cxx-cdtors" ]
+diff --git a/config/sanitizers/sanitizers.gni b/config/sanitizers/sanitizers.gni
+index 6c3ff5e4..feb4b042 100755
+--- a/config/sanitizers/sanitizers.gni
++++ b/config/sanitizers/sanitizers.gni
+@@ -355,8 +355,10 @@ template("ohos_sanitizer_config") {
+       if (defined(sanitize.cfi) && sanitize.cfi && cfi_debug) {
+         _mode = "debug"
+       }
++      # Phase 1 path X: macOS builds with Xcode's clang, which does not support
++      # -fsanitize=cfi for the arm64-apple-macos target. Never enable CFI on mac.
+       _cfi = use_cfi && defined(sanitize.cfi) && sanitize.cfi && !is_asan &&
+-             !is_tsan
++             !is_tsan && !is_mac
+       if (_cfi) {
+         _cfi_enable = true
+         if (build_framework_security_configs_policy == "basic") {
+diff --git a/config/security/BUILD.gn b/config/security/BUILD.gn
+index 27c250aa..bcbc4bd0 100644
+--- a/config/security/BUILD.gn
++++ b/config/security/BUILD.gn
+@@ -40,10 +40,14 @@ config("auto_var_pattern_init_config") {
+ # instability. So on the premise that the system is stable, the config of zero need to be gradually replaced with
+ # the config of pattern.
+ config("auto_var_zero_init_config") {
+-  cflags = [
+-    "-ftrivial-auto-var-init=zero",
+-    "-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+-  ]
++  cflags = [ "-ftrivial-auto-var-init=zero" ]
++
++  # The -enable-...-knowing-it-will-be-removed flag is an OHOS-clang-only spelling
++  # that Xcode's clang rejects. Phase 1 path X (macOS) builds with Xcode's clang.
++  if (!use_xcode_clang) {
++    cflags +=
++        [ "-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang" ]
++  }
+ }
+ 
+ # Do not set the uninitialized local variables to any value.
+diff --git a/core/gn/BUILD.gn b/core/gn/BUILD.gn
+index a8183f4d..85e3db7f 100755
+--- a/core/gn/BUILD.gn
++++ b/core/gn/BUILD.gn
+@@ -30,7 +30,14 @@ if (product_name == "ohos-sdk") {
+   }
+ } else if (product_name == "arkui-x") {
+   group("arkui_targets") {
+-    deps = [ "//build_plugins/sdk:arkui_cross_sdk" ]
++    if (target_os == "mac") {
++      # Phase 0 de-risk: compile only the graphic_2d platform backend for mac
++      # (path X routes this to the appframework/iOS backend), not the full
++      # cross-platform SDK packaging graph (which has no mac section yet).
++      deps = [ "//foundation/appframework/graphic_2d:platform" ]
++    } else {
++      deps = [ "//build_plugins/sdk:arkui_cross_sdk" ]
++    }
+   }
+ } else {
+   group("make_all") {
+diff --git a/core/gn/ohos_exec_script_allowlist.gni b/core/gn/ohos_exec_script_allowlist.gni
+index 37226d21..30a89dea 100644
+--- a/core/gn/ohos_exec_script_allowlist.gni
++++ b/core/gn/ohos_exec_script_allowlist.gni
+@@ -195,6 +195,8 @@ ohos_exec_script_config = {
+     "//build_plugins/config/aosp/sysroot.gni",
+     "//build_plugins/config/ios/rules.gni",
+     "//build_plugins/config/ios/ios_sdk.gni",
++    "//build_plugins/config/mac/mac_sdk.gni",
++    "//build_plugins/toolchain/mac/BUILD.gn",
+     "//build_plugins/templates/java/rules.gni",
+     "//build_plugins/templates/java/internal_rules.gni",
+   ]
+diff --git a/hb/resources/args/default/buildargs.json b/hb/resources/args/default/buildargs.json
+index da6993a4..67a7b15e 100644
+--- a/hb/resources/args/default/buildargs.json
++++ b/hb/resources/args/default/buildargs.json
+@@ -28,7 +28,8 @@
+     "arg_attribute": {
+       "optional": [
+         "android",
+-        "ios"
++        "ios",
++        "mac"
+       ]
+     },
+     "resolve_function": "resolve_target_os",
+diff --git a/misc/mac/find_sdk.py b/misc/mac/find_sdk.py
+index a0212c20..5ad39dd7 100755
+--- a/misc/mac/find_sdk.py
++++ b/misc/mac/find_sdk.py
+@@ -74,7 +74,10 @@ def main():
+         raise SdkError('Install Xcode, launch it, accept the license ' +
+                        'agreement, and run `sudo xcode-select -s %s` ' % file_path +
+                        'to continue.')
+-    sdks = [re.findall('^MacOSX(1[0,1,2,3,4]\.\d+)\.sdk$', s) for s in
++    # Match any MacOSX SDK with a 2+ digit major version (10.x .. 26.x and up).
++    # The original regex only matched MacOSX10-14, which fails on modern Xcode
++    # whose SDK is named e.g. MacOSX26.4.sdk.
++    sdks = [re.findall(r'^MacOSX(\d{2,}\.\d+)\.sdk$', s) for s in
+             os.listdir(sdk_dir)]
+     sdks = [s[0] for s in sdks if s]  # [['10.5'], ['10.6']] => ['10.5', '10.6']
+     sdks = [s for s in sdks  # ['10.5', '10.6'] => ['10.6']
+diff --git a/templates/cxx/cxx.gni b/templates/cxx/cxx.gni
+index 82ea3aac..1c58aecf 100644
+--- a/templates/cxx/cxx.gni
++++ b/templates/cxx/cxx.gni
+@@ -35,6 +35,11 @@ debug_level_configs = [
+   "//build/config/compiler:no_optimize",
+ ]
+ 
++valid_lib_dirs_list = [
++  "*llvm*",
++  "*clang*"
++]
++
+ template("ohos_executable") {
+   assert(!defined(invoker.output_dir),
+          "output_dir is not allowed to be defined.")
+@@ -69,6 +74,10 @@ template("ohos_executable") {
+   assert(subsystem_name != "")
+   assert(part_name != "")
+ 
++  if (defined(is_arkui_x) && is_arkui_x && defined(invoker.external_deps)) {
++    invoker.external_deps = []
++  }
++
+   module_label = get_label_info(":${target_name}", "label_with_toolchain")
+   _collect_target = "${target_name}__collect"
+   collect_module_target(_collect_target) {
+@@ -282,7 +291,6 @@ template("ohos_executable") {
+                              "license_as_sources",
+                              "use_exceptions",
+                              "use_rtti",
+-                             "default_deps_musl",
+ 
+                              # Sanitizer variables
+                              "sanitize",
+@@ -420,20 +428,10 @@ template("ohos_executable") {
+       cflags += [ "-mbranch-protection=pac-ret+b-key+bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (bti && !pac_ret) {
+-      if (support_branch_protector_pac_ret) {
+-        cflags += [ "-mbranch-protection=pac-ret-strong+b-key+bti" ]
+-        ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+-      } else {
+-        cflags += [ "-mbranch-protection=bti" ]
+-      }
++      cflags += [ "-mbranch-protection=bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (!bti && pac_ret) {
+       cflags += [ "-mbranch-protection=pac-ret+b-key" ]
+-    } else if (!bti && !pac_ret && support_branch_protector_pac_ret) {
+-      cflags += [ "-mbranch-protection=pac-ret-strong+b-key" ]
+-      ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+     }
+ 
+     if (!defined(deps)) {
+@@ -448,6 +446,14 @@ template("ohos_executable") {
+ 
+     deps += [ ":${_collect_target}" ]
+ 
++    if (defined(lib_dirs)) {
++      not_allow_lib_dirs = filter_exclude(lib_dirs, valid_lib_dirs_list)
++      if (defined(lib_dirs_whitelist)) {
++        not_allow_lib_dirs = filter_exclude(not_allow_lib_dirs, lib_dirs_whitelist)
++      }
++      assert(not_allow_lib_dirs == [],
++              "${target_name} has invalid lib_dirs value: $not_allow_lib_dirs")
++    }
+     if (!defined(libs)) {
+       libs = []
+     }
+@@ -460,17 +466,13 @@ template("ohos_executable") {
+       if (defined(build_ext_path)) {
+         visibility += [ "${build_ext_path}/*" ]
+       }
+-      if (test_label_type != "") {
+-        visibility += [ "${root_build_dir}/build_configs/*" ]
+-      }
+     }
+ 
+     if (defined(invoker.static_link) && invoker.static_link) {
+       no_default_deps = true
+       configs -= [ "//build/config:executable_config" ]
+       ldflags += [ "-static" ]
+-      if (is_ohos && use_musl &&
+-          (!defined(invoker.default_deps_musl) || invoker.default_deps_musl)) {
++      if (is_ohos && use_musl) {
+         import("//build/config/ohos/musl.gni")
+         if (defined(external_deps)) {
+           external_deps += [ "musl:soft_libc_musl_static" ]
+@@ -483,12 +485,10 @@ template("ohos_executable") {
+           current_cpu == "riscv64" || current_cpu == "loongarch64") {
+         libs += [ "unwind" ]
+       }
+-      if (current_cpu != "riscv32" && current_cpu != "cortex_m") {
+-        libs += [
+-          rebase_path(libclang_rt_file),
+-          "c++",
+-        ]
+-      }
++      libs += [
++        rebase_path(libclang_rt_file),
++        "c++",
++      ]
+     }
+ 
+     if (!defined(output_name)) {
+@@ -528,15 +528,8 @@ template("ohos_executable") {
+         toolchain = current_toolchain
+         toolchain_out_dir = rebase_path(root_out_dir, root_build_dir)
+       }
+-      test_info = []
+-      if (_test_target) {
+-        if (test_label_type != "" && string_replace(test_label_type, part_name, "") != test_label_type) {
+-            test_info += [ get_label_info(":${target_name}", "label_with_toolchain") ]
+-        }
+-      }
+       metadata = {
+         install_modules = [ install_module_info ]
+-        test_list_info = test_info
+       }
+     }
+     if (!_test_target) {
+@@ -619,9 +612,8 @@ template("ohos_shared_library") {
+   assert(subsystem_name != "")
+   assert(part_name != "")
+ 
+-  support_arm64e = false
+-  if (defined(invoker.support_arm64e) && invoker.support_arm64e) {
+-    support_arm64e = true
++  if (defined(is_arkui_x) && is_arkui_x && defined(invoker.external_deps)) {
++    invoker.external_deps = []
+   }
+ 
+   module_label = get_label_info(":${target_name}", "label_with_toolchain")
+@@ -757,7 +749,12 @@ template("ohos_shared_library") {
+       is_ndk = true
+     }
+     if (is_ndk) {
+-      auto_relative_install_dir = ndk_dir
++      if (is_llndk) {
++        softlink_path = ndk_dir
++        auto_relative_install_dir = llndk_dir
++      } else {
++        auto_relative_install_dir = ndk_dir
++      } 
+     }
+   }
+ 
+@@ -852,11 +849,6 @@ template("ohos_shared_library") {
+         module_install_images += invoker.install_images
+       }
+ 
+-      if (support_arm64e && current_toolchain == "$arm64e_toolchain") {
+-        module_install_images = []
+-        module_install_images = [ "system_arm64e" ]
+-      }
+-
+       module_output_extension = shlib_extension
+       if (defined(invoker.output_extension)) {
+         module_output_extension = "." + invoker.output_extension
+@@ -881,7 +873,7 @@ template("ohos_shared_library") {
+       notice = "$target_out_dir/$ohos_module_name.notice.txt"
+ 
+       # update relative_install_dir if auto_relative_install_dir defined
+-      if (defined(auto_relative_install_dir) && auto_relative_install_dir != "") {
++      if (defined(auto_relative_install_dir)) {
+         relative_install_dir = auto_relative_install_dir
+       }
+ 
+@@ -946,12 +938,6 @@ template("ohos_shared_library") {
+             "$target_label has invalid innerapi_tags $innerapi_tags, allowed values: $valid_tags")
+       }
+ 
+-      if (defined(shlib_type) && shlib_type == "ani") {
+-        if (!defined(relative_install_dir)) {
+-          relative_install_dir = "module/ani"
+-        }
+-      }
+-      
+       if (defined(invoker.version_script)) {
+         version_script = rebase_path(invoker.version_script, root_build_dir)
+       }
+@@ -1020,14 +1006,7 @@ template("ohos_shared_library") {
+                              "stack_protector_ret",
+                              "branch_protector_ret",
+                              "branch_protector_frt",
+-                             "support_arm64e",
+                            ])
+-    if (support_arm64e && current_toolchain == "//build/toolchain/ohos:ohos_clang_arm64") {
+-      if (!defined(data_deps)) {
+-        data_deps = []
+-      }
+-      data_deps += [ ":${target_name}($arm64e_toolchain)" ]
+-    }
+     output_dir = output_dir
+ 
+     if (!defined(inputs)) {
+@@ -1169,20 +1148,10 @@ template("ohos_shared_library") {
+       cflags += [ "-mbranch-protection=pac-ret+b-key+bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (bti && !pac_ret) {
+-      if (support_branch_protector_pac_ret) {
+-        cflags += [ "-mbranch-protection=pac-ret-strong+b-key+bti" ]
+-        ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+-      } else {
+-        cflags += [ "-mbranch-protection=bti" ]
+-      }
++      cflags += [ "-mbranch-protection=bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (!bti && pac_ret) {
+       cflags += [ "-mbranch-protection=pac-ret+b-key" ]
+-    } else if (!bti && !pac_ret && support_branch_protector_pac_ret) {
+-      cflags += [ "-mbranch-protection=pac-ret-strong+b-key" ]
+-      ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+     }
+ 
+     # check whether to add adlt configs
+@@ -1295,6 +1264,14 @@ template("ohos_shared_library") {
+       ]
+     }
+ 
++    if (defined(lib_dirs)) {
++      not_allow_lib_dirs = filter_exclude(lib_dirs, valid_lib_dirs_list)
++      if (defined(lib_dirs_whitelist)) {
++        not_allow_lib_dirs = filter_exclude(not_allow_lib_dirs, lib_dirs_whitelist)
++      }
++      assert(not_allow_lib_dirs == [],
++              "${target_name} has invalid lib_dirs value: $not_allow_lib_dirs")
++    }
+     if (!defined(libs)) {
+       libs = []
+     }
+@@ -1356,24 +1333,8 @@ template("ohos_shared_library") {
+       toolchain = current_toolchain
+       toolchain_out_dir = rebase_path(root_out_dir, root_build_dir)
+     }
+-    generate_arm64e_info = []
+-    if (support_arm64e && current_toolchain == "//build/toolchain/ohos:ohos_clang_arm64") {
+-      arm64e_install_module_info = {
+-        module_def = target_label
+-        module_info_file =
+-            rebase_path(get_label_info(module_def, "target_out_dir"),
+-                        root_build_dir) + "/${target_name}_module_info.json"
+-        subsystem_name = subsystem_name
+-        part_name = part_name
+-        toolchain = current_toolchain
+-        toolchain_out_dir = rebase_path(root_out_dir, root_build_dir)
+-      }
+-      generate_arm64e_info = [ arm64e_install_module_info ]
+-    }
+-
+     metadata = {
+       install_modules = [ install_module_info ]
+-      arm64e_install_modules = generate_arm64e_info
+     }
+     if (defined(is_debug) && !is_debug && enable_debug_components != "") {
+       foreach(component_name, debug_components) {
+@@ -1496,9 +1457,8 @@ template("ohos_static_library") {
+   assert(subsystem_name != "")
+   assert(part_name != "")
+ 
+-  support_arm64e = false
+-  if (defined(invoker.support_arm64e) && invoker.support_arm64e) {
+-    support_arm64e = true
++  if (defined(is_arkui_x) && is_arkui_x && defined(invoker.external_deps)) {
++    invoker.external_deps = []
+   }
+ 
+   if (is_use_check_deps && !_test_target) {
+@@ -1599,15 +1559,7 @@ template("ohos_static_library") {
+                              "stack_protector_ret",
+                              "branch_protector_ret",
+                              "branch_protector_frt",
+-                             "support_arm64e",
+                            ])
+-
+-    if (support_arm64e && current_toolchain == "$arm64e_toolchain") {
+-      if (!defined(data_deps)) {
+-        data_deps = []
+-      }
+-      data_deps += [ ":${target_name}($arm64e_toolchain)" ]
+-    }
+     if (defined(invoker.configs)) {
+       configs += invoker.configs
+     }
+@@ -1738,20 +1690,10 @@ template("ohos_static_library") {
+       cflags += [ "-mbranch-protection=pac-ret+b-key+bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (bti && !pac_ret) {
+-      if (support_branch_protector_pac_ret) {
+-        cflags += [ "-mbranch-protection=pac-ret-strong+b-key+bti" ]
+-        ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+-      } else {
+-        cflags += [ "-mbranch-protection=bti" ]
+-      }
++      cflags += [ "-mbranch-protection=bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (!bti && pac_ret) {
+       cflags += [ "-mbranch-protection=pac-ret+b-key" ]
+-    } else if (!bti && !pac_ret && support_branch_protector_pac_ret) {
+-      cflags += [ "-mbranch-protection=pac-ret-strong+b-key" ]
+-      ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+     }
+ 
+     if (defined(invoker.no_default_deps)) {
+@@ -1768,6 +1710,14 @@ template("ohos_static_library") {
+       deps += [ ":$_notice_target" ]
+     }
+ 
++    if (defined(lib_dirs)) {
++      not_allow_lib_dirs = filter_exclude(lib_dirs, valid_lib_dirs_list)
++      if (defined(lib_dirs_whitelist)) {
++        not_allow_lib_dirs = filter_exclude(not_allow_lib_dirs, lib_dirs_whitelist)
++      }
++      assert(not_allow_lib_dirs == [],
++              "${target_name} has invalid lib_dirs value: $not_allow_lib_dirs")
++    }
+     if (!defined(libs)) {
+       libs = []
+     }
+@@ -1841,6 +1791,10 @@ template("ohos_source_set") {
+   assert(subsystem_name != "")
+   assert(part_name != "")
+ 
++  if (defined(is_arkui_x) && is_arkui_x && defined(invoker.external_deps)) {
++    invoker.external_deps = []
++  }
++
+   if (is_use_check_deps && !_test_target) {
+     _check_target = "${target_name}__check"
+     target_path = get_label_info(":${target_name}", "label_no_toolchain")
+@@ -2069,20 +2023,10 @@ template("ohos_source_set") {
+       cflags += [ "-mbranch-protection=pac-ret+b-key+bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (bti && !pac_ret) {
+-      if (support_branch_protector_pac_ret) {
+-        cflags += [ "-mbranch-protection=pac-ret-strong+b-key+bti" ]
+-        ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+-      } else {
+-        cflags += [ "-mbranch-protection=bti" ]
+-      }
++      cflags += [ "-mbranch-protection=bti" ]
+       ldflags += [ "-Wl,-z,force-bti" ]
+     } else if (!bti && pac_ret) {
+       cflags += [ "-mbranch-protection=pac-ret+b-key" ]
+-    } else if (!bti && !pac_ret && support_branch_protector_pac_ret) {
+-      cflags += [ "-mbranch-protection=pac-ret-strong+b-key" ]
+-      ldflags += [ "-Wl,--load-pass-plugin=" +
+-                    rebase_path("${default_clang_base_path}/plugins/PAC/lib/libPacRetStrongPass.so", root_build_dir)]
+     }
+ 
+     if (defined(invoker.no_default_deps)) {
+@@ -2099,6 +2043,14 @@ template("ohos_source_set") {
+       deps += [ ":$_notice_target" ]
+     }
+ 
++    if (defined(lib_dirs)) {
++      not_allow_lib_dirs = filter_exclude(lib_dirs, valid_lib_dirs_list)
++      if (defined(lib_dirs_whitelist)) {
++        not_allow_lib_dirs = filter_exclude(not_allow_lib_dirs, lib_dirs_whitelist)
++      }
++      assert(not_allow_lib_dirs == [],
++              "${target_name} has invalid lib_dirs value: $not_allow_lib_dirs")
++    }
+     if (!defined(libs)) {
+       libs = []
+     }
+@@ -2146,6 +2098,10 @@ template("ohos_shared_headers") {
+   assert(defined(invoker.subsystem_name), "subsystem_name is must to be defined.")
+   assert(defined(invoker.part_name), "part_name is must to be defined.")
+ 
++  if (defined(is_arkui_x) && is_arkui_x && defined(invoker.external_deps)) {
++    invoker.external_deps = []
++  }
++
+   deps_inner = []
+   if (defined(invoker.deps)) {
+     foreach(dep, invoker.deps) {
+@@ -2161,23 +2117,6 @@ template("ohos_shared_headers") {
+     part_name = invoker.part_name
+   }
+ 
+-   _main_target_name = target_name
+-   _notice_target = "${_main_target_name}__notice"
+-   collect_notice(_notice_target) {
+-     forward_variables_from(invoker,
+-                            [
+-                              "testonly",
+-                              "license_as_sources",
+-                              "license_file",
+-                            ])
+-
+-     module_name = _main_target_name
+-     module_source_dir = get_label_info(":${_main_target_name}", "dir")
+-  }
+-
+-  deps_inner += [ ":$_notice_target" ]
+-
+-
+   not_needed([ "subsystem_name", "part_name" ])
+ 
+   include_inner = []
+@@ -2189,7 +2128,9 @@ template("ohos_shared_headers") {
+   }
+ 
+   group("${target_name}") {
+-    check_flag = false
++    if(!is_arkui_x){
++      check_flag = false
++    }
+     deps = deps_inner
+     public_configs = [ ":${target_name}_public_config" ]
+   }
+diff --git a/toolchain/toolchain.gni b/toolchain/toolchain.gni
+index cfdca34c..a2c5c036 100755
+--- a/toolchain/toolchain.gni
++++ b/toolchain/toolchain.gni
+@@ -59,8 +59,11 @@ declare_args() {
+ # Check target_os here instead of is_ios as this file is loaded for secondary
+ # toolchain (host toolchain in particular) but the argument is the same for
+ # all toolchains.
+-assert(!use_xcode_clang || target_os == "ios",
+-       "Using Xcode's clang is only supported in iOS builds")
++# Phase 1 path X: native macOS also needs Xcode's clang, because the prebuilt
++# OHOS clang-15 cannot compile the modern macOS SDK's Objective-C headers
++# (e.g. NSUInteger unknown on the MacOSX SDK).
++assert(!use_xcode_clang || target_os == "ios" || target_os == "mac",
++       "Using Xcode's clang is only supported in iOS and macOS builds")
+ 
+ # Extension for shared library files (including leading dot).
+ executable_extension = ""

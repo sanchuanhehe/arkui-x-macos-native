@@ -1,0 +1,310 @@
+diff --git a/frameworks/innerkitsimpl/pixelconverter/BUILD.gn b/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
+index f1181a4d8..06282abf8 100644
+--- a/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
++++ b/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
+@@ -187,11 +187,18 @@ ohos_static_library("pixelconvertadapter_static") {
+     deps += skia_platform
+   } else if (use_clang_mac) {
+     defines = image_decode_mac_defines
++    include_dirs += [
++      # Phase 1 path X: color_space.h (image_type.h) + mock hilog.
++      "//foundation/graphic/graphic_2d/utils/color_manager/export",
++      "//foundation/multimedia/image_framework/mock/native/include",
++      "//foundation/multimedia/image_framework/mock/native/include/log",
++    ]
+     deps = [
+       "../utils:image_utils",
+       "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+     ]
+     deps += skia_platform
++    deps += skia_skcms
+   } else if (use_clang_ios) {
+     defines = image_decode_ios_defines
+     deps = [
+diff --git a/frameworks/innerkitsimpl/utils/BUILD.gn b/frameworks/innerkitsimpl/utils/BUILD.gn
+index 71a4a0a34..31b987b07 100644
+--- a/frameworks/innerkitsimpl/utils/BUILD.gn
++++ b/frameworks/innerkitsimpl/utils/BUILD.gn
+@@ -14,7 +14,9 @@
+ import("//build/ohos.gni")
+ import("//foundation/multimedia/image_framework/ide/image_decode_config.gni")
+ 
+-if (use_clang_ios) {
++if (use_clang_ios || use_clang_mac) {
++  # Phase 1 path X: mac reuses the lean iOS image_utils source_set (avoids the
++  # OHOS shared_library variant that pulls surface_type/graphic_common/tokenid).
+   ohos_source_set("image_utils") {
+     include_dirs = [
+       "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/include",
+@@ -37,18 +39,56 @@ if (use_clang_ios) {
+       "src/vpe_utils.cpp",
+     ]
+ 
+-    defines = image_decode_ios_defines
++    if (use_clang_mac) {
++      defines = image_decode_mac_defines
++    } else {
++      defines = image_decode_ios_defines
++    }
+     defines += [ "CROSS_PLATFORM" ]
+     sources -= [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
+     sources += [ "src/image_dfx.cpp" ]
+     sources += [ "src/image_data_statistics.cpp" ]
++    if (use_clang_mac) {
++      # Phase 1 path X: pixel_yuv_utils/vpe_utils need ffmpeg (libavfilter),
++      # which is dropped on mac; YUV/video conversion isn't needed for M1.
++      sources -= [
++        "src/pixel_yuv_utils.cpp",
++        "src/vpe_utils.cpp",
++      ]
++    }
+     include_dirs += [ "$image_subsystem/mock/native/include/log" ]
+-    include_dirs += [ "//third_party/ffmpeg" ]
++    include_dirs += [
++      # color_space.h / SkColorSpace.h for image_type.h.
++      "//foundation/graphic/graphic_2d/utils/color_manager/export",
++      "//third_party/json/single_include/nlohmann",
++      # securec.h (image_utils.cpp).
++      "//third_party/bounds_checking_function/include",
++      # ffmpeg headers only (image_utils.cpp includes libswscale/libavutil even
++      # on mac); the ffmpeg lib itself is not linked here (av_* stays undefined
++      # in this .a, resolved/avoided at executable link).
++      "//third_party/ffmpeg",
++    ]
+     deps = [
+       "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+-      "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
+     ]
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    if (use_clang_mac) {
++      # pluginmanager_static has the mac-complete include set (json, skia, etc).
++      deps += [
++        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
++      ]
++    } else {
++      deps += [
++        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
++      ]
++    }
++    deps += skia_skcms
++    deps += skia_platform
++
++    # Phase 1 path X: ffmpeg dropped on mac (GNU-sed host config-gen).
++    if (!use_clang_mac) {
++      include_dirs += [ "//third_party/ffmpeg" ]
++      deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    }
+     if (defined(global_parts_info) &&
+         defined(global_parts_info.open_source_libyuv)) {
+       defines += [ "EXT_PIXEL" ]
+@@ -110,6 +150,12 @@ if (use_clang_ios) {
+       sources -= [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
+       include_dirs += [
+         "//foundation/multimedia/image_framework/mock/native/include",
++        "//foundation/multimedia/image_framework/mock/native/include/log",
++        # Phase 1 path X: color_space.h (image_type.h) + skia for it.
++        "//foundation/graphic/graphic_2d/utils/color_manager/export",
++        # surface_type.h (image_utils.h).
++        "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++        "//third_party/json/single_include/nlohmann",
+         "//third_party/bounds_checking_function/include",
+       ]
+       deps = [
+@@ -117,7 +163,10 @@ if (use_clang_ios) {
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+         "//third_party/bounds_checking_function:libsec_static",
+       ]
+-      deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++      deps += skia_skcms
++      deps += skia_platform
++      # Phase 1 path X: drop ffmpeg on mac (its host config-gen uses GNU sed which
++      # breaks on BSD sed; M1 needs no video/format decode).
+     } else if (use_clang_android) {
+       defines = image_decode_android_defines
+       defines += [ "CROSS_PLATFORM" ]
+@@ -238,17 +287,29 @@ ohos_static_library("image_utils_static") {
+     deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
+   } else if (use_clang_mac) {
+     defines = image_decode_mac_defines
+-    include_dirs += [ "//third_party/ffmpeg" ]
++    defines += [ "CROSS_PLATFORM" ]
++    # Phase 1 path X: pixel_yuv_utils/vpe_utils need ffmpeg (dropped on mac).
++    sources -= [
++      "src/pixel_yuv_utils.cpp",
++      "src/vpe_utils.cpp",
++    ]
+     include_dirs += [
+       "//foundation/multimedia/image_framework/mock/native/include",
++      "$image_subsystem/mock/native/include/log",
++      "//foundation/graphic/graphic_2d/utils/color_manager/export",
++      "//third_party/json/single_include/nlohmann",
+       "//third_party/bounds_checking_function/include",
++      # ffmpeg headers only (image_utils.cpp); lib not linked on mac.
++      "//third_party/ffmpeg",
+     ]
+     deps = [
+       "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+       "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+       "//third_party/bounds_checking_function:libsec_static",
+     ]
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++    deps += skia_skcms
++    deps += skia_platform
++    # Phase 1 path X: drop ffmpeg lib on mac (GNU-sed host config-gen incompatible).
+   } else if (use_clang_ios) {
+     defines = image_decode_ios_defines
+     defines += [ "CROSS_PLATFORM" ]
+diff --git a/ide/image_decode_config.gni b/ide/image_decode_config.gni
+index be093ae5a..574ab82d4 100644
+--- a/ide/image_decode_config.gni
++++ b/ide/image_decode_config.gni
+@@ -20,7 +20,7 @@ declare_args() {
+ 
+ # source code for Windows.
+ use_mingw_win = "${current_os}_${current_cpu}" == "mingw_x86_64"
+-use_clang_mac = "${current_os}_${current_cpu}" == "mac_x64"
++use_clang_mac = current_os == "mac"
+ use_clang_ios = current_os == "ios" || current_os == "tvos"
+ use_clang_android = current_os == "android"
+ 
+@@ -30,7 +30,12 @@ mac_buildtool = "//build/toolchain/mac:clang_x64"
+ 
+ # Defines
+ image_decode_windows_defines = [ "_WIN32" ]
+-image_decode_mac_defines = [ "_APPLE" ]
++# Phase 1 path X: mac also defines IOS_PLATFORM so the image_framework reuses
++# the iOS code branches (no OHOS system::/tokenid_kit on the desktop).
++image_decode_mac_defines = [
++  "_APPLE",
++  "IOS_PLATFORM",
++]
+ image_decode_ios_defines = [ "IOS_PLATFORM" ]
+ image_decode_android_defines = [ "ANDROID_PLATFORM" ]
+ image_sep_f = "/f"
+diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
+index 605575d0b..90f2d0919 100644
+--- a/interfaces/innerkits/BUILD.gn
++++ b/interfaces/innerkits/BUILD.gn
+@@ -114,7 +114,8 @@ if (use_clang_android) {
+     subsystem_name = "multimedia"
+     part_name = "image_framework"
+   }
+-} else if (use_clang_ios) {
++} else if (use_clang_ios || use_clang_mac) {
++  # Path X: native macOS reuses the iOS image_native source_set.
+   ohos_source_set("image_native") {
+     public_configs = [ ":image_external_config" ]
+     configs = [ ":image_postproc_config" ]
+@@ -130,7 +131,18 @@ if (use_clang_android) {
+     include_dirs = image_native_ios_include_dirs
+     sources = image_native_ios_sources
+     deps = image_native_ios_deps
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++
++    # Phase 1 path X: ffmpeg's host config-gen uses GNU `sed -i` (its mac/ios
++    # config scripts are not selected for current_os=mac), which breaks on BSD
++    # sed. The macOS milestone renders text/basic pages and does not need video
++    # decode, so drop ffmpeg on mac. (iOS keeps it.)
++    if (!use_clang_mac) {
++      deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    } else {
++      # The gstreamer adapter uses OHOS-libc++ quoted internal headers
++      # ("__mutex_base") absent from Xcode's libc++, and is unused on desktop.
++      sources -= [ "//foundation/multimedia/image_framework/plugins/manager/src/thirdpartyadp/gstreamer/gst_plugin_fw.cpp" ]
++    }
+     external_deps = image_native_ios_external_deps
+     subsystem_name = "multimedia"
+     part_name = "image_framework"
+diff --git a/mock/native/BUILD.gn b/mock/native/BUILD.gn
+index 40edebb0d..5d8fa17b5 100644
+--- a/mock/native/BUILD.gn
++++ b/mock/native/BUILD.gn
+@@ -36,7 +36,7 @@ ohos_static_library("log_mock_static") {
+     "//foundation/multimedia/image_framework/mock/native/src/HiLog.cpp",
+     "//foundation/multimedia/image_framework/mock/native/src/hitrace_meter.cpp",
+   ]
+-  if (use_clang_ios || use_clang_android) {
++  if (use_clang_ios || use_clang_android || use_clang_mac) {
+     sources -= [ "$image_subsystem/mock/native/src/HiLog.cpp" ]
+     if (is_arkui_x) {
+       sources -= [ "$image_subsystem/mock/native/src/hitrace_meter.cpp" ]
+diff --git a/plugins/common/libs/image/libextplugin/BUILD.gn b/plugins/common/libs/image/libextplugin/BUILD.gn
+index 6299a4432..6773fb5d0 100644
+--- a/plugins/common/libs/image/libextplugin/BUILD.gn
++++ b/plugins/common/libs/image/libextplugin/BUILD.gn
+@@ -13,6 +13,14 @@
+ 
+ import("//build/ohos.gni")
+ import("//foundation/multimedia/image_framework/ide/image_decode_config.gni")
++
++# Phase 0 path X: the use_clang_mac branches in THIS file target the previewer
++# IDE build (prebuilt asdk skia under graphic_root/ide/libs/skia, undefined
++# asdk_dir). Our native-mac source build compiles skia from source like iOS, so
++# locally shadow use_clang_mac to false here and let mac fall into the iOS-shared
++# `else` branch. Other files keep the real use_clang_mac (== current_os=="mac").
++use_clang_mac = false
++
+ if (use_mingw_win || use_clang_mac) {
+   graphic_root = "/${image_sep_f}${image_oundation}/${graphic_multimedia}"
+ }
+diff --git a/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/box/cr3_box.h b/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/box/cr3_box.h
+index bd3ddae5f..dffbd789e 100644
+--- a/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/box/cr3_box.h
++++ b/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/box/cr3_box.h
+@@ -16,6 +16,12 @@
+ #ifndef PLUGINS_COMMON_LIBS_IMAGE_LIBEXTPLUGIN_INCLUDE_HEIF_PARSER_CR3_BOX_H
+ #define PLUGINS_COMMON_LIBS_IMAGE_LIBEXTPLUGIN_INCLUDE_HEIF_PARSER_CR3_BOX_H
+ 
++// Phase 1 path X: the arkui-x preview config defines PREVIEW as a macro, which
++// collides with the Cr3UuidType::PREVIEW enumerator below on the mac build.
++#ifdef PREVIEW
++#undef PREVIEW
++#endif
++
+ #include "heif_box.h"
+ 
+ namespace OHOS {
+diff --git a/plugins/manager/BUILD.gn b/plugins/manager/BUILD.gn
+index b7f6d8182..6092b5d47 100644
+--- a/plugins/manager/BUILD.gn
++++ b/plugins/manager/BUILD.gn
+@@ -123,6 +123,8 @@ if (use_clang_ios) {
+       defines = image_decode_mac_defines
+       include_dirs += [
+         "//foundation/multimedia/image_framework/mock/native/include",
++        # Phase 1 path X: mac needs the mock hilog/log.h (same as iOS).
++        "//foundation/multimedia/image_framework/mock/native/include/log",
+         "//third_party/bounds_checking_function/include",
+       ]
+       deps = [
+@@ -202,14 +204,30 @@ ohos_static_library("pluginmanager_static") {
+     ]
+   } else if (use_clang_mac) {
+     defines = image_decode_mac_defines
++    # Phase 1 path X: the gstreamer plugin-framework adapter uses OHOS-libc++
++    # quoted internal headers ("__mutex_base") that Xcode's libc++ lacks, and is
++    # unused on the desktop. Drop it on mac.
++    sources -= [ "//foundation/multimedia/image_framework/plugins/manager/src/thirdpartyadp/gstreamer/gst_plugin_fw.cpp" ]
+     include_dirs += [
+       "//foundation/multimedia/image_framework/mock/native/include",
++      # Phase 1 path X: mac needs the mock hilog/log.h (same as iOS).
++      "//foundation/multimedia/image_framework/mock/native/include/log",
++      "//foundation/multimedia/image_framework/mock/native/include/secure",
++      # json.hpp (nlohmann), same as the iOS pluginmanager source_set.
++      "//third_party/json/single_include/nlohmann",
++      # color_space.h (image_type.h -> color_manager export).
++      "//foundation/graphic/graphic_2d/utils/color_manager/export",
+       "//third_party/bounds_checking_function/include",
+     ]
+     deps = [
+       "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+       "//third_party/bounds_checking_function:libsec_static",
+     ]
++
++    # color_space.h pulls skia (SkColorSpace.h, skcms.h); use skia's public
++    # config via these deps, same as the iOS image_native source_set.
++    deps += skia_skcms
++    deps += skia_platform
+   } else if (use_clang_ios) {
+     defines = image_decode_ios_defines
+     include_dirs += [ "$image_subsystem/mock/native/include/log" ]

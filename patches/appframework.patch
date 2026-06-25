@@ -1,0 +1,3025 @@
+diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
+index 5107487..8675451 100644
+--- a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
+@@ -62,7 +62,9 @@ template("ability_runtime_event_handler") {
+       defines += [ "ANDROID_PLATFORM" ]
+       sources += [ "${ability_runtime_cross_platform_path}/frameworks/native/base/event_handler/src/platform/android/platform_event_runner.cpp" ]
+     }
+-    if (target_os == "ios") {
++    if (target_os == "ios" || target_os == "mac") {
++      # Phase 1 path X: mac uses the iOS CFRunLoop-based message loop, not the
++      # Linux epoll io-waiter (no sys/epoll.h / sys/prctl.h on macOS).
+       defines += [ "IOS_PLATFORM" ]
+       sources += [
+         "${ability_runtime_cross_platform_path}/frameworks/native/base/event_handler/src/platform/ios/ios_message_loop.mm",
+diff --git a/graphic_2d/BUILD.gn b/graphic_2d/BUILD.gn
+index 57e4708..b6a1656 100644
+--- a/graphic_2d/BUILD.gn
++++ b/graphic_2d/BUILD.gn
+@@ -16,5 +16,9 @@ group("platform") {
+     public_deps = [ "android:android" ]
+   } else if (current_os == "ios") {
+     public_deps = [ "ios:ios" ]
++  } else if (current_os == "mac") {
++    # Phase 1 path X: native macOS uses its own NSOpenGLContext/CALayer backend,
++    # mirrored from ios but rewritten for AppKit + desktop GL.
++    public_deps = [ "macos:macos" ]
+   }
+ }
+diff --git a/graphic_2d/macos/BUILD.gn b/graphic_2d/macos/BUILD.gn
+new file mode 100644
+index 0000000..75b0e3f
+--- /dev/null
++++ b/graphic_2d/macos/BUILD.gn
+@@ -0,0 +1,121 @@
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# Phase 1 path X: native macOS desktop graphic backend. Mirrors the iOS
++# appframework backend but uses NSOpenGLContext + CALayer (desktop GL) instead
++# of EAGL/CAEAGLLayer, and CVDisplayLink instead of CADisplayLink. Vulkan and the
++# video SurfaceTexture path are intentionally out of scope for this milestone.
++
++import("//build/ohos.gni")
++import("//foundation/arkui/ace_engine/ace_config.gni")
++import("//foundation/graphic/graphic_2d/graphic_config.gni")
++import(
++    "//foundation/graphic/graphic_2d/rosen/modules/render_service_base/config.gni")
++
++config("composer_public_config") {
++  include_dirs = [
++    "//foundation/graphic/graphic_2d/rosen/include/common",
++    "//drivers/peripheral/display/interfaces/include",
++    "//foundation/graphic/graphic_2d/interfaces/inner_api/common",
++    "//foundation/graphic/graphic_2d/rosen/modules/composer/hdi_backend/include",
++    "//foundation/graphic/graphic_2d/rosen/modules/composer/vsync/include",
++    "//foundation/graphic/graphic_2d/rosen/modules/render_service_base/src/platform/darwin",
++    "//foundation/graphic/graphic_2d/interfaces/inner_api/composer",
++    "//foundation/graphic/graphic_2d/rosen/modules/2d_graphics/src",
++    "//foundation/appframework/graphic_2d/macos",
++    "//foundation/graphic/graphic_surface/interfaces/inner_api/utils",
++    "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++  ]
++}
++
++ohos_source_set("macos") {
++  defines = rs_common_define
++
++  sources = [
++    "$rosen_root/modules/render_service_base/src/platform/ohos/rs_log.cpp",
++    "render_context.mm",
++    "rs_accessibility.cpp",
++    "rs_ashmem_helper.cpp",
++    "rs_frame_report.cpp",
++    "rs_marshalling_helper.cpp",
++    "rs_render_pipeline_client.cpp",
++    "rs_render_service_client.mm",
++    "rs_surface_frame_ios.cpp",
++    "rs_system_properties.cpp",
++    "rs_vsync_client_ios.mm",
++  ]
++
++  include_dirs = [
++    "//foundation/appframework/utils",
++    "//foundation/graphic/graphic_2d/utils/log",
++    "$rosen_root/modules/render_service_base/include",
++    "$graphic_2d_root/rosen/modules/2d_graphics/src",
++    "$graphic_2d_root/interfaces/inner_api/surface/",
++    "$rosen_root/modules/2d_graphics/include",
++    "$graphic_2d_root/utils/log",
++    "$rosen_root/modules/2d_graphics/src/drawing/engine_adapter",
++    "$rosen_root/modules/frame_report/include",
++    "//foundation/graphic/graphic_surface/interfaces/inner_api",
++    "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++    "//foundation/graphic/graphic_2d/rosen/modules/render_service_client/core",
++
++    # EGL-type shim header lives next to render_context.h (used by mac too).
++    "$graphic_2d_root/rosen/modules/2d_graphics/src/render_context",
++  ]
++
++  defines += [
++    "MODULE_RSB",
++    "ACE_ENABLE_GL",
++    "RS_ENABLE_GL",
++  ]
++
++  # Desktop GL needs the legacy gl.h; silence its deprecation noise on modern
++  # macOS SDKs (OpenGL is deprecated-but-present).
++  defines += [ "GL_SILENCE_DEPRECATION" ]
++
++  if (rs_enable_gpu) {
++    defines += [ "USE_GPU" ]
++    sources += [ "rs_surface_gpu.mm" ]
++  }
++
++  cflags = [ "-std=c++17" ]
++
++  configs = [ "$rosen_root/modules/platform:eventhandler_config" ]
++
++  public_configs = [ ":composer_public_config" ]
++
++  deps = [
++    "$rosen_root/modules/platform:hilog",
++    "$rosen_root/modules/platform:image_native",
++  ]
++  frameworks = [
++    "AppKit.framework",
++    "CoreMedia.framework",
++    "CoreVideo.framework",
++    "OpenGL.framework",
++    "QuartzCore.framework",
++    "Foundation.framework",
++  ]
++
++  public_deps = [
++    "$rosen_root/modules/platform:ace_skia",
++    "$rosen_root/modules/platform:eventhandler",
++    "$rosen_root/modules/platform:ipc_core",
++    "$rosen_root/modules/platform:utils",
++  ]
++
++  if (defined(use_rosen_drawing) && use_rosen_drawing) {
++    defines += [ "USE_ROSEN_DRAWING" ]
++    public_deps += [ "$rosen_root/modules/2d_graphics:2d_graphics" ]
++  }
++}
+diff --git a/graphic_2d/macos/render_context.mm b/graphic_2d/macos/render_context.mm
+new file mode 100644
+index 0000000..83f8b44
+--- /dev/null
++++ b/graphic_2d/macos/render_context.mm
+@@ -0,0 +1,414 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Phase 1 path X: native macOS desktop GL render context.
++// iOS bound a CAEAGLLayer directly to a GL renderbuffer via
++// -[EAGLContext renderbufferStorage:fromDrawable:]. macOS desktop GL has no such
++// API, so here we use an NSOpenGLContext (Core Profile) and render to an offscreen
++// FBO + renderbuffer color attachment sized from the target CALayer. The window
++// layer (adapter/macos, Phase 2) presents the FBO; this file owns only the GL
++// context + FBO and is the analogue of the EAGL path.
++
++#include "render_context/render_context.h"
++#include "render_context/new_render_context/render_context_gl.h"
++
++#include <MacTypes.h>
++#include <__config>
++#include <sstream>
++#include <chrono>
++#include <cmath>
++#include <AppKit/AppKit.h>
++#include <CoreFoundation/CoreFoundation.h>
++#include <OpenGL/OpenGL.h>
++#include <OpenGL/gl3.h>
++#include <OpenGL/gl3ext.h>
++#include <QuartzCore/QuartzCore.h>
++#include "rs_trace.h"
++#include "memory/rs_tag_tracker.h"
++#include "platform/common/rs_log.h"
++#ifdef RS_ENABLE_GL
++#include "platform/common/rs_system_properties.h"
++#endif
++
++namespace OHOS {
++namespace Rosen {
++std::mutex RenderContextGL::resourceContextMutex;
++EGLContext RenderContextGL::resourceContext = nullptr;
++constexpr size_t DEFAULT_SKIA_CACHE_SIZE        = 96 * (1 << 20);
++constexpr int DEFAULT_SKIA_CACHE_COUNT          = 2 * (1 << 12);
++
++// Build a Core Profile NSOpenGLContext, optionally sharing with |share|.
++static NSOpenGLContext* CreateGLContext(NSOpenGLContext* share)
++{
++    NSOpenGLPixelFormatAttribute attrs[] = {
++        NSOpenGLPFAAccelerated,
++        NSOpenGLPFAClosestPolicy,
++        NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion3_2Core,
++        NSOpenGLPFAColorSize, 32,
++        NSOpenGLPFADepthSize, 0,
++        NSOpenGLPFAStencilSize, 8,
++        0
++    };
++    NSOpenGLPixelFormat* pf = [[[NSOpenGLPixelFormat alloc] initWithAttributes:attrs] autorelease];
++    if (pf == nullptr) {
++        return nullptr;
++    }
++    return [[NSOpenGLContext alloc] initWithFormat:pf shareContext:share];
++}
++
++std::shared_ptr<RenderContext> RenderContext::Create()
++{
++    return std::make_shared<RenderContextGL>();
++}
++
++RenderContextGL::RenderContextGL()
++{
++    surface_ = nullptr;
++    drGPUContext_ = nullptr;
++    nativeWindow_ = nullptr;
++    eglDisplay_ = EGL_NO_DISPLAY;
++    eglContext_ = EGL_NO_CONTEXT;
++    eglSurface_ = EGL_NO_SURFACE;
++    config_ = nullptr;
++    mHandler_ = nullptr;
++}
++
++RenderContextGL::~RenderContextGL()
++{
++    NSOpenGLContext* prev = [NSOpenGLContext currentContext];
++    NSOpenGLContext* ctx = static_cast<NSOpenGLContext*>(eglContext_);
++    [ctx makeCurrentContext];
++
++    glDeleteFramebuffers(1, &framebuffer_);
++    glDeleteRenderbuffers(1, &colorbuffer_);
++
++    [prev makeCurrentContext];
++}
++
++void RenderContextGL::CreatePbufferSurface()
++{
++}
++
++const EGLContext RenderContextGL::GetResourceContext()
++{
++    std::lock_guard<std::mutex> lock(RenderContextGL::resourceContextMutex);
++    if (!RenderContextGL::resourceContext) {
++        RenderContextGL::resourceContext = CreateGLContext(nullptr);
++    }
++    return RenderContextGL::resourceContext;
++}
++
++bool RenderContextGL::Init()
++{
++    if (IsEglContextReady()) {
++        return true;
++    }
++    NSOpenGLContext* shareCtx = static_cast<NSOpenGLContext*>(GetResourceContext());
++    eglContext_ = CreateGLContext(shareCtx);
++    if (eglContext_ == nullptr) {
++        ROSEN_LOGE("eglContext_ is null");
++        return false;
++    }
++    color_space_ = Drawing::ColorSpace::CreateSRGB();
++    // macOS desktop: P3 wide-gamut detection is deferred to the window layer.
++
++    if (valid_) {
++        return false;
++    }
++
++    [static_cast<NSOpenGLContext*>(eglContext_) makeCurrentContext];
++    if ([NSOpenGLContext currentContext] != static_cast<NSOpenGLContext*>(eglContext_)) {
++        ROSEN_LOGE("Failed to set current OpenGL context");
++        return false;
++    }
++
++    glGenFramebuffers(1, &framebuffer_);
++    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
++    glGenRenderbuffers(1, &colorbuffer_);
++    glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer_);
++    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorbuffer_);
++    valid_ = true;
++    return true;
++}
++
++void RenderContextGL::MakeCurrent(EGLSurface surface, EGLContext context)
++{
++    [static_cast<NSOpenGLContext*>(eglContext_) makeCurrentContext];
++    CALayer* layer = static_cast<CALayer*>(surface);
++    if (layer == nullptr) {
++        return;
++    }
++    const CGSize layer_size = [layer bounds].size;
++    const CGFloat contents_scale = layer.contentsScale > 0 ? layer.contentsScale : 1.0;
++    const GLint size_width = static_cast<GLint>(layer_size.width * contents_scale);
++    const GLint size_height = static_cast<GLint>(layer_size.height * contents_scale);
++
++    if (layer == layer_ && size_width == storage_width_ && size_height == storage_height_) {
++        return;
++    }
++    ROSEN_LOGD("renderbufferStorage(desktop GL): %d x %d", size_width, size_height);
++
++    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
++    glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer_);
++    // Desktop GL: allocate offscreen renderbuffer storage of the layer size.
++    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, size_width, size_height);
++    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorbuffer_);
++
++    storage_width_ = size_width;
++    storage_height_ = size_height;
++    if (layer_ != layer) {
++        [static_cast<CALayer*>(layer_) release];
++        layer_ = [layer retain];
++    }
++}
++
++bool RenderContextGL::UpdateStorageSizeIfNecessary()
++{
++    return true;
++}
++
++bool RenderContextGL::ResourceMakeCurrent()
++{
++    [static_cast<NSOpenGLContext*>(resourceContext) makeCurrentContext];
++    return [NSOpenGLContext currentContext] == static_cast<NSOpenGLContext*>(resourceContext);
++}
++
++void RenderContextGL::CreateShareContext()
++{
++    return;
++}
++
++bool RenderContextGL::SwapBuffers(EGLSurface surface) const
++{
++    // Desktop GL offscreen path: flush the GL command stream. Presentation to the
++    // CALayer is the window layer's job (Phase 2), not the EAGL presentRenderbuffer
++    // path used on iOS.
++    glFlush();
++    return true;
++}
++
++void RenderContextGL::AddSurface()
++{
++    int32_t count = surface_count_.fetch_add(1, std::memory_order_relaxed) + 1;
++    ROSEN_LOGD("AddSurface: surface_count_ = %{public}d", count);
++}
++
++void RenderContextGL::DeleteSurface()
++{
++    int32_t count = surface_count_.fetch_sub(1, std::memory_order_acq_rel) - 1;
++    ROSEN_LOGI("DeleteSurface: surface_count_ = %{public}d", count);
++
++    if (cleanUpHelper_ != nullptr && count <= 0) {
++        ROSEN_LOGI("DeleteSurface: All surfaces destroyed, calling cleanUpHelper_");
++        cleanUpHelper_();
++    }
++}
++
++void RenderContextGL::SetCleanUpHelper(std::function<void()> func)
++{
++    cleanUpHelper_ = func;
++}
++
++void RenderContextGL::DestroyEGLSurface(EGLSurface surface)
++{
++    if (layer_ != nullptr) {
++        [static_cast<CALayer*>(layer_) release];
++        layer_ = nullptr;
++    }
++    ROSEN_LOGD("DestroyEGLSurface");
++    storage_width_ = 0;
++    storage_height_ = 0;
++    DeleteSurface();
++}
++
++void RenderContextGL::DestroySharedSource()
++{
++    int32_t count = surface_count_.load(std::memory_order_acquire);
++    ROSEN_LOGI("DestroySharedSource surface_count_ %{public}d", count);
++
++    if (count > 0) {
++        return;
++    }
++
++    if (drGPUContext_ != nullptr) {
++        drGPUContext_->PurgeUnlockedResources(false);
++        drGPUContext_->FreeGpuResources();
++        drGPUContext_->PerformDeferredCleanup(std::chrono::milliseconds(0));
++        drGPUContext_ = nullptr;
++    }
++    surface_ = nullptr;
++
++    if (eglContext_ != nullptr) {
++        [static_cast<NSOpenGLContext*>(eglContext_) makeCurrentContext];
++
++        if (colorbuffer_ != 0) {
++            glDeleteRenderbuffers(1, &colorbuffer_);
++            colorbuffer_ = 0;
++        }
++        if (framebuffer_ != 0) {
++            glDeleteFramebuffers(1, &framebuffer_);
++            framebuffer_ = 0;
++        }
++        [NSOpenGLContext clearCurrentContext];
++        glFinish();
++        [static_cast<NSOpenGLContext*>(eglContext_) release];
++        eglContext_ = nullptr;
++    }
++
++    storage_width_ = 0;
++    storage_height_ = 0;
++    valid_ = false;
++}
++
++EGLSurface RenderContextGL::CreateEGLSurface(EGLNativeWindowType eglNativeWindow)
++{
++    CALayer* layer = static_cast<CALayer*>(eglNativeWindow);
++    if (layer == nullptr) {
++        return nullptr;
++    }
++    const CGSize layer_size = [layer bounds].size;
++    const CGFloat contents_scale = layer.contentsScale > 0 ? layer.contentsScale : 1.0;
++    const GLint size_width = static_cast<GLint>(layer_size.width * contents_scale);
++    const GLint size_height = static_cast<GLint>(layer_size.height * contents_scale);
++
++    if (size_width == 0 || size_height == 0) {
++        return nullptr;
++    }
++    return eglNativeWindow;
++}
++
++bool RenderContextGL::SetUpGpuContext(std::shared_ptr<Drawing::GPUContext> drawingContext)
++{
++    if (drGPUContext_ != nullptr) {
++        ROSEN_LOGD("Drawing GPUContext has already created");
++        return true;
++    }
++    Drawing::GPUContextOptions options;
++    auto drGPUContext = std::make_shared<Drawing::GPUContext>();
++    if (!drGPUContext->BuildFromGL(options)) {
++        ROSEN_LOGE("SetUpGpuContext drGPUContext is null");
++        return false;
++    }
++    int maxResources = 0;
++    size_t maxResourcesSize = 0;
++    drGPUContext->GetResourceCacheLimits(&maxResources, &maxResourcesSize);
++    if (maxResourcesSize > 0) {
++        int cacheLimitsTimes = 2;
++        drGPUContext->SetResourceCacheLimits(cacheLimitsTimes * maxResources, cacheLimitsTimes *
++            std::fmin(maxResourcesSize, DEFAULT_SKIA_CACHE_SIZE));
++    } else {
++        drGPUContext->SetResourceCacheLimits(DEFAULT_SKIA_CACHE_COUNT, DEFAULT_SKIA_CACHE_SIZE);
++    }
++    drGPUContext_ = std::move(drGPUContext);
++    return true;
++}
++
++std::shared_ptr<Drawing::Surface> RenderContextGL::AcquireSurface(int width, int height)
++{
++    if (!SetUpGpuContext()) {
++        ROSEN_LOGE("GPUContext is not ready!!!");
++        return nullptr;
++    }
++    std::shared_ptr<Drawing::ColorSpace> colorSpace = nullptr;
++    struct Drawing::FrameBuffer bufferInfo;
++    bufferInfo.width = width;
++    bufferInfo.height = height;
++    bufferInfo.FBOID = framebuffer_;
++    bufferInfo.Format = 0x8058;  // GL_RGBA8
++    bufferInfo.gpuContext = drGPUContext_;
++    bufferInfo.colorType = Drawing::COLORTYPE_RGBA_8888;
++    switch (colorSpace_) {
++        case GRAPHIC_COLOR_GAMUT_DISPLAY_P3:
++        case GRAPHIC_COLOR_GAMUT_DCI_P3:
++            colorSpace = Drawing::ColorSpace::CreateRGB(Drawing::CMSTransferFuncType::SRGB,
++                Drawing::CMSMatrixType::DCIP3);
++            bufferInfo.Format = 0x881A;  // GL_RGBA16F
++            bufferInfo.colorType = Drawing::COLORTYPE_RGBA_F16;
++            break;
++        default:
++            break;
++    }
++    bufferInfo.colorSpace = colorSpace;
++    surface_ = std::make_shared<Drawing::Surface>();
++    if (!surface_->Bind(bufferInfo)) {
++        ROSEN_LOGE("Drawing::Surface surface_ is nullptr");
++        surface_ = nullptr;
++        return nullptr;
++    }
++    return surface_;
++}
++
++void RenderContextGL::RenderFrame()
++{
++    RS_TRACE_FUNC();
++    if (surface_ != nullptr && surface_->GetCanvas() != nullptr) {
++        surface_->GetCanvas()->Flush();
++    } else {
++        ROSEN_LOGE("canvas is nullptr!!!");
++    }
++}
++
++int32_t RenderContextGL::QueryEglBufferAge()
++{
++    return static_cast<int32_t>(EGL_UNKNOWN);
++}
++
++void RenderContextGL::DamageFrame(const std::vector<RectI> &rects)
++{
++}
++
++void RenderContextGL::ClearRedundantResources()
++{
++}
++
++std::string RenderContextGL::GetShaderCacheSize() const
++{
++    return "";
++}
++
++std::string RenderContextGL::CleanAllShaderCache() const
++{
++    return "";
++}
++
++bool RenderContextGL::AbandonContext()
++{
++    return true;
++}
++
++void RenderContextGL::DestroyShareContext()
++{
++}
++
++bool RenderContextGL::QueryMaxGpuBufferSize(uint32_t& maxWidth, uint32_t& maxHeight)
++{
++    ROSEN_LOGI("RenderContextGL::QueryMaxGpuBufferSize: using OpenGL backend");
++    GLint maxTextureSize = 0;
++    GLint maxRenderBufferSize = 0;
++
++    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
++    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &maxRenderBufferSize);
++
++    if (maxTextureSize <= 0 || maxRenderBufferSize <= 0) {
++        ROSEN_LOGE("RenderContextGL::QueryMaxGpuBufferSize: failed to get GPU buffer size");
++        return false;
++    }
++
++    maxWidth = static_cast<uint32_t>(std::min(maxTextureSize, maxRenderBufferSize));
++    maxHeight = static_cast<uint32_t>(std::min(maxTextureSize, maxRenderBufferSize));
++    return true;
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_accessibility.cpp b/graphic_2d/macos/rs_accessibility.cpp
+new file mode 100644
+index 0000000..af17ca4
+--- /dev/null
++++ b/graphic_2d/macos/rs_accessibility.cpp
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "foundation/arkui/ace_engine/adapter/ios/osal/high_contrast_observer.h"
++#include "platform/common/rs_accessibility.h"
++
++namespace OHOS {
++namespace Rosen {
++class RSAccessibilityIOS : public RSAccessibility {
++public:
++    void ListenHighContrastChange(OnHighContrastChange callback) override;
++
++private:
++    void ListenHighContrast();
++    void OnConfigChanged(bool newHighContrast);
++    bool listeningHighContrast_ = false;
++    Ace::Platform::ListenHighContrastCallback highContrastCallback_;
++    OnHighContrastChange onHighContrastChange_ = nullptr;
++};
++
++RSAccessibility &RSAccessibility::GetInstance()
++{
++    static RSAccessibilityIOS instance;
++    return instance;
++}
++
++void RSAccessibilityIOS::ListenHighContrastChange(OnHighContrastChange callback)
++{
++    onHighContrastChange_ = callback;
++    ListenHighContrast();
++}
++
++void RSAccessibilityIOS::ListenHighContrast()
++{
++    if (!listeningHighContrast_) {
++        highContrastCallback_ = [](bool highContrastEnabled) {
++            auto& accessibility = static_cast<RSAccessibilityIOS&>(RSAccessibility::GetInstance());
++            accessibility.OnConfigChanged(highContrastEnabled);
++        };
++        Ace::Platform::HighContrastObserver::GetInstance().SetListenHighContrastCallback(
++            Ace::Platform::ListenHighContrastCallback(highContrastCallback_));
++        listeningHighContrast_ = true;
++    }
++}
++
++void RSAccessibilityIOS::OnConfigChanged(bool newHighContrast)
++{
++    if (onHighContrastChange_ != nullptr) {
++        onHighContrastChange_(newHighContrast);
++    }
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_ashmem_helper.cpp b/graphic_2d/macos/rs_ashmem_helper.cpp
+new file mode 100644
+index 0000000..0bb6667
+--- /dev/null
++++ b/graphic_2d/macos/rs_ashmem_helper.cpp
+@@ -0,0 +1,106 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "transaction/rs_ashmem_helper.h"
++
++namespace OHOS {
++namespace Rosen {
++std::unique_ptr<AshmemAllocator> AshmemAllocator::CreateAshmemAllocator(size_t size, int mapType)
++{
++    return {};
++}
++
++std::unique_ptr<AshmemAllocator> AshmemAllocator::CreateAshmemAllocatorWithFd(int fd, size_t size, int mapType)
++{
++    return {};
++}
++
++AshmemAllocator::AshmemAllocator(int fd, size_t size)
++    : fd_(fd), size_(size)
++{
++}
++
++AshmemAllocator::~AshmemAllocator()
++{
++}
++
++bool AshmemAllocator::MapAshmem(int mapType)
++{
++    return {};
++}
++
++bool AshmemAllocator::WriteToAshmem(const void *data, size_t size)
++{
++    return {};
++}
++
++void* AshmemAllocator::CopyFromAshmem(size_t size)
++{
++    return {};
++}
++
++// the fd is only valid during the object lifetime
++int AshmemAllocator::GetFd() const
++{
++    return fd_;
++}
++
++size_t AshmemAllocator::GetSize() const
++{
++    return size_;
++}
++
++void* AshmemAllocator::GetData() const
++{
++    return data_;
++}
++
++void AshmemAllocator::Dealloc(void* data)
++{
++}
++
++void* AshmemAllocator::Alloc(size_t size)
++{
++    return {};
++}
++
++void* AshmemAllocator::Realloc(void* data, size_t newSize)
++{
++    return {};
++}
++
++void RSAshmemHelper::CopyFileDescriptor(
++    MessageParcel* ashmemParcel, std::shared_ptr<MessageParcel>& dataParcel)
++{
++}
++
++void RSAshmemHelper::InjectFileDescriptor(std::shared_ptr<MessageParcel>& dataParcel, MessageParcel* ashmemParcel,
++    std::unique_ptr<AshmemFdWorker>& ashmemFdWorker, pid_t callingPid)
++{
++}
++
++std::shared_ptr<MessageParcel> RSAshmemHelper::CreateAshmemParcel(std::shared_ptr<MessageParcel>& dataParcel)
++{
++    return {};
++}
++
++std::shared_ptr<MessageParcel> RSAshmemHelper::ParseFromAshmemParcel(MessageParcel* ashmemParcel,
++    std::unique_ptr<AshmemFdWorker>& ashmemFdWorker,
++    std::shared_ptr<AshmemFlowControlUnit> &ashmemFlowControlUnit, pid_t callingPid)
++{
++    return {};
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_frame_report.cpp b/graphic_2d/macos/rs_frame_report.cpp
+new file mode 100644
+index 0000000..8cf599e
+--- /dev/null
++++ b/graphic_2d/macos/rs_frame_report.cpp
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "rs_frame_report.h"
++
++namespace OHOS::Rosen {
++void RsFrameReport::InitDeadline()
++{
++}
++
++void RsFrameReport::RenderStart(uint64_t timestamp, int skipFirstFrame)
++{
++}
++
++void RsFrameReport::SendCommandsStart()
++{
++}
++
++void RsFrameReport::SetFrameParam(int requestId, int load, int schedFrameNum, int value)
++{
++}
++} // namespace OHOS::Rosen
+diff --git a/graphic_2d/macos/rs_marshalling_helper.cpp b/graphic_2d/macos/rs_marshalling_helper.cpp
+new file mode 100644
+index 0000000..82811cb
+--- /dev/null
++++ b/graphic_2d/macos/rs_marshalling_helper.cpp
+@@ -0,0 +1,590 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "transaction/rs_marshalling_helper.h"
++
++#include <memory>
++#include <message_parcel.h>
++#include <unistd.h>
++
++#include "securec.h"
++#include "animation/rs_particle_ripple_field.h"
++#include "animation/rs_particle_velocity_field.h"
++#include "animation/rs_render_curve_animation.h"
++#include "animation/rs_render_interpolating_spring_animation.h"
++#include "animation/rs_render_keyframe_animation.h"
++#include "animation/rs_render_particle.h"
++#include "animation/rs_render_path_animation.h"
++#include "animation/rs_render_spring_animation.h"
++#include "animation/rs_render_transition.h"
++#include "common/rs_color.h"
++#include "common/rs_common_def.h"
++#include "common/rs_matrix3.h"
++#include "common/rs_vector4.h"
++#include "pixel_map.h"
++#include "platform/common/rs_log.h"
++#include "render/rs_blur_filter.h"
++#include "render/rs_filter.h"
++#include "render/rs_gradient_blur_para.h"
++#include "render/rs_image.h"
++#include "render/rs_image_base.h"
++#include "render/rs_light_up_effect_filter.h"
++#include "render/rs_material_filter.h"
++#include "render/rs_path.h"
++#include "render/rs_shader.h"
++#include "transaction/rs_ashmem_helper.h"
++
++namespace OHOS {
++namespace Rosen {
++
++#define MARSHALLING_AND_UNMARSHALLING(TYPE, TYPENAME)                      \
++    bool RSMarshallingHelper::Marshalling(Parcel& parcel, const TYPE& val) \
++    {                                                                      \
++        return {};                                                         \
++    }                                                                      \
++    bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, TYPE& val)     \
++    {                                                                      \
++        return {};                                                         \
++    }
++
++// basic types
++MARSHALLING_AND_UNMARSHALLING(bool, Bool)
++MARSHALLING_AND_UNMARSHALLING(int8_t, Int8)
++MARSHALLING_AND_UNMARSHALLING(uint8_t, Uint8)
++MARSHALLING_AND_UNMARSHALLING(int16_t, Int16)
++MARSHALLING_AND_UNMARSHALLING(uint16_t, Uint16)
++MARSHALLING_AND_UNMARSHALLING(int32_t, Int32)
++MARSHALLING_AND_UNMARSHALLING(uint32_t, Uint32)
++MARSHALLING_AND_UNMARSHALLING(int64_t, Int64)
++MARSHALLING_AND_UNMARSHALLING(uint64_t, Uint64)
++MARSHALLING_AND_UNMARSHALLING(float, Float)
++MARSHALLING_AND_UNMARSHALLING(double, Double)
++
++#undef MARSHALLING_AND_UNMARSHALLING
++
++// Drawing::Data
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, std::shared_ptr<Drawing::Data> val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<Drawing::Data>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::SkipData(Parcel& parcel)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::UnmarshallingWithCopy(Parcel& parcel, std::shared_ptr<Drawing::Data>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<Drawing::Image>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<Drawing::Image>& val, void*& imagepixelAddr)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::SkipImage(Parcel& parcel)
++{
++    return {};
++}
++
++// RSShader
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSShader>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSShader>& val)
++{
++    return {};
++}
++// Drawing::Matrix
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const Drawing::Matrix& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, Drawing::Matrix& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSLinearGradientBlurPara>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSLinearGradientBlurPara>& val)
++{
++    return {};
++}
++
++// MotionBlurPara
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<MotionBlurParam>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<MotionBlurParam>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<EmitterUpdater>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<EmitterUpdater>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::vector<std::shared_ptr<EmitterUpdater>>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::vector<std::shared_ptr<EmitterUpdater>>& val)
++{
++    return {};
++}
++
++// ParticleNoiseFields
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<ParticleNoiseFields>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<ParticleNoiseFields>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<ParticleRippleFields>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<ParticleRippleFields>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<ParticleVelocityFields>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<ParticleVelocityFields>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<ParticleFieldCollection>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<ParticleFieldCollection>& val)
++{
++    return {};
++}
++
++// RSParticle
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const EmitterConfig& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, EmitterConfig& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const ParticleVelocity& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, ParticleVelocity& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const RenderParticleParaType<float>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, RenderParticleParaType<float>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const RenderParticleColorParaType& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, RenderParticleColorParaType& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<ParticleRenderParams>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<ParticleRenderParams>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::vector<std::shared_ptr<ParticleRenderParams>>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::vector<std::shared_ptr<ParticleRenderParams>>& val)
++{
++    return {};
++}
++
++// RSPath
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSPath>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSPath>& val)
++{
++    return {};
++}
++
++// RSMask
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSMask>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSMask>& val)
++{
++    return {};
++}
++
++// RSNGRenderFilterBase
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSNGRenderFilterBase>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSNGRenderFilterBase>& val)
++{
++    return {};
++}
++
++// RSNGRenderMaskBase
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSNGRenderMaskBase>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSNGRenderMaskBase>& val)
++{
++    return {};
++}
++
++// RSNGRenderShaderBase
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSNGRenderShaderBase>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSNGRenderShaderBase>& val)
++{
++    return {};
++}
++
++// RSNGRenderShapeBase
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSNGRenderShapeBase>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSNGRenderShapeBase>& val)
++{
++    return {};
++}
++
++// RSImageBase
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSImageBase>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSImageBase>& val)
++{
++    return {};
++}
++
++// RSImage
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSImage>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSImage>& val)
++{
++    return {};
++}
++
++// Media::PixelMap
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<Media::PixelMap>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<Media::PixelMap>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::SkipPixelMap(Parcel& parcel)
++{
++    return {};
++}
++
++// RectF
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RectT<float>>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RectT<float>>& val)
++{
++    return {};
++}
++
++//RRect
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const RRectT<float>& val)
++{
++    return {};
++}
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, RRectT<float>& val)
++{
++    return {};
++}
++
++// Drawing::DrawCmdList
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<Drawing::DrawCmdList>& val,
++    int32_t recordCmdDepth)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<Drawing::DrawCmdList>& val)
++{
++    return {};
++}
++
++#define MARSHALLING_AND_UNMARSHALLING(TYPE)                                                 \
++    bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<TYPE>& val) \
++    {                                                                                       \
++        return {};                                                                          \
++    }                                                                                       \
++    bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<TYPE>& val)     \
++    {                                                                                       \
++        return {};                                                                          \
++    }
++MARSHALLING_AND_UNMARSHALLING(RSRenderTransition)
++MARSHALLING_AND_UNMARSHALLING(RSRenderTransitionEffect)
++#undef MARSHALLING_AND_UNMARSHALLING
++
++#define MARSHALLING_AND_UNMARSHALLING(TEMPLATE)                                                    \
++    bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<TEMPLATE>& val)    \
++    {                                                                                              \
++        return {};                                                                                 \
++    }                                                                                              \
++    bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<TEMPLATE>& val)        \
++    {                                                                                              \
++        return {};                                                                                 \
++    }
++
++MARSHALLING_AND_UNMARSHALLING(RSRenderCurveAnimation)
++MARSHALLING_AND_UNMARSHALLING(RSRenderParticleAnimation)
++MARSHALLING_AND_UNMARSHALLING(RSRenderInterpolatingSpringAnimation)
++MARSHALLING_AND_UNMARSHALLING(RSRenderKeyframeAnimation)
++MARSHALLING_AND_UNMARSHALLING(RSRenderSpringAnimation)
++MARSHALLING_AND_UNMARSHALLING(RSRenderPathAnimation)
++#undef MARSHALLING_AND_UNMARSHALLING
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<ModifierNG::RSRenderModifier>& val)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<ModifierNG::RSRenderModifier>& val)
++{
++    return {};
++}
++
++#define MARSHALLING_AND_UNMARSHALLING(TEMPLATE)                                                    \
++    template<typename T>                                                                           \
++    bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<TEMPLATE<T>>& val) \
++    {                                                                                              \
++        return parcel.WriteUint64(val->GetId()) && Marshalling(parcel, val->Get());                \
++    }                                                                                              \
++    template<typename T>                                                                           \
++    bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<TEMPLATE<T>>& val)     \
++    {                                                                                              \
++        PropertyId id = 0;                                                                         \
++        if (!RSMarshallingHelper::UnmarshallingPidPlusId(parcel, id)) {                            \
++            ROSEN_LOGE("RSMarshallingHelper::Unmarshalling ReadUint64 failed");                    \
++            return false;                                                                          \
++        }                                                                                          \
++        T value;                                                                                   \
++        if (!Unmarshalling(parcel, value)) {                                                       \
++            ROSEN_LOGE("RSMarshallingHelper::Unmarshalling Unmarshalling failed");                 \
++            return false;                                                                          \
++        }                                                                                          \
++        val.reset(new TEMPLATE<T>(value, id));                                                     \
++        return val != nullptr;                                                                     \
++    }
++
++MARSHALLING_AND_UNMARSHALLING(RSRenderProperty)
++MARSHALLING_AND_UNMARSHALLING(RSRenderAnimatableProperty)
++#undef MARSHALLING_AND_UNMARSHALLING
++
++#define EXPLICIT_INSTANTIATION(TEMPLATE, TYPE)                                                                  \
++    template bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<TEMPLATE<TYPE>>& val); \
++    template bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<TEMPLATE<TYPE>>& val);
++
++#define BATCH_EXPLICIT_INSTANTIATION(TEMPLATE)                                           \
++    EXPLICIT_INSTANTIATION(TEMPLATE, bool)                                               \
++    EXPLICIT_INSTANTIATION(TEMPLATE, float)                                              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, int)                                                \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Color)                                              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, RSDynamicBrightnessPara)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, RSWaterRipplePara)                                  \
++    EXPLICIT_INSTANTIATION(TEMPLATE, RSFlyOutPara)                                       \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Gravity)                                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, ForegroundColorStrategyType)                        \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Matrix3f)                                           \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Quaternion)                                         \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSNGRenderFilterBase>)              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSNGRenderMaskBase>)                \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSNGRenderShaderBase>)              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSNGRenderShapeBase>)               \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSImage>)                           \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSMask>)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSPath>)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSShader>)                          \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<RSLinearGradientBlurPara>)          \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<MotionBlurParam>)                   \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<EmitterUpdater>)                    \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::vector<std::shared_ptr<EmitterUpdater>>)       \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<ParticleNoiseFields>)               \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<ParticleRippleFields>)              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<ParticleVelocityFields>)            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<std::vector<ParticleRenderParams>>) \
++    EXPLICIT_INSTANTIATION(TEMPLATE, RSRenderParticleVector)                             \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector2f)                                           \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector3f)                                           \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector4<uint32_t>)                                  \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::vector<float>)                                 \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::vector<Vector2f>)                              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::vector<Vector4f>)                              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<Media::PixelMap>)                   \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector4<Color>)                                     \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector4f)                                           \
++    EXPLICIT_INSTANTIATION(TEMPLATE, RRectT<float>)                                      \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::shared_ptr<Drawing::DrawCmdList>)              \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Drawing::Matrix)
++
++BATCH_EXPLICIT_INSTANTIATION(RSRenderProperty)
++
++#undef EXPLICIT_INSTANTIATION
++#undef BATCH_EXPLICIT_INSTANTIATION
++
++#define EXPLICIT_INSTANTIATION(TEMPLATE, TYPE)                                                                  \
++    template bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<TEMPLATE<TYPE>>& val); \
++    template bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<TEMPLATE<TYPE>>& val);
++
++#define BATCH_EXPLICIT_INSTANTIATION(TEMPLATE)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, float)                               \
++    EXPLICIT_INSTANTIATION(TEMPLATE, int)                                 \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Color)                               \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Matrix3f)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Quaternion)                          \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector2f)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector3f)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector4<Color>)                      \
++    EXPLICIT_INSTANTIATION(TEMPLATE, Vector4f)                            \
++    EXPLICIT_INSTANTIATION(TEMPLATE, std::vector<float>)                  \
++    EXPLICIT_INSTANTIATION(TEMPLATE, RRectT<float>)
++
++BATCH_EXPLICIT_INSTANTIATION(RSRenderAnimatableProperty)
++
++#undef EXPLICIT_INSTANTIATION
++#undef BATCH_EXPLICIT_INSTANTIATION
++
++// explicit instantiation
++template bool RSMarshallingHelper::Marshalling(
++    Parcel& parcel, const std::vector<std::shared_ptr<RSRenderTransitionEffect>>& val);
++template bool RSMarshallingHelper::Unmarshalling(
++    Parcel& parcel, std::vector<std::shared_ptr<RSRenderTransitionEffect>>& val);
++
++bool RSMarshallingHelper::WriteToParcel(Parcel& parcel, const void* data, size_t size)
++{
++    return {};
++}
++
++const void* RSMarshallingHelper::ReadFromParcel(Parcel& parcel, size_t size, bool& isMalloc)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::SkipFromParcel(Parcel& parcel, size_t size)
++{
++    return {};
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const std::shared_ptr<RSRenderPropertyBase>& val)
++{
++    return true;
++}
++
++bool RSMarshallingHelper::CheckReadPosition(Parcel& parcel)
++{
++    return true;
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, std::shared_ptr<RSRenderPropertyBase>& val)
++{
++    return true;
++}
++
++bool RSMarshallingHelper::UnmarshallingPidPlusId(Parcel& parcel, uint64_t& val)
++{
++    return true;
++}
++
++bool RSMarshallingHelper::UnmarshallingPidPlusIdNoChangeIfZero(Parcel& parcel, uint64_t& val)
++{
++    return true;
++}
++
++bool RSMarshallingHelper::Marshalling(Parcel& parcel, const RSRenderParticleVector& val)
++{
++    return false;
++}
++
++bool RSMarshallingHelper::Unmarshalling(Parcel& parcel, RSRenderParticleVector& val)
++{
++    return false;
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_render_pipeline_client.cpp b/graphic_2d/macos/rs_render_pipeline_client.cpp
+new file mode 100644
+index 0000000..e3bab38
+--- /dev/null
++++ b/graphic_2d/macos/rs_render_pipeline_client.cpp
+@@ -0,0 +1,214 @@
++/*
++ * Copyright (c) 2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "transaction/rs_render_pipeline_client.h"
++#include "platform/common/rs_log.h"
++#include "rs_surface_gpu.h"
++#ifdef RS_ENABLE_VK
++#include "vulkan/rs_surface_ios_vulkan.h"
++#endif
++#include "rs_vsync_client_ios.h"
++namespace OHOS {
++namespace Rosen {
++RSRenderPipelineClient::RSRenderPipelineClient()
++{
++}
++
++RSRenderPipelineClient::RSRenderPipelineClient(sptr<IRemoteObject>& connectToRenderRemote)
++{
++}
++
++void RSRenderPipelineClient::SetOnRenderProcessDiedCallback(const std::function<void()>& callback)
++{
++}
++
++void RSRenderPipelineClient::CommitTransaction(std::unique_ptr<RSTransactionData>& transactionData)
++{
++}
++
++void RSRenderPipelineClient::ExecuteSynchronousTask(const std::shared_ptr<RSSyncTask>& task)
++{
++}
++
++void RSRenderPipelineClient::TriggerSurfaceCaptureCallback(NodeId id, const RSSurfaceCaptureConfig& captureConfig,
++    std::shared_ptr<Media::PixelMap> pixelmap, CaptureError captureErrorCode,
++    std::shared_ptr<Media::PixelMap> pixelmapHDR)
++{
++}
++
++bool RSRenderPipelineClient::TakeSurfaceCapture(NodeId id, std::shared_ptr<SurfaceCaptureCallback> callback,
++    const RSSurfaceCaptureConfig& captureConfig, const RSSurfaceCaptureBlurParam& blurParam,
++    const Drawing::Rect& specifiedAreaRect)
++{
++    return true;
++}
++
++std::vector<std::pair<NodeId, std::shared_ptr<Media::PixelMap>>> RSRenderPipelineClient::TakeSurfaceCaptureSoloNode(
++    NodeId id, const RSSurfaceCaptureConfig& captureConfig)
++{
++    std::vector<std::pair<NodeId, std::shared_ptr<Media::PixelMap>>> pixelMapIdPairVector;
++    return pixelMapIdPairVector;
++}
++
++bool RSRenderPipelineClient::TakeSelfSurfaceCapture(NodeId id, std::shared_ptr<SurfaceCaptureCallback> callback,
++    const RSSurfaceCaptureConfig& captureConfig)
++{
++    return true;
++}
++
++bool RSRenderPipelineClient::SetWindowFreezeImmediately(NodeId id, bool isFreeze,
++    std::shared_ptr<SurfaceCaptureCallback> callback, const RSSurfaceCaptureConfig& captureConfig,
++    const RSSurfaceCaptureBlurParam& blurParam)
++{
++    return true;
++}
++
++bool RSRenderPipelineClient::TakeSurfaceCaptureWithAllWindows(NodeId id,
++    std::shared_ptr<SurfaceCaptureCallback> callback, const RSSurfaceCaptureConfig& captureConfig,
++    bool checkDrmAndSurfaceLock)
++{
++    return true;
++}
++
++bool RSRenderPipelineClient::FreezeScreen(NodeId id, bool isFreeze, bool needSync)
++{
++    return true;
++}
++
++bool RSRenderPipelineClient::TakeUICaptureInRange(
++    NodeId id, std::shared_ptr<SurfaceCaptureCallback> callback, const RSSurfaceCaptureConfig& captureConfig)
++{
++    return true;
++}
++
++bool RSRenderPipelineClient::SetHwcNodeBounds(NodeId rsNodeId, float positionX, float positionY,
++    float positionZ, float positionW)
++{
++    return true;
++}
++
++int32_t RSRenderPipelineClient::SetFocusAppInfo(const FocusAppInfo& info)
++{
++    return 0;
++}
++
++int32_t RSRenderPipelineClient::GetScreenHDRStatus(ScreenId id, HdrStatus& hdrStatus)
++{
++    return 0;
++}
++
++void RSRenderPipelineClient::DropFrameByPid(const std::vector<int32_t>& pidList, int32_t dropFrameLevel)
++{
++}
++
++bool RSRenderPipelineClient::SetAncoForceDoDirect(bool direct)
++{
++    return true;
++}
++
++bool RSRenderPipelineClient::RegisterSurfaceBufferCallback(
++    pid_t pid, uint64_t uid, std::shared_ptr<SurfaceBufferCallback> callback)
++{
++    return true;
++}
++
++bool RSRenderPipelineClient::UnregisterSurfaceBufferCallback(pid_t pid, uint64_t uid)
++{
++    return true;
++}
++
++void RSRenderPipelineClient::SetLayerTopForHWC(NodeId nodeId, bool isTop, uint32_t zOrder)
++{
++}
++
++bool RSRenderPipelineClient::RegisterTransactionDataCallback(uint64_t token, uint64_t timeStamp,
++    std::function<void()> callback)
++{
++    return true;
++}
++
++void RSRenderPipelineClient::TriggerTransactionDataCallbackAndErase(uint64_t token, uint64_t timeStamp)
++{
++}
++
++void RSRenderPipelineClient::SetWindowContainer(NodeId nodeId, bool value)
++{
++}
++
++void RSRenderPipelineClient::ClearUifirstCache(NodeId id)
++{
++}
++
++bool RSRenderPipelineClient::CreateNode(const RSSurfaceRenderNodeConfig& config)
++{
++    return {};
++}
++
++std::shared_ptr<RSSurface> RSRenderPipelineClient::CreateNodeAndSurface(const RSSurfaceRenderNodeConfig& config,
++    bool unobscured)
++{
++#if defined(RS_ENABLE_VK)
++    if (RSSystemProperties::IsUseVulkan()) {
++        return std::make_shared<RSSurfaceIOSVulkan>(static_cast<void*>(config.additionalData));
++    }
++#endif
++    return std::make_shared<RSSurfaceGPU>(static_cast<void*>(config.additionalData));
++}
++
++bool RSRenderPipelineClient::RegisterBufferAvailableListener(
++    NodeId id, const BufferAvailableCallback &callback, bool isFromRenderThread)
++{
++    return {};
++}
++
++bool RSRenderPipelineClient::RegisterBufferClearListener(
++    NodeId id, const BufferClearCallback &callback)
++{
++    return {};
++}
++
++bool RSRenderPipelineClient::UnregisterBufferAvailableListener(NodeId id)
++{
++    return {};
++}
++
++bool RSRenderPipelineClient::GetBitmap(NodeId id, Drawing::Bitmap& bitmap)
++{
++    return {};
++}
++
++bool RSRenderPipelineClient::GetPixelmap(NodeId id, std::shared_ptr<Media::PixelMap> pixelmap,
++    const Drawing::Rect* rect, std::shared_ptr<Drawing::DrawCmdList> drawCmdList)
++{
++    return {};
++}
++
++
++int32_t RSRenderPipelineClient::RegisterOcclusionChangeCallback(const OcclusionChangeCallback& callback)
++{
++    return {};
++}
++
++void RSRenderPipelineClient::SetHardwareEnabled(NodeId id, bool isEnabled, SelfDrawingNodeType selfDrawingType,
++    bool dynamicHardwareEnable)
++{
++}
++
++int32_t RSRenderPipelineClient::GetMaxGpuBufferSize(uint32_t& maxWidth, uint32_t& maxHeight)
++{
++    return 0;
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_render_service_client.mm b/graphic_2d/macos/rs_render_service_client.mm
+new file mode 100644
+index 0000000..97a2a55
+--- /dev/null
++++ b/graphic_2d/macos/rs_render_service_client.mm
+@@ -0,0 +1,271 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "transaction/rs_render_service_client.h"
++
++#include <event_handler.h>
++#include "platform/common/rs_log.h"
++#include "rs_surface_gpu.h"
++#ifdef RS_ENABLE_VK
++#include "vulkan/rs_surface_ios_vulkan.h"
++#endif
++#include "rs_vsync_client_ios.h"
++
++namespace OHOS {
++namespace Rosen {
++void RSRenderServiceClient::ExecuteSynchronousTask(const std::shared_ptr<RSSyncTask>& task)
++{
++}
++
++sptr<IRemoteObject> RSRenderServiceClient::GetConnectToRenderToken(ScreenId screenId)
++{
++    return nullptr;
++}
++
++std::shared_ptr<RSIRenderClient> RSIRenderClient::CreateRenderServiceClient()
++{
++    static std::shared_ptr<RSIRenderClient> client = std::make_shared<RSRenderServiceClient>();
++    return client;
++}
++
++void RSRenderServiceClient::CommitTransaction(std::unique_ptr<RSTransactionData>& transactionData)
++{
++}
++
++bool RSRenderServiceClient::GetTotalAppMemSize(float& cpuMemSize, float& gpuMemSize)
++{
++    return {};
++}
++
++bool RSRenderServiceClient::GetUniRenderEnabled()
++{
++    return {};
++}
++
++void RSRenderServiceClient::SetScreenRefreshRate(ScreenId id, int32_t sceneId, int32_t rate)
++{
++}
++
++void RSRenderServiceClient::SetRefreshRateMode(int32_t refreshRateMode)
++{
++}
++
++uint32_t RSRenderServiceClient::GetScreenCurrentRefreshRate(ScreenId id)
++{
++    return {};
++}
++
++class VSyncReceiverIOS : public VSyncReceiver {
++public:
++    VSyncReceiverIOS(const std::shared_ptr<OHOS::AppExecFwk::EventHandler> handler) : handler_(handler) {}
++    ~VSyncReceiverIOS() = default;
++    VsyncError Init() override
++    {
++        client_ = RSVsyncClient::Create();
++        if (client_ == nullptr) {
++            return GSERROR_NO_MEM;
++        }
++
++        return GSERROR_OK;
++    }
++
++    VsyncError RequestNextVSync(FrameCallback callback) override
++    {
++        if (client_ == nullptr) {
++            return GSERROR_NOT_INIT;
++        }
++
++        auto func = [callback, this](int64_t time, int64_t frameCount) {
++            handler_->PostTask([callback, time, frameCount]() {
++                if (callback.callbackWithId_) {
++                    callback.callbackWithId_(time, frameCount, callback.userData_);
++                } else {
++                    callback.callback_(time, callback.userData_);
++                }
++            });
++        };
++        client_->SetVsyncCallback(func);
++        client_->RequestNextVsync();
++        return GSERROR_OK;
++    }
++
++    VsyncError SetVSyncRate(FrameCallback callback, int32_t rate) override
++    {
++        if (client_ == nullptr) {
++            return GSERROR_NOT_INIT;
++        }
++
++        return GSERROR_OK;
++    }
++
++private:
++    std::unique_ptr<RSVsyncClient> client_ = nullptr;
++    std::shared_ptr<OHOS::AppExecFwk::EventHandler> handler_ = nullptr;
++};
++
++std::shared_ptr<VSyncReceiver> RSRenderServiceClient::CreateVSyncReceiver(
++    const std::string& name,
++    const std::shared_ptr<OHOS::AppExecFwk::EventHandler> &looper,
++    uint64_t id,
++    NodeId windowNodeId,
++    bool fromXcomponent)
++{
++    return std::make_shared<VSyncReceiverIOS>(looper);
++}
++
++ScreenId RSRenderServiceClient::GetDefaultScreenId()
++{
++    return 0;
++}
++
++std::vector<ScreenId> RSRenderServiceClient::GetAllScreenIds()
++{
++    return {0};
++}
++
++void RSRenderServiceClient::RemoveVirtualScreen(ScreenId id)
++{
++}
++
++int32_t RSRenderServiceClient::SetScreenChangeCallback(const ScreenChangeCallback &callback)
++{
++    return 0;
++}
++
++int32_t RSRenderServiceClient::GetScreenBacklight(ScreenId id)
++{
++    return {};
++}
++
++void RSRenderServiceClient::SetScreenBacklight(const RsScreenBrightnessData& brightnessData)
++{
++}
++
++int32_t RSRenderServiceClient::GetScreenSupportedColorGamuts(ScreenId id, std::vector<ScreenColorGamut>& mode)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::GetScreenSupportedMetaDataKeys(ScreenId id, std::vector<ScreenHDRMetadataKey>& keys)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::GetScreenColorGamut(ScreenId id, ScreenColorGamut& mode)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::SetScreenColorGamut(ScreenId id, int32_t modeIdx)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::SetScreenGamutMap(ScreenId id, ScreenGamutMap mode)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::GetScreenGamutMap(ScreenId id, ScreenGamutMap& mode)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::GetScreenHDRCapability(ScreenId id, RSScreenHDRCapability& screenHdrCapability)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::GetScreenType(ScreenId id, RSScreenType& screenType)
++{
++    return {};
++}
++
++bool RSRenderServiceClient::RegisterTypeface(std::shared_ptr<Drawing::Typeface>& typeface)
++{
++    return {};
++}
++
++bool RSRenderServiceClient::UnRegisterTypeface(uint32_t uniqueId)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::SetScreenSkipFrameInterval(ScreenId id, uint32_t skipFrameInterval)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::RegisterHgmConfigChangeCallback(const HgmConfigChangeCallback& callback)
++{
++    return {};
++}
++
++int32_t RSRenderServiceClient::RegisterHgmRefreshRateModeChangeCallback(
++    const HgmRefreshRateModeChangeCallback& callback)
++{
++    return {};
++}
++
++void RSRenderServiceClient::ShowWatermark(const std::shared_ptr<Media::PixelMap> &watermarkImg, bool isShow)
++{
++}
++
++void RSRenderServiceClient::ReportJankStats()
++{
++}
++
++void RSRenderServiceClient::ReportEventResponse(DataBaseRs info)
++{
++}
++
++void RSRenderServiceClient::ReportEventComplete(DataBaseRs info)
++{
++}
++
++void RSRenderServiceClient::ReportEventJankFrame(DataBaseRs info)
++{
++}
++
++void RSRenderServiceClient::ReportRsSceneJankStart(AppInfo info)
++{
++}
++
++void RSRenderServiceClient::ReportRsSceneJankEnd(AppInfo info)
++{
++}
++
++std::vector<int32_t> RSRenderServiceClient::GetScreenSupportedRefreshRates(ScreenId id)
++{
++    return {};
++}
++
++void RSRenderServiceClient::NotifyXComponentExpectedFrameRate(const std::string& id, int32_t expectedFrameRate)
++{
++}
++
++void RSRenderServiceClient::SetCacheEnabledForRotation(bool isEnabled)
++{
++}
++
++int32_t RSRenderServiceClient::GetCurrentRefreshRateMode()
++{
++}
++
++void RSRenderServiceClient::SetScreenFrameGravity(ScreenId id, int32_t gravity)
++{
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_surface_frame_ios.cpp b/graphic_2d/macos/rs_surface_frame_ios.cpp
+new file mode 100644
+index 0000000..9617d08
+--- /dev/null
++++ b/graphic_2d/macos/rs_surface_frame_ios.cpp
+@@ -0,0 +1,72 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "rs_surface_frame_ios.h"
++#include <queue>
++#include <vector>
++#include "platform/common/rs_log.h"
++#include "render_context/render_context.h"
++
++namespace OHOS {
++namespace Rosen {
++RSSurfaceFrameIOS::RSSurfaceFrameIOS(int32_t width, int32_t height)
++    : width_(width), height_(height)
++{
++}
++
++void RSSurfaceFrameIOS::SetDamageRegion(int32_t left, int32_t top, int32_t width, int32_t height)
++{
++}
++
++int32_t RSSurfaceFrameIOS::GetBufferAge() const
++{
++    return -1;
++}
++
++Drawing::Canvas* RSSurfaceFrameIOS::GetCanvas()
++{
++    if (surface_ == nullptr) {
++        CreateSurface();
++    }
++
++    if (surface_ != nullptr) {
++        return surface_->GetCanvas().get();
++    }
++    return nullptr;
++}
++
++std::shared_ptr<Drawing::Surface> RSSurfaceFrameIOS::GetSurface()
++{
++    if (surface_ == nullptr) {
++        CreateSurface();
++    }
++    return surface_;
++}
++
++void RSSurfaceFrameIOS::SetRenderContext(std::shared_ptr<RenderContext> context)
++{
++    renderContext_ = std::static_pointer_cast<RenderContextGL>(context);
++}
++
++void RSSurfaceFrameIOS::CreateSurface()
++{
++    if (renderContext_ == nullptr) {
++        ROSEN_LOGE("RSSurfaceFrameIOS::CreateSurface, context_ is null!");
++        return;
++    }
++    surface_ = renderContext_->AcquireSurface(width_, height_);
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_surface_frame_ios.h b/graphic_2d/macos/rs_surface_frame_ios.h
+new file mode 100644
+index 0000000..8e50605
+--- /dev/null
++++ b/graphic_2d/macos/rs_surface_frame_ios.h
+@@ -0,0 +1,48 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef RENDER_SERVICE_BASE_SRC_PLATFORM_DARWIN_RS_SURFACE_FRAME_DARWIN_H
++#define RENDER_SERVICE_BASE_SRC_PLATFORM_DARWIN_RS_SURFACE_FRAME_DARWIN_H
++
++#include "platform/drawing/rs_surface_frame.h"
++#include "render_context/new_render_context/render_context_gl.h"
++
++namespace OHOS {
++namespace Rosen {
++class RSSurfaceFrameIOS : public RSSurfaceFrame {
++public:
++    RSSurfaceFrameIOS(int32_t width, int32_t height);
++    ~RSSurfaceFrameIOS() override = default;
++
++    void SetDamageRegion(int32_t left, int32_t top, int32_t width, int32_t height) override;
++    int32_t GetBufferAge() const override;
++    Drawing::Canvas* GetCanvas() override;
++    std::shared_ptr<Drawing::Surface> GetSurface() override;
++    void SetRenderContext(std::shared_ptr<RenderContext> context) override;
++
++private:
++    friend class RSSurfaceGPU;
++    void CreateSurface();
++    int32_t width_ = 0;
++    int32_t height_ = 0;
++    int32_t bpp_ = 0;
++    std::shared_ptr<Drawing::Surface> surface_ = nullptr;
++    std::shared_ptr<RenderContextGL> renderContext_ = nullptr;
++};
++
++} // namespace Rosen
++} // namespace OHOS
++
++#endif // RENDER_SERVICE_BASE_SRC_PLATFORM_DARWIN_RS_SURFACE_FRAME_DARWIN_H
+diff --git a/graphic_2d/macos/rs_surface_gpu.h b/graphic_2d/macos/rs_surface_gpu.h
+new file mode 100644
+index 0000000..e06bb2d
+--- /dev/null
++++ b/graphic_2d/macos/rs_surface_gpu.h
+@@ -0,0 +1,76 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef RENDER_SERVICE_BASE_SRC_PLATFORM_IOS_RS_SURFACE_GPU_H
++#define RENDER_SERVICE_BASE_SRC_PLATFORM_IOS_RS_SURFACE_GPU_H
++
++#include <memory>
++
++#include "common/rs_common_def.h"
++#include "platform/common/rs_surface_ext.h"
++#include "platform/drawing/rs_surface.h"
++#include "platform/drawing/rs_surface_frame.h"
++#include "render_context/render_context.h"
++#include "render_context/new_render_context/render_context_gl.h"
++
++namespace OHOS {
++namespace Rosen {
++class RenderContext;
++class RSSurfaceGPU : public RSSurface {
++public:
++    RSSurfaceGPU(void* layer);
++    ~RSSurfaceGPU() override;
++
++    bool IsValid() const override;
++
++    void SetUiTimeStamp(const std::unique_ptr<RSSurfaceFrame>& frame, uint64_t uiTimestamp = 0) override
++    {
++    }
++
++    std::unique_ptr<RSSurfaceFrame> RequestFrame(
++        int32_t width, int32_t height, uint64_t uiTimestamp, bool useAFBC = true, bool isProtected = false) override;
++
++    bool FlushFrame(std::unique_ptr<RSSurfaceFrame>& frame, uint64_t uiTimestamp) override;
++    uint32_t GetQueueSize() const override;
++    void ClearBuffer() override
++    {
++    }
++    void ClearAllBuffer() override
++    {
++    }
++    std::shared_ptr<RenderContext> GetRenderContext() override;
++    void SetRenderContext(std::shared_ptr<RenderContext> context) override;
++    void ResetBufferAge() override
++    {
++    }
++    GraphicColorGamut GetColorSpace() const override;
++    void SetColorSpace(GraphicColorGamut colorSpace) override;
++#ifdef USE_SURFACE_TEXTURE
++    RSSurfaceExtPtr CreateSurfaceExt(const RSSurfaceExtConfig& config) override;
++    RSSurfaceExtPtr GetSurfaceExt(const RSSurfaceExtConfig& config) override;
++#endif
++private:
++    bool SetupGrContext();
++
++    // Phase 1 path X: opaque CALayer* (no CAEAGLLayer on desktop).
++    void* layer_ = nullptr;
++    std::shared_ptr<RenderContextGL> renderContext_ = nullptr;
++    RSSurfaceExtPtr texture_;
++};
++
++} // namespace Rosen
++} // namespace OHOS
++
++#endif // RENDER_SERVICE_BASE_SRC_PLATFORM_IOS_RS_SURFACE_GPU_H
+diff --git a/graphic_2d/macos/rs_surface_gpu.mm b/graphic_2d/macos/rs_surface_gpu.mm
+new file mode 100644
+index 0000000..5bf872f
+--- /dev/null
++++ b/graphic_2d/macos/rs_surface_gpu.mm
+@@ -0,0 +1,159 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Phase 1 path X: macOS GPU surface. Mirrors the iOS RSSurfaceGPU but on a plain
++// CALayer (no CAEAGLLayer) and without the video SurfaceTexture path (xcomponent
++// textures are out of scope for this milestone; CreateSurfaceExt returns null).
++
++#include "rs_surface_gpu.h"
++
++#include <memory>
++#include <QuartzCore/CALayer.h>
++#include <AppKit/AppKit.h>
++
++#include "platform/common/rs_log.h"
++#include "rs_surface_frame_ios.h"
++
++namespace OHOS {
++namespace Rosen {
++RSSurfaceGPU::RSSurfaceGPU(void* layer)
++{
++    [static_cast<CALayer*>(layer_) release];
++    layer_ = [static_cast<CALayer*>(layer) retain];
++}
++
++RSSurfaceGPU::~RSSurfaceGPU()
++{
++    ROSEN_LOGD("RSSurfaceGPU::release");
++    if (renderContext_ != nullptr) {
++        renderContext_->DestroyEGLSurface(layer_);
++    }
++    [static_cast<CALayer*>(layer_) release];
++    layer_ = nullptr;
++}
++
++bool RSSurfaceGPU::IsValid() const
++{
++    return layer_ != nullptr && renderContext_ != nullptr;
++}
++
++std::unique_ptr<RSSurfaceFrame> RSSurfaceGPU::RequestFrame(
++    int32_t width, int32_t height, uint64_t uiTimestamp, bool useAFBC, bool isProtected)
++{
++    if (!IsValid()) {
++        ROSEN_LOGE("RSSurfaceGPU::RequestFrame, layer_ is nullptr");
++        return nullptr;
++    }
++    if (!SetupGrContext()) {
++        return nullptr;
++    }
++    if (!renderContext_->CreateEGLSurface(layer_)) {
++        return nullptr;
++    }
++    renderContext_->MakeCurrent(layer_, nullptr);
++    auto frame = std::make_unique<RSSurfaceFrameIOS>(width, height);
++    frame->SetRenderContext(renderContext_);
++    frame->CreateSurface();
++    return frame;
++}
++
++bool RSSurfaceGPU::FlushFrame(std::unique_ptr<RSSurfaceFrame>& frame, uint64_t uiTimestamp)
++{
++    if (frame == nullptr) {
++        ROSEN_LOGE("RSSurfaceGPU::FlushFrame frame is nullptr");
++        return false;
++    }
++    if (!IsValid()) {
++        ROSEN_LOGE("RSSurfaceGPU::FlushFrame, layer_ or renderContent_ is nullptr");
++        return false;
++    }
++
++    /* gpu render flush */
++    renderContext_->MakeCurrent(layer_, nullptr);
++    renderContext_->RenderFrame();
++    renderContext_->SwapBuffers(nullptr);
++    if (auto grContext = renderContext_->GetDrGPUContext()) {
++        grContext->PurgeUnlockedResources(true);
++    }
++    return true;
++}
++
++std::shared_ptr<RenderContext> RSSurfaceGPU::GetRenderContext()
++{
++    return renderContext_;
++}
++
++void RSSurfaceGPU::SetRenderContext(std::shared_ptr<RenderContext> context)
++{
++    if (renderContext_ != context) {
++        if (renderContext_ != nullptr) {
++            renderContext_->DeleteSurface();
++        }
++        renderContext_ = std::static_pointer_cast<RenderContextGL>(context);
++        if (renderContext_ != nullptr) {
++            renderContext_->AddSurface();
++        }
++    }
++}
++
++bool RSSurfaceGPU::SetupGrContext()
++{
++    if (renderContext_) {
++        renderContext_->Init();
++        renderContext_->SetUpGpuContext();
++    }
++    return true;
++}
++
++uint32_t RSSurfaceGPU::GetQueueSize() const
++{
++    /* cache buffer count */
++    return 0x3;
++}
++
++GraphicColorGamut RSSurfaceGPU::GetColorSpace() const
++{
++    if (renderContext_ == nullptr) {
++        ROSEN_LOGE("RSSurfaceGPU::GetColorSpace renderContext_ is nullptr");
++        return GraphicColorGamut::GRAPHIC_COLOR_GAMUT_SRGB;
++    }
++    return renderContext_->GetColorSpace();
++}
++
++void RSSurfaceGPU::SetColorSpace(GraphicColorGamut colorSpace)
++{
++    if (renderContext_ == nullptr) {
++        ROSEN_LOGE("RSSurfaceGPU::SetColorSpace renderContext_ is nullptr");
++        return;
++    }
++    renderContext_->SetColorSpace(colorSpace);
++}
++
++#ifdef USE_SURFACE_TEXTURE
++RSSurfaceExtPtr RSSurfaceGPU::CreateSurfaceExt(const RSSurfaceExtConfig& config)
++{
++    // Phase 1 path X: video SurfaceTexture / platform-texture (xcomponent) is out
++    // of scope for the macOS milestone.
++    ROSEN_LOGD("RSSurfaceGPU::CreateSurfaceExt: not supported on macOS milestone");
++    return nullptr;
++}
++
++RSSurfaceExtPtr RSSurfaceGPU::GetSurfaceExt(const RSSurfaceExtConfig& config)
++{
++    return texture_;
++}
++#endif
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_system_properties.cpp b/graphic_2d/macos/rs_system_properties.cpp
+new file mode 100644
+index 0000000..e39a430
+--- /dev/null
++++ b/graphic_2d/macos/rs_system_properties.cpp
+@@ -0,0 +1,547 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "platform/common/rs_system_properties.h"
++
++#include "transaction/rs_render_service_client.h"
++
++namespace OHOS {
++namespace Rosen {
++// Phase 1 path X: macOS milestone builds GL-only (Vulkan/MoltenVK off), and the
++// mac Drawing::SystemProperties does not expose CheckVulkanEnable(). Pin to GL.
++#if defined(RS_ENABLE_VK)
++const GpuApiType RSSystemProperties::systemGpuApiType_ =
++    Drawing::SystemProperties::CheckVulkanEnable() ? GpuApiType::VULKAN : GpuApiType::OPENGL;
++#else
++const GpuApiType RSSystemProperties::systemGpuApiType_ = GpuApiType::OPENGL;
++#endif
++
++int RSSystemProperties::GetDumpFrameNum()
++{
++    return 0;
++}
++
++int RSSystemProperties::GetRecordingEnabled()
++{
++    return 0;
++}
++
++void RSSystemProperties::SetRecordingDisenabled()
++{
++    return;
++}
++
++std::string RSSystemProperties::GetRecordingFile()
++{
++    return "";
++}
++
++bool RSSystemProperties::GetUniRenderEnabled()
++{
++    return isUniRenderEnabled_;
++}
++
++bool RSSystemProperties::GetRenderNodeTraceEnabled()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetAnimationTraceEnabled()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetTestModeEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetAnimationDelayOptimizeEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetRSClientMultiInstanceEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetRenderNodePurgeEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetDrawOpTraceEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::IsSceneBoardEnabled()
++{
++    return {};
++}
++
++DirtyRegionDebugType RSSystemProperties::GetDirtyRegionDebugType()
++{
++    return {};
++}
++
++AdvancedDirtyRegionType RSSystemProperties::GetAdvancedDirtyRegionEnabled()
++{
++    return {};
++}
++
++PartialRenderType RSSystemProperties::GetPartialRenderEnabled()
++{
++    return {};
++}
++
++PartialRenderType RSSystemProperties::GetUniPartialRenderEnabled()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetRenderNodeLazyLoadEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetOcclusionEnabled()
++{
++    return {};
++}
++
++std::string RSSystemProperties::GetRSEventProperty(const std::string &paraName)
++{
++    return {};
++}
++
++bool RSSystemProperties::GetHighContrastStatus()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetCacheEnabledForRotation()
++{
++    return {};
++}
++
++uint32_t RSSystemProperties::GetCorrectionMode()
++{
++    return {};
++}
++
++DumpSurfaceType RSSystemProperties::GetDumpSurfaceType()
++{
++    return {};
++}
++
++long long int RSSystemProperties::GetDumpSurfaceId()
++{
++    return {};
++}
++
++void RSSystemProperties::SetDrawTextAsBitmap(bool flag)
++{
++}
++
++bool RSSystemProperties::GetDrawTextAsBitmap()
++{
++    return {};
++}
++
++ParallelRenderingType RSSystemProperties::GetPrepareParallelRenderingEnabled()
++{
++    return {};
++}
++
++ParallelRenderingType RSSystemProperties::GetParallelRenderingEnabled()
++{
++    return {};
++}
++
++HgmRefreshRates RSSystemProperties::GetHgmRefreshRatesEnabled()
++{
++    return {};
++}
++
++void RSSystemProperties::SetHgmRefreshRateModesEnabled(std::string param)
++{
++    return;
++}
++
++HgmRefreshRateModes RSSystemProperties::GetHgmRefreshRateModesEnabled()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetHardCursorEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetSkipForAlphaZeroEnabled()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetSkipGeometryNotChangeEnabled()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetAnimationCacheEnabled()
++{
++    return {};
++}
++
++float RSSystemProperties::GetAnimationScale()
++{
++    return 1.f;
++}
++
++bool RSSystemProperties::GetProxyNodeDebugEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetCacheOptimizeRotateEnable()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetFilterCacheEnabled()
++{
++    return false;
++}
++
++int RSSystemProperties::GetFilterCacheUpdateInterval()
++{
++    return 0;
++}
++
++int RSSystemProperties::GetFilterCacheSizeThreshold()
++{
++    return 0;
++}
++
++bool RSSystemProperties::GetKawaseEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetHpsBlurEnabled()
++{
++    return false;
++}
++
++float RSSystemProperties::GetHpsBlurNoiseFactor()
++{
++    return 0.f;
++}
++
++bool RSSystemProperties::GetMESABlurFuzedEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetForceKawaseDisabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetBoolSystemProperty(const char* name, bool defaultValue)
++{
++    return {};
++}
++
++int RSSystemProperties::WatchSystemProperty(const char* name, OnSystemPropertyChanged func, void* context)
++{
++    return {};
++}
++
++int RSSystemProperties::RemoveWatchSystemProperty(const char* name, OnSystemPropertyChanged func, void* context)
++{
++    return {};
++}
++
++bool RSSystemProperties::GetAFBCEnabled()
++{
++    return {};
++}
++
++bool RSSystemProperties::GetASTCEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetImageGpuResourceCacheEnable(int, int)
++{
++    return false;
++}
++
++float RSSystemProperties::GetKawaseRandomColorFactor()
++{
++    return 0.f;
++}
++
++bool RSSystemProperties::GetRandomColorEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetKawaseOriginalEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetBlurEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetFgBlenderEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetForegroundFilterEnabled()
++{
++    return true;
++}
++
++
++const std::vector<float>& RSSystemProperties::GetAiInvertCoef()
++{
++    // Configure AiInvertCoef: Low, High, Threshold, Opacity, Saturation, Filter Radius.
++    std::vector<float> aiInvertCoef = {0.0, 1.0, 0.55, 0.4, 1.6, 45.0};
++    return aiInvertCoef;
++}
++
++bool RSSystemProperties::GetDebugTraceEnabled()
++{
++    return false;
++}
++
++int RSSystemProperties::GetDebugTraceLevel()
++{
++    return 0;
++}
++
++bool RSSystemProperties::GetSyncTransactionEnabled()
++{
++    return false;
++}
++
++int RSSystemProperties::GetSyncTransactionWaitDelay()
++{
++    return 0;
++}
++
++bool RSSystemProperties::GetSingleFrameComposerEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetSingleDrawableLockerEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetSingleFrameComposerCanvasNodeEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetDrawFilterWithoutSnapshotEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetBlurExtraFilterEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetDiscardCanvasBeforeFilterEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetMaskLinearBlurEnabled(){
++    return false;
++}
++
++bool RSSystemProperties::GetMotionBlurEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetDynamicBrightnessEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetEffectMergeEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetDumpUICaptureEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetDumpUIPixelmapEnabled()
++{
++    return false;
++}
++
++SubTreePrepareCheckType RSSystemProperties::GetSubTreePrepareCheckType()
++{
++    return SubTreePrepareCheckType::ENABLED;
++}
++
++bool RSSystemProperties::GetRenderParallelEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetBatchRemovingOnRemoteDiedEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetOptBatchRemovingOnRemoteDiedEnabled()
++{
++    return false;
++}
++
++std::string RSSystemProperties::GetVersionType()
++{
++    return "";
++}
++
++bool RSSystemProperties::GetOptimizeParentNodeRegionEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetOptimizeHwcComposeAreaEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetOptimizeCanvasDrawRegionEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetLayerEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetLayerDebugEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetFilterCacheMemThresholdEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetSurfaceOffscreenEnadbled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetNodeGroupGroupedByUIEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetWindowKeyFrameEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetDebugFmtTraceEnabled()
++{
++    return GetDebugTraceEnabled();
++}
++
++bool RSSystemProperties::GetBehindWindowFilterEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetSubThreadControlFrameRate()
++{
++    return false;
++}
++
++bool RSSystemProperties::ViewDrawNodeType()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetWideColorSpaceEnabled()
++{
++    return true;
++}
++
++bool RSSystemProperties::GetHybridRenderEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetHybridRenderSwitch(ComponentEnableSwitch bitSeq)
++{
++    return false;
++}
++
++uint32_t RSSystemProperties::GetHybridRenderTextBlobLenCount()
++{
++    return 0;
++}
++
++bool RSSystemProperties::GetSupportScreenFreezeEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetClipRRectOptimizationEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetTransactionDataTraceEnabled()
++{
++    return false;
++}
++
++bool RSSystemProperties::GetUnmarshalParallelEnabled()
++{
++    return false;
++}
++
++uint32_t RSSystemProperties::GetUnmarshalParallelMinDataSize()
++{
++    return 0;
++}
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_vsync_client_ios.h b/graphic_2d/macos/rs_vsync_client_ios.h
+new file mode 100644
+index 0000000..5d39fd7
+--- /dev/null
++++ b/graphic_2d/macos/rs_vsync_client_ios.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#ifndef RENDER_SERVICE_BASE_ADAPTER_RS_VSYNC_CLIENT_IOS_H
++#define RENDER_SERVICE_BASE_ADAPTER_RS_VSYNC_CLIENT_IOS_H
++
++#include "platform/drawing/rs_vsync_client.h"
++
++#include <atomic>
++#include <condition_variable>
++#include <mutex>
++
++namespace OHOS {
++namespace Rosen {
++class RSVsyncClientIOS : public RSVsyncClient {
++public:
++    RSVsyncClientIOS();
++    ~RSVsyncClientIOS() override;
++
++    void RequestNextVsync() override;
++    void SetVsyncCallback(VsyncCallback callback) override;
++
++private:
++    // Phase 1 path X: opaque handle to a C++ MacVsyncDriver (CVDisplayLink owner)
++    // instead of the ObjC RSVsyncIOS used on iOS.
++    void* vsyncIOS_ = nullptr;
++};
++} // namespace Rosen
++} // namespace OHOS
++
++#endif // RENDER_SERVICE_BASE_ADAPTER_RS_VSYNC_CLIENT_IOS_H
+diff --git a/graphic_2d/macos/rs_vsync_client_ios.mm b/graphic_2d/macos/rs_vsync_client_ios.mm
+new file mode 100644
+index 0000000..1ba192e
+--- /dev/null
++++ b/graphic_2d/macos/rs_vsync_client_ios.mm
+@@ -0,0 +1,147 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Phase 1 path X: macOS vsync driver. iOS used CADisplayLink (fires on the main
++// run loop). macOS has no CADisplayLink for arbitrary layers (CADisplayLink for
++// NSView only exists on macOS 14+); the portable desktop equivalent is
++// CVDisplayLink, whose callback fires on a dedicated high-priority thread. We
++// keep the same "one-shot per RequestNextVsync" semantics: stop the link after
++// each callback, restart it on the next request.
++
++#include "rs_vsync_client_ios.h"
++
++#include <chrono>
++#include <mutex>
++#include <Foundation/Foundation.h>
++#include <CoreVideo/CoreVideo.h>
++
++#include "common/rs_common_def.h"
++#include "platform/common/rs_log.h"
++
++/* the coefficient of converting seconds to nanoseconds */
++constexpr int64_t SEC_TO_NANOSEC = 1000000000;
++
++namespace OHOS {
++namespace Rosen {
++
++// Lightweight C++ wrapper that owns a CVDisplayLink and forwards ticks.
++class MacVsyncDriver {
++public:
++    MacVsyncDriver()
++    {
++        CVDisplayLinkCreateWithActiveCGDisplays(&displayLink_);
++        if (displayLink_ != nullptr) {
++            CVDisplayLinkSetOutputCallback(displayLink_, &MacVsyncDriver::OutputCallback, this);
++        }
++    }
++
++    ~MacVsyncDriver()
++    {
++        if (displayLink_ != nullptr) {
++            if (CVDisplayLinkIsRunning(displayLink_)) {
++                CVDisplayLinkStop(displayLink_);
++            }
++            CVDisplayLinkRelease(displayLink_);
++            displayLink_ = nullptr;
++        }
++    }
++
++    void RequestNextVsync()
++    {
++        if (displayLink_ != nullptr && !CVDisplayLinkIsRunning(displayLink_)) {
++            CVDisplayLinkStart(displayLink_);
++        }
++    }
++
++    void SetVsyncCallback(RSVsyncClient::VsyncCallback callback)
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        callback_ = callback;
++    }
++
++    void Invalidate()
++    {
++        if (displayLink_ != nullptr && CVDisplayLinkIsRunning(displayLink_)) {
++            CVDisplayLinkStop(displayLink_);
++        }
++    }
++
++private:
++    static CVReturn OutputCallback(CVDisplayLinkRef /* displayLink */,
++        const CVTimeStamp* /* now */, const CVTimeStamp* /* outputTime */,
++        CVOptionFlags /* flagsIn */, CVOptionFlags* /* flagsOut */, void* context)
++    {
++        auto* self = static_cast<MacVsyncDriver*>(context);
++        // One-shot semantics: stop after each tick, like CADisplayLink.paused = YES.
++        if (self->displayLink_ != nullptr) {
++            CVDisplayLinkStop(self->displayLink_);
++        }
++        struct timespec ts;
++        clock_gettime(CLOCK_MONOTONIC, &ts);
++        int64_t nowNs = ts.tv_sec * SEC_TO_NANOSEC + ts.tv_nsec;
++        RSVsyncClient::VsyncCallback cb;
++        {
++            std::lock_guard<std::mutex> lock(self->mutex_);
++            cb = self->callback_;
++        }
++        if (cb != nullptr) {
++            cb(nowNs, 0);
++        }
++        return kCVReturnSuccess;
++    }
++
++    CVDisplayLinkRef displayLink_ = nullptr;
++    RSVsyncClient::VsyncCallback callback_ = nullptr;
++    std::mutex mutex_;
++};
++
++std::unique_ptr<RSVsyncClient> RSVsyncClient::Create()
++{
++    return std::make_unique<RSVsyncClientIOS>();
++}
++
++RSVsyncClientIOS::RSVsyncClientIOS()
++    : vsyncIOS_(reinterpret_cast<void*>(new MacVsyncDriver()))
++{
++}
++
++RSVsyncClientIOS::~RSVsyncClientIOS()
++{
++    ROSEN_LOGI("RSVsyncClientIOS::dealloc (mac)");
++    auto* driver = reinterpret_cast<MacVsyncDriver*>(vsyncIOS_);
++    if (driver != nullptr) {
++        driver->Invalidate();
++        delete driver;
++        vsyncIOS_ = nullptr;
++    }
++}
++
++void RSVsyncClientIOS::RequestNextVsync()
++{
++    auto* driver = reinterpret_cast<MacVsyncDriver*>(vsyncIOS_);
++    if (driver != nullptr) {
++        driver->RequestNextVsync();
++    }
++}
++
++void RSVsyncClientIOS::SetVsyncCallback(VsyncCallback callback)
++{
++    auto* driver = reinterpret_cast<MacVsyncDriver*>(vsyncIOS_);
++    if (driver != nullptr) {
++        driver->SetVsyncCallback(callback);
++    }
++}
++} // namespace Rosen
++} // namespace OHOS

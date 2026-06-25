@@ -1,0 +1,24 @@
+diff --git a/base/BUILD.gn b/base/BUILD.gn
+index 5b94dc7..d4a6a5a 100644
+--- a/base/BUILD.gn
++++ b/base/BUILD.gn
+@@ -115,7 +115,7 @@ if (current_os == "win" || current_os == "mingw" || current_os == "mac") {
+   ]
+ }
+ 
+-if (current_os == "ios") {
++if (current_os == "ios" || current_os == "mac") {
+   sources_utils_ios = [
+     "src/directory_ex.cpp",
+     "src/parcel.cpp",
+@@ -156,7 +156,9 @@ ohos_static_library("utilsbase") {
+     ]
+   }
+ 
+-  if (current_os == "ios") {
++  if (current_os == "ios" || current_os == "mac") {
++    # Phase 1 path X: mac uses the iOS c_utils variant (no CONFIG_HILOG, so it
++    # doesn't pull hilog_base/log_base.h).
+     sources = sources_utils_ios
+     configs = [ ":utils_coverage_config" ]
+     public_configs = [ ":utils_config" ]

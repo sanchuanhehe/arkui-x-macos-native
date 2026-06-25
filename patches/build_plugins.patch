@@ -1,0 +1,742 @@
+diff --git a/config/mac/mac_sdk.gni b/config/mac/mac_sdk.gni
+new file mode 100644
+index 0000000..2e659c4
+--- /dev/null
++++ b/config/mac/mac_sdk.gni
+@@ -0,0 +1,29 @@
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# Phase 0: macOS desktop SDK args. Parallels build_plugins/config/ios/ios_sdk.gni
++# but targets the native "macosx" SDK so the darwin RenderService backend can be
++# compiled for target_os=mac.
++
++# mac_deployment_target is already declared in //build/config/mac/mac_sdk.gni;
++# do not redeclare it here (gn forbids duplicate build-arg declarations).
++declare_args() {
++  # Path to the macOS desktop SDK. When empty it is resolved with xcrun.
++  mac_desktop_sdk_path = ""
++}
++
++if (mac_desktop_sdk_path == "") {
++  _mac_sdk_result =
++      exec_script("mac_sdk.py", [ "--sdk", "macosx" ], "list lines")
++  mac_desktop_sdk_path = _mac_sdk_result[0]
++}
+diff --git a/config/mac/mac_sdk.py b/config/mac/mac_sdk.py
+new file mode 100755
+index 0000000..5f8694b
+--- /dev/null
++++ b/config/mac/mac_sdk.py
+@@ -0,0 +1,39 @@
++#!/usr/bin/env python
++# -*- coding: utf-8 -*-
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# Phase 0 helper: resolve the macOS desktop SDK path via xcrun. Mirrors the
++# role of build_plugins/config/ios/ios_sdk.py but for the "macosx" SDK so the
++# mac toolchain can target the native desktop instead of iOS.
++
++import argparse
++import subprocess
++import sys
++
++
++def main(argv):
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--sdk', default='macosx', help='Which SDK to find.')
++    args = parser.parse_args(argv[1:])
++
++    command = ['xcrun', '--sdk', args.sdk, '--show-sdk-path']
++    sdk_output = subprocess.check_output(command).decode('utf-8').strip()
++    print(sdk_output)
++    return 0
++
++
++if __name__ == '__main__':
++    if sys.platform != 'darwin':
++        raise Exception('This script only runs on Mac')
++    sys.exit(main(sys.argv))
+diff --git a/sdk/parse_sdk_description.py b/sdk/parse_sdk_description.py
+index ad0c137..5ffd27b 100755
+--- a/sdk/parse_sdk_description.py
++++ b/sdk/parse_sdk_description.py
+@@ -187,6 +187,11 @@ def parse_description_file(options):
+     sdk_items = []
+     arch_dict = data.get('arch_dict')
+     multi_arch_items = data.get(options.platform)
++    # Phase 0 (target_os=mac): the SDK description file has no "mac" section yet.
++    # Tolerate a missing platform so `gn gen` can proceed; SDK packaging for mac
++    # is intentionally out of scope here (we only de-risk the graphic backend).
++    if multi_arch_items is None:
++        multi_arch_items = []
+ 
+     target_os_list = []
+     if hasattr(options, 'build_target_os') and options.build_target_os:
+diff --git a/toolchain/mac/BUILD.gn b/toolchain/mac/BUILD.gn
+new file mode 100644
+index 0000000..f88f234
+--- /dev/null
++++ b/toolchain/mac/BUILD.gn
+@@ -0,0 +1,316 @@
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# Phase 0: native macOS (AppKit) desktop toolchain. This is a near-clone of
++# build_plugins/toolchain/ios/BUILD.gn. The ios toolchain template already
++# builds host-side targets with current_os="mac" (see ios_clang_x64), proving
++# the clang/ld/linker_driver plumbing works for the desktop. The only real
++# difference here is the sysroot: we point at the macosx SDK and pass
++# -mmacosx-version-min instead of -miphoneos-version-min.
++
++import("//build/config/clang/clang.gni")
++import("//build/config/mac/mac_sdk.gni")
++import("//build/config/mac/symbols.gni")
++import("//build_plugins/config/mac/mac_sdk.gni")
++
++assert(host_os == "mac")
++
++import("//build/toolchain/cc_wrapper.gni")
++import("//build/toolchain/clang_static_analyzer.gni")
++import("//build/toolchain/toolchain.gni")
++
++tool_versions =
++    exec_script("get_tool_mtime.py",
++                rebase_path([
++                              "//build_plugins/toolchain/mac/filter_libtool.py",
++                              "//build_plugins/toolchain/mac/linker_driver.py",
++                            ],
++                            root_build_dir),
++                "trim scope")
++
++# Shared toolchain definition. Invocations should set current_os to set the
++# build args in this definition.
++template("mac_desktop_toolchain") {
++  toolchain(target_name) {
++    if (use_system_xcode) {
++      env_wrapper = ""
++    } else {
++      env_wrapper = "export DEVELOPER_DIR=$hermetic_xcode_path; "
++    }
++
++    assert(defined(invoker.toolchain_args),
++           "Toolchains must declare toolchain_args")
++    toolchain_args = {
++      forward_variables_from(invoker.toolchain_args, "*")
++      host_toolchain = host_toolchain
++    }
++
++    # Use the version of clang shipped with Xcode when use_xcode_clang is set,
++    # otherwise use the prebuilt clang. The macOS SDK's Objective-C headers are
++    # matched to the system clang and do NOT compile with the prebuilt OHOS
++    # clang-15 (NSUInteger unknown), so the desktop build requires Xcode's clang.
++    # Use an absolute path because build.sh prepends prebuilts/ to PATH.
++    if (use_xcode_clang) {
++      prefix = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/"
++
++      # alink uses Apple libtool in this path, not _ar; keep a value to satisfy
++      # references below without GN flagging an unused assignment.
++      _ar = "${prefix}ar"
++    } else {
++      prefix = rebase_path("$clang_base_path/bin/", root_build_dir)
++      _ar = "${prefix}llvm-ar"
++    }
++    not_needed([ "_ar" ])
++
++    _cc = "${prefix}clang"
++    _cxx = "${prefix}clang++"
++
++    if (defined(toolchain_args.cc_wrapper)) {
++      toolchain_cc_wrapper = toolchain_args.cc_wrapper
++    } else {
++      toolchain_cc_wrapper = cc_wrapper
++    }
++
++    if (toolchain_cc_wrapper != "") {
++      compiler_prefix = toolchain_cc_wrapper + " "
++    } else {
++      compiler_prefix = ""
++    }
++
++    cc = compiler_prefix + _cc
++    cxx = compiler_prefix + _cxx
++    ld = _cxx
++
++    if (use_clang_static_analyzer) {
++      analyzer_wrapper =
++          rebase_path("//build/toolchain/clang_static_analyzer_wrapper.py",
++                      root_build_dir) + "  --mode=clang"
++      cc = analyzer_wrapper + " ${cc}"
++      cxx = analyzer_wrapper + " ${cxx}"
++      ld = cxx
++    }
++
++    linker_driver =
++        "TOOL_VERSION=${tool_versions.linker_driver} " +
++        rebase_path("//build_plugins/toolchain/mac/linker_driver.py",
++                    root_build_dir)
++
++    _save_unstripped_output = false
++
++    lib_switch = "-l"
++    lib_dir_switch = "-L"
++
++    object_subdir = "{{source_out_dir}}/{{label_name}}"
++
++    if (_save_unstripped_output) {
++      _unstripped_output = "{{root_out_dir}}/{{target_output_name}}{{output_extension}}.unstripped"
++    }
++
++    sysroot_flags = ""
++    if (defined(invoker.sysroot_flags)) {
++      sysroot_flags = invoker.sysroot_flags
++    }
++    tool("cc") {
++      depfile = "{{output}}.d"
++      precompiled_header_type = "gcc"
++      command = "$cc -MMD -MF $depfile {{defines}} {{include_dirs}} $sysroot_flags {{cflags}} {{cflags_c}} -c {{source}} -o {{output}}"
++      depsformat = "gcc"
++      description = "CC {{output}}"
++      outputs = [ "$object_subdir/{{source_name_part}}.o" ]
++    }
++
++    tool("cxx") {
++      depfile = "{{output}}.d"
++      precompiled_header_type = "gcc"
++      command = "$cxx -MMD -MF $depfile {{defines}} {{include_dirs}} $sysroot_flags {{cflags}} {{cflags_cc}} -c {{source}} -o {{output}}"
++      depsformat = "gcc"
++      description = "CXX {{output}}"
++      outputs = [ "$object_subdir/{{source_name_part}}.o" ]
++    }
++
++    tool("asm") {
++      depfile = "{{output}}.d"
++      command = "$cc -MMD -MF $depfile {{defines}} {{include_dirs}} {{asmflags}} $sysroot_flags -c {{source}} -o {{output}}"
++      depsformat = "gcc"
++      description = "ASM {{output}}"
++      outputs = [ "$object_subdir/{{source_name_part}}.o" ]
++    }
++
++    tool("objc") {
++      depfile = "{{output}}.d"
++      precompiled_header_type = "gcc"
++      command = "$cc -MMD -MF $depfile {{defines}} {{include_dirs}} {{framework_dirs}} $sysroot_flags {{cflags}} {{cflags_objc}} -c {{source}} -o {{output}}"
++      depsformat = "gcc"
++      description = "OBJC {{output}}"
++      outputs = [ "$object_subdir/{{source_name_part}}.o" ]
++    }
++
++    tool("objcxx") {
++      depfile = "{{output}}.d"
++      precompiled_header_type = "gcc"
++      command = "$cxx -MMD -MF $depfile {{defines}} {{include_dirs}} {{framework_dirs}} $sysroot_flags {{cflags}} {{cflags_objcc}} -c {{source}} -o {{output}}"
++      depsformat = "gcc"
++      description = "OBJCXX {{output}}"
++      outputs = [ "$object_subdir/{{source_name_part}}.o" ]
++    }
++
++    tool("alink") {
++      rspfile = "{{output}}.rsp"
++
++      # Phase 1 path X: Xcode's BSD ar supports neither -D nor @rspfile, and
++      # neither ar nor libtool will create an EMPTY archive (header-only targets).
++      # Use Apple libtool when there are inputs; otherwise synthesize an empty but
++      # valid archive from a throwaway object.
++      if (use_xcode_clang) {
++        command = "rm -f {{output}} && if [ -s \"$rspfile\" ]; then /usr/bin/libtool -static -o {{output}} -filelist \"$rspfile\"; else _e=\"{{output}}.empty\"; echo '' | xcrun clang -x c -c - -o \"\${_e}.o\" && /usr/bin/libtool -static -o {{output}} \"\${_e}.o\" && rm -f \"\${_e}.o\"; fi"
++      } else {
++        command = "rm -f {{output}} && $_ar {{arflags}} -r -c -s -D {{output}} \"@$rspfile\""
++      }
++      rspfile_content = "{{inputs_newline}}"
++      description = "AR {{output}}"
++      outputs = [ "{{output_dir}}/{{target_output_name}}{{output_extension}}" ]
++      default_output_dir = "{{target_out_dir}}"
++      default_output_extension = ".a"
++      output_prefix = "lib"
++    }
++
++    tool("solink") {
++      dylib = "{{output_dir}}/{{target_output_name}}{{output_extension}}"
++      rspfile = dylib + ".rsp"
++      pool = "//build/toolchain:link_pool($default_toolchain)"
++
++      tocname = dylib + ".TOC"
++      temporary_tocname = dylib + ".tmp"
++
++      does_reexport_command = "[ ! -e \"$dylib\" -o ! -e \"$tocname\" ] || otool -l \"$dylib\" | grep -q LC_REEXPORT_DYLIB"
++
++      llvm_strip =
++          rebase_path("$clang_base_path/bin/llvm-strip", root_build_dir)
++      unstripped_dylib_dir =
++          "{{root_out_dir}}/unstripped_dylib/{{target_output_name}}"
++      link_command = "$linker_driver $ld -shared $sysroot_flags "
++      if (is_component_build) {
++        link_command += " -Wl,-install_name,@rpath/\"{{target_output_name}}{{output_extension}}\" "
++      }
++      link_command += "{{ldflags}} -o \"$dylib\" -Wl,-filelist,\"$rspfile\" {{libs}} {{solibs}} {{frameworks}} "
++      link_command += " -Wcrl,strip,$llvm_strip"
++      link_command += " -Wcrl,unstripped,$unstripped_dylib_dir"
++
++      replace_command = "if ! cmp -s \"$temporary_tocname\" \"$tocname\"; then mv \"$temporary_tocname\" \"$tocname\""
++      extract_toc_command = "{ otool -l \"$dylib\" | grep LC_ID_DYLIB -A 5; nm -gP \"$dylib\" | cut -f1-2 -d' ' | grep -v U\$\$; true; }"
++
++      command = "$env_wrapper if $does_reexport_command ; then $link_command && $extract_toc_command > \"$tocname\"; else $link_command && $extract_toc_command > \"$temporary_tocname\" && $replace_command ; fi; fi"
++
++      rspfile_content = "{{inputs_newline}}"
++
++      description = "SOLINK {{output}}"
++
++      default_output_dir = "{{root_out_dir}}"
++      default_output_extension = ".dylib"
++
++      output_prefix = "lib"
++
++      restat = true
++
++      outputs = [
++        dylib,
++        tocname,
++      ]
++      link_output = dylib
++      depend_output = tocname
++
++      if (_save_unstripped_output) {
++        outputs += [ _unstripped_output ]
++      }
++    }
++
++    tool("solink_module") {
++      sofile = "{{output_dir}}/{{target_output_name}}{{output_extension}}"
++      rspfile = sofile + ".rsp"
++      pool = "//build/toolchain:link_pool($default_toolchain)"
++
++      link_command = "$env_wrapper $linker_driver $ld -bundle {{ldflags}} -o \"$sofile\" -Wl,-filelist,\"$rspfile\""
++      if (is_component_build) {
++        link_command += " -Wl,-install_name,@rpath/{{target_output_name}}{{output_extension}}"
++      }
++      link_command += " {{solibs}} {{libs}}"
++      command = link_command
++
++      rspfile_content = "{{inputs_newline}}"
++
++      description = "SOLINK_MODULE {{output}}"
++
++      default_output_dir = "{{root_out_dir}}"
++      default_output_extension = ".so"
++
++      outputs = [ sofile ]
++
++      if (_save_unstripped_output) {
++        outputs += [ _unstripped_output ]
++      }
++    }
++
++    tool("link") {
++      outfile = "{{output_dir}}/{{target_output_name}}{{output_extension}}"
++      rspfile = "$outfile.rsp"
++      pool = "//build/toolchain:link_pool($default_toolchain)"
++
++      command = "$env_wrapper $linker_driver $ld $sysroot_flags {{ldflags}} -o \"$outfile\" -Wl,-filelist,\"$rspfile\" {{solibs}} {{libs}} {{frameworks}} "
++      description = "LINK $outfile"
++      rspfile_content = "{{inputs_newline}}"
++      outputs = [ outfile ]
++
++      if (_save_unstripped_output) {
++        outputs += [ _unstripped_output ]
++      }
++
++      default_output_dir = "{{root_out_dir}}"
++    }
++
++    tool("stamp") {
++      command = stamp_command
++      description = stamp_description
++    }
++    tool("copy") {
++      command = copy_command
++      description = copy_description
++    }
++
++    tool("copy_bundle_data") {
++      command = "rm -rf {{output}} && cp -af {{source}} {{output}}"
++      description = "copy_bundle_data {{source}} {{output}}"
++    }
++
++    tool("action") {
++      pool = "//build/toolchain:action_pool($default_toolchain)"
++    }
++  }
++}
++
++# Native macOS desktop (Apple Silicon).
++mac_desktop_toolchain("mac_clang_arm64") {
++  toolchain_args = {
++    current_cpu = "arm64"
++    current_os = "mac"
++  }
++  sysroot_flags = "-isysroot $mac_desktop_sdk_path -target arm64-apple-macos$mac_deployment_target"
++}
++
++# Native macOS desktop (Intel), for completeness / Rosetta hosts.
++mac_desktop_toolchain("mac_clang_x64") {
++  toolchain_args = {
++    current_cpu = "x64"
++    current_os = "mac"
++  }
++  sysroot_flags = "-isysroot $mac_desktop_sdk_path -target x86_64-apple-macos$mac_deployment_target"
++}
+diff --git a/toolchain/mac/filter_libtool.py b/toolchain/mac/filter_libtool.py
+new file mode 100755
+index 0000000..d79f664
+--- /dev/null
++++ b/toolchain/mac/filter_libtool.py
+@@ -0,0 +1,55 @@
++#!/usr/bin/env python
++# -*- coding: utf-8 -*-
++# Copyright 2016 The Chromium Authors. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import os
++import re
++import subprocess
++import sys
++
++# This script executes libtool and filters out logspam lines like:
++#    '/path/to/libtool: file: foo.o has no symbols'
++BLOCKLIST_PATTERNS = map(re.compile, [
++    r'^.*libtool: (?:for architecture: \S* )?file: .* has no symbols$',
++    r'^.*libtool: warning for library: .* the table of contents is empty '
++    r'\(no object file members in the library define global symbols\)$',
++    r'^.*libtool: warning same member name \(\S*\) in output file used for '
++    r'input files: \S* and: \S* \(due to use of basename, truncation, '
++    r'blank padding or duplicate input files\)$',
++])
++
++
++def is_blocklisted_line(line):
++    """Returns whether the line should be filtered out."""
++    for pattern in BLOCKLIST_PATTERNS:
++        if isinstance(line, bytes):
++            line = line.decode()
++        if pattern.match(line):
++            return True
++    return False
++
++
++def main(cmd_list):
++    env = os.environ.copy()
++    # The problem with this flag is that it resets the file mtime on the file
++    # to epoch=0, e.g. 1970-1-1 or 1969-12-31 depending on timezone.
++    env['ZERO_AR_DATE'] = '1'
++    libtoolout = subprocess.Popen(cmd_list, stderr=subprocess.PIPE, env=env)
++    _, err = libtoolout.communicate()
++    for line in err.splitlines():
++        if not is_blocklisted_line(line):
++            print(line, file=sys.stderr)
++    # Unconditionally touch the output .a file on the command line if present
++    # and the command succeeded. A bit hacky.
++    if not libtoolout.returncode:
++        for i in range(len(cmd_list) - 1):
++            if cmd_list[i] == '-o' and cmd_list[i + 1].endswith('.a'):
++                os.utime(cmd_list[i + 1], None)
++                break
++    return libtoolout.returncode
++
++
++if __name__ == '__main__':
++    sys.exit(main(sys.argv[1:]))
+diff --git a/toolchain/mac/get_tool_mtime.py b/toolchain/mac/get_tool_mtime.py
+new file mode 100755
+index 0000000..4d81983
+--- /dev/null
++++ b/toolchain/mac/get_tool_mtime.py
+@@ -0,0 +1,19 @@
++#!/usr/bin/env python
++# -*- coding: utf-8 -*-
++# Copyright 2016 The Chromium Authors. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import os
++import sys
++
++# Usage: python get_tool_mtime.py path/to/file1.py path/to/file2.py
++#
++# Prints a GN scope with the variable name being the basename sans-extension
++# and the value being the file modification time. A variable is emitted for
++# each file argument on the command line.
++
++if __name__ == '__main__':
++    for f in sys.argv[1:]:
++        variable = os.path.splitext(os.path.basename(f))[0]
++        print('%s = %d' % (variable, os.path.getmtime(f)))
+diff --git a/toolchain/mac/linker_driver.py b/toolchain/mac/linker_driver.py
+new file mode 100755
+index 0000000..a5463cd
+--- /dev/null
++++ b/toolchain/mac/linker_driver.py
+@@ -0,0 +1,232 @@
++#!/usr/bin/env python
++# -*- coding: utf-8 -*-
++# Copyright 2016 The Chromium Authors. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import os
++import os.path
++import shutil
++import subprocess
++import sys
++
++"""
++The linker_driver.py is responsible for forwarding a linker invocation to
++the compiler driver, while processing special arguments itself.
++
++Usage: linker_driver.py clang++ main.o -L. -llib -o prog -Wcrl,dsym,out
++
++On Mac, the logical step of linking is handled by three discrete tools to
++perform the image link, debug info link, and strip. The linker_driver.py
++combines these three steps into a single tool.
++
++The command passed to the linker_driver.py should be the compiler driver
++invocation for the linker. It is first invoked unaltered (except for the
++removal of the special driver arguments, described below). Then the driver
++performs additional actions, based on these arguments:
++
++  -Wcrl,dsym,<dsym_path_prefix>
++      After invoking the linker, this will run `dsymutil` on the linker's
++      output, producing a dSYM bundle, stored at dsym_path_prefix. As an
++      example, if the linker driver were invoked with:
++        "... -o out/gn/obj/foo/libbar.dylib ... -Wcrl,dsym,out/gn ..."
++      The resulting dSYM would be out/gn/libbar.dylib.dSYM/.
++
++  -Wcrl,unstripped,<unstripped_path_prefix>
++      After invoking the linker, and before strip, this will save a copy of
++      the unstripped linker output in the directory unstripped_path_prefix.
++
++  -Wcrl,strip,<strip_arguments>
++      After invoking the linker, and optionally dsymutil, this will run
++      the strip command on the linker's output. strip_arguments are
++      comma-separated arguments to be passed to the strip command.
++"""
++def main(args):
++    """main function for the linker driver. Separates out the arguments for
++    the main compiler driver and the linker driver, then invokes all the
++    required tools.
++
++    Args:
++      args: list of string, Arguments to the script.
++    """
++
++    if len(args) < 2:
++        raise RuntimeError("Usage: linker_driver.py [linker-invocation]")
++
++    for i in range(len(args)):
++        if args[i] != '--developer_dir':
++            continue
++        os.environ['DEVELOPER_DIR'] = args[i + 1]
++        del args[i:i + 2]
++        break
++
++    # Collect arguments to the linker driver (this script) and remove them from
++    # the arguments being passed to the compiler driver.
++    linker_driver_actions = {}
++    compiler_driver_args = []
++    for arg in args[1:]:
++        if arg.startswith(_LINKER_DRIVER_ARG_PREFIX):
++            # Convert driver actions into a map of name => lambda to invoke.
++            driver_action = process_linker_driver_arg(arg)
++            assert driver_action[0] not in linker_driver_actions
++            linker_driver_actions[driver_action[0]] = driver_action[1]
++        else:
++            compiler_driver_args.append(arg)
++
++    linker_driver_outputs = [_find_linker_output(compiler_driver_args)]
++
++    try:
++        # Run the linker by invoking the compiler driver.
++        subprocess.check_call(compiler_driver_args)
++
++        # Run the linker driver actions, in the order specified by the actions list.
++        for action in _LINKER_DRIVER_ACTIONS:
++            name = action[0]
++            if name in linker_driver_actions:
++                linker_driver_outputs += linker_driver_actions[name](args)
++    except:
++        # If a linker driver action failed, remove all the outputs to make the
++        # build step atomic.
++        map(_remove_path, linker_driver_outputs)
++
++        # Re-report the original failure.
++        raise
++
++
++def process_linker_driver_arg(arg):
++    """Processes a linker driver argument and returns a tuple containing the
++    name and unary lambda to invoke for that linker driver action.
++
++    Args:
++      arg: string, The linker driver argument.
++
++    Returns:
++      A 2-tuple:
++        0: The driver action name, as in _LINKER_DRIVER_ACTIONS.
++        1: An 1-ary lambda that takes the full list of arguments passed to
++           main(). The lambda should call the linker driver action that
++           corresponds to the argument and return a list of outputs from the
++           action.
++    """
++    if not arg.startswith(_LINKER_DRIVER_ARG_PREFIX):
++        raise ValueError('%s is not a linker driver argument' % (arg,))
++
++    sub_arg = arg[len(_LINKER_DRIVER_ARG_PREFIX):]
++
++    for driver_action in _LINKER_DRIVER_ACTIONS:
++        (name, action) = driver_action
++        if sub_arg.startswith(name):
++            return (name,
++                    lambda full_args: action(sub_arg[len(name):], full_args))
++
++    raise ValueError('Unknown linker driver argument: %s' % (arg,))
++
++
++def run_dsym_util(dsym_path_prefix, full_args):
++    """Linker driver action for -Wcrl,dsym,<dsym-path-prefix>. Invokes dsymutil
++    on the linker's output and produces a dsym file at |dsym_file| path.
++
++    Args:
++      dsym_path_prefix: string, The path at which the dsymutil output should be
++          located.
++      full_args: list of string, Full argument list for the linker driver.
++
++    Returns:
++        list of string, Build step outputs.
++    """
++    if not len(dsym_path_prefix):
++        raise ValueError('Unspecified dSYM output file')
++
++    linker_out = _find_linker_output(full_args)
++    base = os.path.basename(linker_out)
++    dsym_out = os.path.join(dsym_path_prefix, base + '.dSYM')
++
++    # Remove old dSYMs before invoking dsymutil.
++    _remove_path(dsym_out)
++    subprocess.check_call(['xcrun', 'dsymutil', '-o', dsym_out, linker_out])
++    return [dsym_out]
++
++
++def run_save_unstripped(unstripped_path_prefix, full_args):
++    """Linker driver action for -Wcrl,unstripped,<unstripped_path_prefix>. Copies
++    the linker output to |unstripped_path_prefix| before stripping.
++
++    Args:
++      unstripped_path_prefix: string, The path at which the unstripped output
++          should be located.
++      full_args: list of string, Full argument list for the linker driver.
++
++    Returns:
++      list of string, Build step outputs.
++    """
++    if not len(unstripped_path_prefix):
++        raise ValueError('Unspecified unstripped output file')
++
++    linker_out = _find_linker_output(full_args)
++    base = os.path.basename(linker_out)
++    unstripped_out = os.path.join(unstripped_path_prefix, base)
++    if not os.path.exists(unstripped_path_prefix):
++        os.makedirs(unstripped_path_prefix, exist_ok=True)
++
++    shutil.copyfile(linker_out, unstripped_out)
++    return [unstripped_out]
++
++
++def run_strip(strip_args_string, full_args):
++    """Linker driver action for -Wcrl,strip,<strip_arguments>.
++
++    Args:
++        strip_args_string: string, Comma-separated arguments for `strip`.
++        full_args: list of string, Full arguments for the linker driver.
++
++    Returns:
++        list of string, Build step outputs.
++    """
++    strip_command = []
++    if len(strip_args_string) > 0:
++        strip_command += strip_args_string.split(',')
++    strip_command.append(_find_linker_output(full_args))
++    subprocess.check_call(strip_command)
++    return []
++
++
++def _find_linker_output(full_args):
++    """Finds the output of the linker by looking for the output flag in its
++    argument list. As this is a required linker argument, raises an error if it
++    cannot be found.
++    """
++    # The linker_driver.py script may be used to wrap either the compiler linker
++    # (uses -o to configure the output) or lipo (uses -output to configure the
++    # output). Since wrapping the compiler linker is the most likely possibility
++    # use try/except and fallback to checking for -output if -o is not found.
++    try:
++        output_flag_index = full_args.index('-o')
++    except ValueError:
++        output_flag_index = full_args.index('-output')
++    return full_args[output_flag_index + 1]
++
++
++def _remove_path(path):
++    """Removes the file or directory at |path| if it exists."""
++    if os.path.exists(path):
++        if os.path.isdir(path):
++            shutil.rmtree(path)
++        else:
++            os.unlink(path)
++
++
++_LINKER_DRIVER_ARG_PREFIX = '-Wcrl,'
++
++"""List of linker driver actions. The sort order of this list affects the
++order in which the actions are invoked. The first item in the tuple is the
++argument's -Wcrl,<sub_argument> and the second is the function to invoke.
++"""
++_LINKER_DRIVER_ACTIONS = [
++    ('dsym,', run_dsym_util),
++    ('unstripped,', run_save_unstripped),
++    ('strip,', run_strip),
++]
++
++if __name__ == '__main__':
++    main(sys.argv)
++    sys.exit(0)

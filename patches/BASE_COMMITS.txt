@@ -1,0 +1,9 @@
+# arkui-x 原生 macOS 移植 patch 基线 commit(各仓 checkout 到此再 apply)
+build  bd4da9d318d038ce8e08fa68d09c931a047ca1a5
+build_plugins  af46e9efdfeb2373dfa2992bdecae7d306097afb
+foundation/graphic/graphic_2d  fa4e38263c3426ae71863d656bd0013b0152c8a4
+foundation/appframework  dc3d20776aa248bdb15f01d77d283ff6aba6f170
+foundation/arkui/ace_engine  b23834759f561d503ae4ed4fdca27d7cc189459e
+foundation/multimedia/image_framework  b92cbaf9dc5aa3701480d7774a17dff7f28805cf
+base/hiviewdfx/hilog  d41d924197cbc73fe631d8712fa68c2800b45af0
+commonlibrary/c_utils  41d8b7800963749f68a4811a46f00910123b89a1

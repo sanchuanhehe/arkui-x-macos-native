@@ -1,0 +1,33 @@
+diff --git a/adapter/preview/build/config_mac.gni b/adapter/preview/build/config_mac.gni
+index 5bdfafed3cd..45b79ee7b2b 100644
+--- a/adapter/preview/build/config_mac.gni
++++ b/adapter/preview/build/config_mac.gni
+@@ -18,3 +18,11 @@ defines += [
+   "MAC_PLATFORM",
+   "SK_BUILD_FONT_MGR_FOR_PREVIEW_MAC",
+ ]
++
++# Phase 1 path X: the macOS desktop build uses the appframework (iOS-style)
++# backend, not the previewer. The "PREVIEW" define (from preview_common.gni)
++# collides with enum identifiers in image_framework (e.g. Cr3UuidType::PREVIEW),
++# so drop it for the native-mac build.
++if (defined(preview_support) && preview_support) {
++  defines -= [ "PREVIEW" ]
++}
+diff --git a/adapter/preview/build/platform.gni b/adapter/preview/build/platform.gni
+index eb25f0049ec..ca804727826 100644
+--- a/adapter/preview/build/platform.gni
++++ b/adapter/preview/build/platform.gni
+@@ -30,6 +30,12 @@ if (use_mingw_win) {
+ if (use_mac) {
+   mac_platform = {
+     name = "mac"
++
++    # Phase 0 path X: mark the mac platform as cross-platform-supported so it is
++    # admitted into ace_platforms under is_arkui_x (the foreach filter requires
++    # cross_platform_support). This makes skia_mac / 2d_graphics_source_mac etc.
++    # get generated for target_os=mac.
++    cross_platform_support = true
+     config = {
+       import("config_mac.gni")
+     }
