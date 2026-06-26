@@ -155,7 +155,7 @@ index 71a4a0a34..31b987b07 100644
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
 diff --git a/ide/image_decode_config.gni b/ide/image_decode_config.gni
-index be093ae5a..b59fae36f 100644
+index be093ae5a..eac70c731 100644
 --- a/ide/image_decode_config.gni
 +++ b/ide/image_decode_config.gni
 @@ -20,17 +20,31 @@ declare_args() {
@@ -193,6 +193,27 @@ index be093ae5a..b59fae36f 100644
  image_decode_ios_defines = [ "IOS_PLATFORM" ]
  image_decode_android_defines = [ "ANDROID_PLATFORM" ]
  image_sep_f = "/f"
+@@ -65,7 +79,19 @@ image_use_new_skia = image_framework_feature_upgrade_skia
+ skia_root = "//third_party"
+ skia_deps_root = skia_root
+ skia_core = [ "$skia_deps_root/skia:skia_core" ]
+-skia_skcms = [ "$skia_deps_root/skia:skcms" ]
++
++# Phase 0 path X (mac dedup): on target_os=mac route skcms through the m133
++# module static_library instead of the top-level "//third_party/skia:skcms"
++# source_set. Both compile the identical m133 skcms.cc into the SAME output
++# path, so keeping both target definitions makes ninja fail at load with
++# "multiple rules generate ... skcms.o". On mac we drop the top-level source_set
++# definition entirely (see third_party/skia/BUILD.gn), so every consumer must
++# point at the m133 target. Other platforms keep the original wiring.
++if (target_os == "mac") {
++  skia_skcms = [ "//third_party/skia/m133/modules/skcms:skcms" ]
++} else {
++  skia_skcms = [ "$skia_deps_root/skia:skcms" ]
++}
+ 
+ exif_root = "//third_party"
+ 
 diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
 index 605575d0b..90f2d0919 100644
 --- a/interfaces/innerkits/BUILD.gn

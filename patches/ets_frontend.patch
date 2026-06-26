@@ -1,0 +1,84 @@
+diff --git a/ets2panda/driver/build_system/BUILD.gn b/ets2panda/driver/build_system/BUILD.gn
+index 26fc6a3e3..bb560e92f 100644
+--- a/ets2panda/driver/build_system/BUILD.gn
++++ b/ets2panda/driver/build_system/BUILD.gn
+@@ -44,11 +44,25 @@ ohos_copy("ets2panda_build_system") {
+   subsystem_name = "arkcompiler"
+ }
+ 
+-ohos_copy("ohos_ets_build_system") {
+-  deps = [ ":build_build_system" ]
+-  external_deps = [ "runtime_core:ohos_ets_etsstdlib_abc" ]
+-  sources = [ rebase_path("$target_gen_dir") ]
+-  outputs = [ ohos_ets_build_system_path ]
+-  part_name = "ets_frontend"
+-  subsystem_name = "arkcompiler"
++# Phase 0 path X (mac dedup): ohos_ets_build_system_path resolves to a fixed
++# $root_build_dir/ohos_ets/... path that is NOT prefixed by the toolchain output
++# subdir, so instantiating this copy in more than one toolchain makes two rules
++# write the same output ("multiple rules generate ohos_ets/.../build-system").
++# On the mac build both the default (mac_clang_arm64) and host (clang_arm64)
++# toolchains pull this in. Restrict it to the default toolchain so the copy runs
++# exactly once; consumers reference the fixed path, not a per-toolchain label.
++if (current_toolchain == default_toolchain) {
++  ohos_copy("ohos_ets_build_system") {
++    deps = [ ":build_build_system" ]
++    external_deps = [ "runtime_core:ohos_ets_etsstdlib_abc" ]
++    sources = [ rebase_path("$target_gen_dir") ]
++    outputs = [ ohos_ets_build_system_path ]
++    part_name = "ets_frontend"
++    subsystem_name = "arkcompiler"
++  }
++} else {
++  group("ohos_ets_build_system") {
++    public_deps =
++        [ ":ohos_ets_build_system($default_toolchain)" ]
++  }
+ }
+diff --git a/ets2panda/driver/dependency_analyzer/BUILD.gn b/ets2panda/driver/dependency_analyzer/BUILD.gn
+index 951260fbd..8acfcd0a6 100644
+--- a/ets2panda/driver/dependency_analyzer/BUILD.gn
++++ b/ets2panda/driver/dependency_analyzer/BUILD.gn
+@@ -75,19 +75,29 @@ ohos_executable("dependency_analyzer") {
+   subsystem_name = "arkcompiler"
+ }
+ 
+-ohos_copy("ohos_ets_dependency_analyzer") {
+-  if (is_mingw) {
+-    sources =
+-        [ "$root_out_dir/arkcompiler/ets_frontend/dependency_analyzer.exe" ]
+-  } else {
+-    sources = [ "$root_out_dir/arkcompiler/ets_frontend/dependency_analyzer" ]
++# Phase 0 path X (mac dedup): on mac the fixed ohos_ets_dependency_analyzer_path
++# (a $root_build_dir path, not toolchain-prefixed) would be written by both the
++# default and host toolchains -> "multiple rules generate ...". Emit the fixed
++# path only in the default toolchain; other toolchains forward to it.
++if (current_toolchain == default_toolchain) {
++  ohos_copy("ohos_ets_dependency_analyzer") {
++    if (is_mingw) {
++      sources =
++          [ "$root_out_dir/arkcompiler/ets_frontend/dependency_analyzer.exe" ]
++    } else {
++      sources = [ "$root_out_dir/arkcompiler/ets_frontend/dependency_analyzer" ]
++    }
++    if (is_linux || is_mac) {
++      outputs = [ ohos_ets_dependency_analyzer_path ]
++    } else {
++      outputs = [ "$target_out_dir/$target_name/dependency_analyzer" ]
++    }
++    deps = [ ":dependency_analyzer" ]
++    part_name = "ets_frontend"
++    subsystem_name = "arkcompiler"
+   }
+-  if (is_linux || is_mac) {
+-    outputs = [ ohos_ets_dependency_analyzer_path ]
+-  } else {
+-    outputs = [ "$target_out_dir/$target_name/dependency_analyzer" ]
++} else {
++  group("ohos_ets_dependency_analyzer") {
++    public_deps = [ ":ohos_ets_dependency_analyzer($default_toolchain)" ]
+   }
+-  deps = [ ":dependency_analyzer" ]
+-  part_name = "ets_frontend"
+-  subsystem_name = "arkcompiler"
+ }

@@ -1,0 +1,64 @@
+diff --git a/static_core/plugins/ets/BUILD.gn b/static_core/plugins/ets/BUILD.gn
+index 77a7ffb0fe..8363be00be 100644
+--- a/static_core/plugins/ets/BUILD.gn
++++ b/static_core/plugins/ets/BUILD.gn
+@@ -417,12 +417,22 @@ if (with_stdlib) {
+   }
+ 
+   if (!ark_standalone_build && !ark_static_standalone_build) {
+-    ohos_copy("ohos_ets_etsstdlib_abc") {
+-      deps = [ ":etsstdlib" ]
+-      sources = get_target_outputs(":etsstdlib")
+-      outputs = [ ohos_ets_etsstdlib_path ]
+-      part_name = "runtime_core"
+-      subsystem_name = "arkcompiler"
++    # Phase 0 path X (mac dedup): ohos_ets_etsstdlib_path is a fixed
++    # $root_build_dir path; emitting it in both the default and host toolchains
++    # makes ninja fail ("multiple rules generate ...etsstdlib.abc"). Restrict to
++    # the default toolchain; other toolchains forward to it.
++    if (current_toolchain == default_toolchain) {
++      ohos_copy("ohos_ets_etsstdlib_abc") {
++        deps = [ ":etsstdlib" ]
++        sources = get_target_outputs(":etsstdlib")
++        outputs = [ ohos_ets_etsstdlib_path ]
++        part_name = "runtime_core"
++        subsystem_name = "arkcompiler"
++      }
++    } else {
++      group("ohos_ets_etsstdlib_abc") {
++        public_deps = [ ":ohos_ets_etsstdlib_abc($default_toolchain)" ]
++      }
+     }
+ 
+     etsstdlib_path_list = get_target_outputs(":etsstdlib")
+diff --git a/static_core/plugins/ets/stdlib/BUILD.gn b/static_core/plugins/ets/stdlib/BUILD.gn
+index 44b2086f82..34863e3e9e 100644
+--- a/static_core/plugins/ets/stdlib/BUILD.gn
++++ b/static_core/plugins/ets/stdlib/BUILD.gn
+@@ -73,11 +73,20 @@ if (is_mac) {
+ }
+ 
+ if (!ark_standalone_build) {
+-  ohos_copy("ohos_ets_stdlib") {
+-    deps = [ ":copy_stdlib" ]
+-    sources = [ "${root_out_dir}/arkcompiler/stdlib" ]
+-    outputs = [ ohos_ets_stdlib_path ]
+-    part_name = "runtime_core"
+-    subsystem_name = "arkcompiler"
++  # Phase 0 path X (mac dedup): ohos_ets_stdlib_path is a fixed $root_build_dir
++  # path; building it in both the default and host toolchains makes ninja fail
++  # with "multiple rules generate ...". Emit it only in the default toolchain.
++  if (current_toolchain == default_toolchain) {
++    ohos_copy("ohos_ets_stdlib") {
++      deps = [ ":copy_stdlib" ]
++      sources = [ "${root_out_dir}/arkcompiler/stdlib" ]
++      outputs = [ ohos_ets_stdlib_path ]
++      part_name = "runtime_core"
++      subsystem_name = "arkcompiler"
++    }
++  } else {
++    group("ohos_ets_stdlib") {
++      public_deps = [ ":ohos_ets_stdlib($default_toolchain)" ]
++    }
+   }
+ }

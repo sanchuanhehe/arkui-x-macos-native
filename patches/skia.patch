@@ -1,0 +1,78 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index e692b4e6b4..51ed474014 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -23,23 +23,34 @@ if (is_arkui_x) {
+   skia_component("skia") {
+   }
+   import("${skia_modules_dir}/skcms/skcms.gni")
+-  skia_source_set("skcms") {
+-    cflags = []
+-    if (!is_win || is_clang) {
+-      cflags += [ "-std=c11" ]
+-    }
+-    if (target_cpu != "x64" || target_os == "android") {
+-      defines = [
+-        "SKCMS_DISABLE_HSW",
+-        "SKCMS_DISABLE_SKX",
++
++  # Phase 0 path X (mac dedup): this top-level skcms source_set compiles the
++  # exact same m133 skcms.cc/skcms_TransformBaseline.cc into the exact same
++  # output paths (obj/third_party/skia/m133/modules/skcms/skcms/skcms.o) as the
++  # m133 static_library("skcms") at //third_party/skia/m133/modules/skcms. ninja
++  # parses every subninja globally and rejects two rules writing the same output
++  # ("multiple rules generate ... skcms.o"). On mac all consumers were rerouted
++  # to the m133 target, so we drop this duplicate definition. Other platforms
++  # keep it unchanged.
++  if (target_os != "mac") {
++    skia_source_set("skcms") {
++      cflags = []
++      if (!is_win || is_clang) {
++        cflags += [ "-std=c11" ]
++      }
++      if (target_cpu != "x64" || target_os == "android") {
++        defines = [
++          "SKCMS_DISABLE_HSW",
++          "SKCMS_DISABLE_SKX",
++        ]
++      }
++      public = skcms_public_headers
++      sources = skcms_public + skcms_TransformBaseline
++      deps = [
++        "${skia_modules_dir}/skcms:skcms_TransformHsw",
++        "${skia_modules_dir}/skcms:skcms_TransformSkx",
+       ]
+     }
+-    public = skcms_public_headers
+-    sources = skcms_public + skcms_TransformBaseline
+-    deps = [
+-      "${skia_modules_dir}/skcms:skcms_TransformHsw",
+-      "${skia_modules_dir}/skcms:skcms_TransformSkx",
+-    ]
+   }
+   if (is_arkui_x) {
+     skia_effective_defines = skia_common_defines
+@@ -607,9 +618,22 @@ if (is_arkui_x) {
+       "${skia_root_dir}:webp_decode",
+       "${skia_root_dir}:wuffs",
+       "${skia_root_dir}:xml",
+-      "//third_party/skia:skcms",
+     ]
+ 
++    # Phase 0 path X (mac dedup): on target_os=mac, route skcms through the
++    # m133 module target ("${skia_modules_dir}/skcms") instead of the hardcoded
++    # "//third_party/skia:skcms" source_set. Both targets compile the identical
++    # m133 skcms.cc/skcms_TransformBaseline.cc into the SAME output paths
++    # (obj/third_party/skia/m133/modules/skcms/skcms/skcms.o), so having both in
++    # the graph makes ninja fail with "multiple rules generate ... skcms.o".
++    # On mac the m133 :skia target (which deps "modules/skcms") is also in the
++    # libace graph, so we keep only that one. Other platforms are untouched.
++    if (target_os == "mac") {
++      deps += [ "${skia_modules_dir}/skcms" ]
++    } else {
++      deps += [ "//third_party/skia:skcms" ]
++    }
++
+     if (is_arkui_x) {
+       deps -= [
+         "${skia_root_dir}:graphite",

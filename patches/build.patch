@@ -14,6 +14,61 @@ index 9aea049f..c84f4739 100755
    } else {
      assert(false, "Unsupported target_os: $target_os")
    }
+diff --git a/config/components/ets_frontend/BUILD.gn b/config/components/ets_frontend/BUILD.gn
+index 9cf7bf74..97b30fb1 100644
+--- a/config/components/ets_frontend/BUILD.gn
++++ b/config/components/ets_frontend/BUILD.gn
+@@ -14,20 +14,36 @@
+ import("//build/config/components/ets_frontend/ets2abc_config.gni")
+ import("//build/ohos_var.gni")
+ 
+-ohos_copy("ohos_ets_ark_link") {
+-  external_deps = [ static_linker_build_deps ]
+-  sources = [ rebase_path("$ark_link_target_out_path") ]
+-  outputs = [ ohos_ets_ark_link_path ]
+-}
++# Phase 0 path X (mac dedup): these copies write fixed $root_build_dir/ohos_ets
++# paths that are not toolchain-prefixed. On mac both the default and host
++# toolchains pull them in, so ninja fails with "multiple rules generate ...".
++# Emit each copy only in the default toolchain; other toolchains forward to it.
++if (current_toolchain == default_toolchain) {
++  ohos_copy("ohos_ets_ark_link") {
++    external_deps = [ static_linker_build_deps ]
++    sources = [ rebase_path("$ark_link_target_out_path") ]
++    outputs = [ ohos_ets_ark_link_path ]
++  }
+ 
+-ohos_copy("ohos_ets_es2panda") {
+-  external_deps = [ ets2abc_build_deps ]
+-  sources = [ rebase_path("$ets2panda_target_out_path") ]
+-  outputs = [ ohos_ets_es2panda_path ]
+-}
++  ohos_copy("ohos_ets_es2panda") {
++    external_deps = [ ets2abc_build_deps ]
++    sources = [ rebase_path("$ets2panda_target_out_path") ]
++    outputs = [ ohos_ets_es2panda_path ]
++  }
+ 
+-ohos_copy("ohos_ets_libes2panda_public") {
+-  external_deps = [ libes2panda_public_build_deps ]
+-  sources = [ rebase_path("$libes2panda_public_out_path") ]
+-  outputs = [ ohos_ets_libes2panda_public_path ]
++  ohos_copy("ohos_ets_libes2panda_public") {
++    external_deps = [ libes2panda_public_build_deps ]
++    sources = [ rebase_path("$libes2panda_public_out_path") ]
++    outputs = [ ohos_ets_libes2panda_public_path ]
++  }
++} else {
++  group("ohos_ets_ark_link") {
++    public_deps = [ ":ohos_ets_ark_link($default_toolchain)" ]
++  }
++  group("ohos_ets_es2panda") {
++    public_deps = [ ":ohos_ets_es2panda($default_toolchain)" ]
++  }
++  group("ohos_ets_libes2panda_public") {
++    public_deps = [ ":ohos_ets_libes2panda_public($default_toolchain)" ]
++  }
+ }
 diff --git a/config/mac/BUILD.gn b/config/mac/BUILD.gn
 index c3b9d0aa..a5a39f29 100644
 --- a/config/mac/BUILD.gn

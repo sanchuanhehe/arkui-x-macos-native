@@ -1,0 +1,74 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 6c569da9ee..b9ebda0481 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -611,31 +611,46 @@ ohos_copy("ohos_ets_static_kits") {
+   outputs = [ ohos_ets_static_kits_path ]
+ }
+ 
+-ohos_copy("ohos_ets_api") {
+-  deps = [
+-    ":ohos_ets_static_api_declaration",
+-    ":ohos_ets_static_api_internal",
+-  ]
+-  sources = [ ohos_ets_static_api_path ]
+-  outputs = [ ohos_ets_api_path ]
+-  part_name = "sdk"
+-  subsystem_name = "sdk"
+-}
++# Phase 0 path X (mac dedup): these copies write fixed $root_build_dir/ohos_ets
++# paths; on mac both default and host toolchains pull them in, so ninja fails
++# with "multiple rules generate ...". Emit only in the default toolchain.
++if (current_toolchain == default_toolchain) {
++  ohos_copy("ohos_ets_api") {
++    deps = [
++      ":ohos_ets_static_api_declaration",
++      ":ohos_ets_static_api_internal",
++    ]
++    sources = [ ohos_ets_static_api_path ]
++    outputs = [ ohos_ets_api_path ]
++    part_name = "sdk"
++    subsystem_name = "sdk"
++  }
+ 
+-ohos_copy("ohos_ets_arkts") {
+-  deps = [ ":ohos_ets_static_arkts" ]
+-  sources = [ ohos_ets_static_arkts_path ]
+-  outputs = [ ohos_ets_arkts_path ]
+-  part_name = "sdk"
+-  subsystem_name = "sdk"
+-}
++  ohos_copy("ohos_ets_arkts") {
++    deps = [ ":ohos_ets_static_arkts" ]
++    sources = [ ohos_ets_static_arkts_path ]
++    outputs = [ ohos_ets_arkts_path ]
++    part_name = "sdk"
++    subsystem_name = "sdk"
++  }
+ 
+-ohos_copy("ohos_ets_kits") {
+-  deps = [ ":ohos_ets_static_kits" ]
+-  sources = [ ohos_ets_static_kits_path ]
+-  outputs = [ ohos_ets_kits_path ]
+-  part_name = "sdk"
+-  subsystem_name = "sdk"
++  ohos_copy("ohos_ets_kits") {
++    deps = [ ":ohos_ets_static_kits" ]
++    sources = [ ohos_ets_static_kits_path ]
++    outputs = [ ohos_ets_kits_path ]
++    part_name = "sdk"
++    subsystem_name = "sdk"
++  }
++} else {
++  group("ohos_ets_api") {
++    public_deps = [ ":ohos_ets_api($default_toolchain)" ]
++  }
++  group("ohos_ets_arkts") {
++    public_deps = [ ":ohos_ets_arkts($default_toolchain)" ]
++  }
++  group("ohos_ets_kits") {
++    public_deps = [ ":ohos_ets_kits($default_toolchain)" ]
++  }
+ }
+ 
+ # dynamic interop工具的SDK输入

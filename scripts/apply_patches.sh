@@ -17,6 +17,10 @@ MAP=(
   "foundation/multimedia/image_framework:image_framework"
   "base/hiviewdfx/hilog:hilog"
   "commonlibrary/c_utils:c_utils"
+  "third_party/skia:skia"
+  "arkcompiler/ets_frontend:ets_frontend"
+  "arkcompiler/runtime_core:runtime_core"
+  "interface/sdk-js:sdk-js"
 )
 
 for e in "${MAP[@]}"; do
