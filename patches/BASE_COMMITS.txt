@@ -12,3 +12,6 @@ third_party/skia            e7615406e0   # 唯一 third_party 例外:skcms 去�
 arkcompiler/ets_frontend    5f6f98e5a
 arkcompiler/runtime_core    6a6d587e15
 interface/sdk-js            f31b3ab9b9
+# libace 编通新增仓:
+foundation/arkui/napi              261c6a74
+foundation/multimodalinput/input   c82ad85e1

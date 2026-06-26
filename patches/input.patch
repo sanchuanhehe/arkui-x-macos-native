@@ -1,0 +1,170 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index bc8e0146b..13f0acda4 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -118,11 +118,15 @@ group("multimodalinput_mmi_service") {
+ }
+ 
+ group("input-third-mmi") {
+-  external_deps = [
+-    "libevdev:libevdev",
+-    "libinput:libinput-third-mmi",
+-    "mtdev:libmtdev-third-mmi",
+-  ]
++  # Phase 2 path X: libevdev/libinput/mtdev are Linux input components not present
++  # in the arkui-x cross-platform tree; the desktop uses the input proxy instead.
++  if (!is_arkui_x) {
++    external_deps = [
++      "libevdev:libevdev",
++      "libinput:libinput-third-mmi",
++      "mtdev:libmtdev-third-mmi",
++    ]
++  }
+ }
+ 
+ group("input_jsapi_group") {
+@@ -160,6 +164,11 @@ group("input_jsapi_group") {
+ }
+ 
+ group("input_ets_group") {
++  # Phase 2 path X: the ETS/taihe IDL bindings need the taihe_ffi_gen tool which
++  # is not present in the arkui-x cross-platform tree; not needed for M1.
++  if (is_arkui_x) {
++    deps = []
++  } else {
+   deps = [
+     "frameworks/ets/gesture_event:ets_gestureEvent_package",
+     "frameworks/ets/input_event:ets_inputEvent_package",
+@@ -186,6 +195,7 @@ group("input_ets_group") {
+     deps += [ "frameworks/ets/short_key:ets_shortKey_package" ]
+   }
+   deps += [ "frameworks/ets/infrared_emitter:ets_infraredEmitter_package" ]
++  }  # if (is_arkui_x) ... else
+ }
+ 
+ group("mmi_tests") {
+diff --git a/frameworks/proxy/BUILD.gn b/frameworks/proxy/BUILD.gn
+index 492633206..238944626 100644
+--- a/frameworks/proxy/BUILD.gn
++++ b/frameworks/proxy/BUILD.gn
+@@ -106,6 +106,13 @@ if (is_arkui_x) {
+       defines += [ "ANDROID_PLATFORM" ]
+     } else if (target_os == "ios") {
+       defines += [ "IOS_PLATFORM" ]
++    } else if (target_os == "mac") {
++      # Phase 0 path X: mac needs MAC_PLATFORM so c_utils flat_obj.h skips the
++      # Linux-only <linux/types.h> include (and reuses the iOS cross-platform path).
++      defines += [
++        "IOS_PLATFORM",
++        "MAC_PLATFORM",
++      ]
+     }
+ 
+     deps = [
+diff --git a/service/BUILD.gn b/service/BUILD.gn
+index acdbc0064..4aaa68bd2 100644
+--- a/service/BUILD.gn
++++ b/service/BUILD.gn
+@@ -147,20 +147,27 @@ config("libmmi_server_config") {
+   }
+ }
+ 
+-ohos_rust_shared_ffi("mmi_rust") {
+-  sources = [ "rust/src/lib.rs" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
+-}
++# Phase 2 path X: no Rust toolchain in the arkui-x cross-platform build. Expose
++# mmi_rust as an empty group so existing consumers still resolve.
++if (!is_arkui_x) {
++  ohos_rust_shared_ffi("mmi_rust") {
++    sources = [ "rust/src/lib.rs" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
+ 
+-ohos_rust_unittest("rust_mmi_test") {
+-  module_out_path = module_output_path
+-  sources = [ "rust/test/lib_test.rs" ]
+-  deps = [ ":mmi_rust" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
++  ohos_rust_unittest("rust_mmi_test") {
++    module_out_path = module_output_path
++    sources = [ "rust/test/lib_test.rs" ]
++    deps = [ ":mmi_rust" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
++} else {
++  group("mmi_rust") {
++  }
+ }
+ 
+ ohos_shared_library("libcursor_drawing_adapter") {
+diff --git a/util/BUILD.gn b/util/BUILD.gn
+index a1f9e3ef7..acf8da697 100644
+--- a/util/BUILD.gn
++++ b/util/BUILD.gn
+@@ -62,20 +62,29 @@ config("libmmi_util_config") {
+   }
+ }
+ 
+-ohos_rust_shared_ffi("mmi_rust_key_config") {
+-  sources = [ "rust_key/src/lib.rs" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
+-}
++# Phase 2 path X: the Rust FFI targets are not available in the arkui-x
++# cross-platform build (no Rust toolchain; ohos_rust_* templates aren't imported),
++# and are not needed for the cross-platform input proxy.
++if (!is_arkui_x) {
++  ohos_rust_shared_ffi("mmi_rust_key_config") {
++    sources = [ "rust_key/src/lib.rs" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
+ 
+-ohos_rust_unittest("rust_mmi_key_config_test") {
+-  module_out_path = module_output_path
+-  sources = [ "rust_key/test/lib_test.rs" ]
+-  deps = [ ":mmi_rust_key_config" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
++  ohos_rust_unittest("rust_mmi_key_config_test") {
++    module_out_path = module_output_path
++    sources = [ "rust_key/test/lib_test.rs" ]
++    deps = [ ":mmi_rust_key_config" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
++} else {
++  # Expose an empty group so cross-platform consumers still resolve the label.
++  group("mmi_rust_key_config") {
++  }
+ }
+ 
+ ohos_shared_library("libmmi-util") {
+@@ -87,10 +96,10 @@ ohos_shared_library("libmmi-util") {
+   version_script = "libmmi-util-map"
+   configs = [ ":libmmi_util_config" ]
+   branch_protector_ret = "pac_ret"
+-  deps = [
+-    ":mmi_rust_key_config",
+-    "${mmi_path}/frameworks/proxy:libmmi-common",
+-  ]
++  deps = [ "${mmi_path}/frameworks/proxy:libmmi-common" ]
++  if (!is_arkui_x) {
++    deps += [ ":mmi_rust_key_config" ]
++  }
+ 
+   external_deps = [
+     "c_utils:utils",

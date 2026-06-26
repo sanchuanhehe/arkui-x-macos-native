@@ -1,8 +1,26 @@
 diff --git a/BUILD.gn b/BUILD.gn
-index 5168ec96d72..fe52b52d03e 100644
+index 5168ec96d72..899c379ae51 100644
 --- a/BUILD.gn
 +++ b/BUILD.gn
-@@ -74,6 +74,18 @@ config("ace_config") {
+@@ -32,6 +32,17 @@ config("ace_config") {
+   }
+   defines = ace_common_defines
+ 
++  # Phase 0 path X: the native-macOS build uses the appframework (iOS-style)
++  # backend, not the previewer, but PREVIEW leaks in via ace_common_defines. With
++  # PREVIEW set, JsMessageDispatcher::CallCurlFunction becomes a pure virtual that
++  # AceContainerSG never implements -> "allocating an object of abstract class
++  # type 'AceContainerSG'". Strip PREVIEW for the mac iOS-backend build.
++  if (use_mac && defined(mac_use_ios_backend) && mac_use_ios_backend) {
++    if (filter_include(defines, [ "PREVIEW" ]) != []) {
++      defines -= [ "PREVIEW" ]
++    }
++  }
++
+   if (is_wearable_product) {
+     defines += ace_wearable_defines
+   }
+@@ -74,6 +85,18 @@ config("ace_config") {
      ]
    }
  
@@ -91,10 +109,10 @@ index 00000000000..c2323139b10
 +}
 diff --git a/adapter/macos/entrance/BUILD.gn b/adapter/macos/entrance/BUILD.gn
 new file mode 100644
-index 00000000000..a9688b607d4
+index 00000000000..231c45b7f7c
 --- /dev/null
 +++ b/adapter/macos/entrance/BUILD.gn
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,126 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -140,10 +158,20 @@ index 00000000000..a9688b607d4
 +      "//third_party/node/src",
 +      # Phase 0 path X: "napi/native_api.h" lives under napi/interfaces/kits.
 +      "//foundation/arkui/napi/interfaces/kits",
++      # Phase 0 path X: the mmi event convertor pulls the MMI PointerEvent header
++      # ("pointer_event.h") from the multimodalinput innerkits.
++      "//foundation/multimodalinput/input/interfaces/native/innerkits/event/include",
 +    ]
 +
 +    sources = [
 +      "WindowView.mm",
++      # Phase 0 path X: macOS interaction shim (drag/InteractionInterface impl),
++      # mirrors adapter/ios/entrance/interaction. Provides InteractionImpl so the
++      # InteractionInterface singleton resolves at link.
++      "interaction/interaction_impl.cpp",
++      # Phase 0 path X: macOS mmi event convertor (used by ace_view_sg.cpp and
++      # virtual_rs_window.mm); mirrors adapter/ios/entrance/mmi_event_convertor.
++      "mmi_event_convertor.mm",
 +      "ace_pointer_data.cc",
 +      "ace_pointer_data_packet.cc",
 +      "touch_event.cpp",
@@ -1353,10 +1381,10 @@ index 00000000000..6954f9b1efd
 \ No newline at end of file
 diff --git a/adapter/macos/entrance/display_info.mm b/adapter/macos/entrance/display_info.mm
 new file mode 100755
-index 00000000000..40e9b8ac023
+index 00000000000..d0615736556
 --- /dev/null
 +++ b/adapter/macos/entrance/display_info.mm
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,278 @@
 +/*
 + * Copyright (c) 2021-2022 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -1376,30 +1404,24 @@ index 00000000000..40e9b8ac023
 +
 +#include <new>
 +#include <parcel.h>
-+#import <UIKit/UIKit.h>
++// Phase 0 path X: macOS uses AppKit (NSScreen) instead of UIKit (UIScreen/UIDevice).
++#import <AppKit/AppKit.h>
 +#import <sys/utsname.h>
 +
 +
 +namespace OHOS::Rosen {
-+std::map<UIDeviceOrientation, DisplayOrientation> gUIDeviceOrientationToOrientationMap = {
-+    {UIDeviceOrientationUnknown, DisplayOrientation::PORTRAIT},
-+    {UIDeviceOrientationPortrait, DisplayOrientation::PORTRAIT},
-+    {UIDeviceOrientationPortraitUpsideDown, DisplayOrientation::PORTRAIT_INVERTED},
-+    {UIDeviceOrientationLandscapeLeft, DisplayOrientation::LANDSCAPE},
-+    {UIDeviceOrientationLandscapeRight, DisplayOrientation::LANDSCAPE_INVERTED},
-+    {UIDeviceOrientationFaceUp, DisplayOrientation::PORTRAIT},
-+    {UIDeviceOrientationFaceDown, DisplayOrientation::PORTRAIT}
-+};
 +
 +DisplayInfo::DisplayInfo()
 +{
 +    id_ = 0;
-+    displayOrientation_ = gUIDeviceOrientationToOrientationMap[[UIDevice currentDevice].orientation];
++    // macOS has no device orientation; desktop displays are always landscape.
++    displayOrientation_ = DisplayOrientation::LANDSCAPE;
 +
-+    UIScreen *screen = [UIScreen mainScreen];
-+    CGFloat scale = screen.scale;
-+    width_ = static_cast<int32_t>([UIScreen mainScreen].bounds.size.width * scale);
-+    height_ = static_cast<int32_t>([UIScreen mainScreen].bounds.size.height * scale);
++    NSScreen* screen = [NSScreen mainScreen];
++    CGFloat scale = screen ? [screen backingScaleFactor] : 1.0;
++    NSRect frame = screen ? [screen frame] : NSMakeRect(0, 0, 0, 0);
++    width_ = static_cast<int32_t>(frame.size.width * scale);
++    height_ = static_cast<int32_t>(frame.size.height * scale);
 +    densityPixels_ = scale;
 +    scaledDensity_ = scale;
 +    densityDpi_ = GetDevicePpi();
@@ -1621,6 +1643,13 @@ index 00000000000..40e9b8ac023
 +    auto iter = g_dpi.find(deviceString);
 +    if (iter != g_dpi.end()) {
 +        devicePpi = iter->second;
++    }
++    // Phase 0 path X: the table above only lists iOS devices; on macOS the machine
++    // string (e.g. "MacBookPro18,2") never matches. Fall back to a sane desktop
++    // Retina ppi so downstream density math does not divide by zero.
++    if (devicePpi == 0) {
++        constexpr int32_t MAC_DEFAULT_PPI = 220;
++        devicePpi = MAC_DEFAULT_PPI;
 +    }
 +    return devicePpi;
 +}
@@ -2379,10 +2408,10 @@ index 00000000000..902cfe5dd3a
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_VIRTUAL_RS_WINDOW_H
 diff --git a/adapter/macos/entrance/virtual_rs_window.mm b/adapter/macos/entrance/virtual_rs_window.mm
 new file mode 100644
-index 00000000000..1bda0826d35
+index 00000000000..53f090376ce
 --- /dev/null
 +++ b/adapter/macos/entrance/virtual_rs_window.mm
-@@ -0,0 +1,1634 @@
+@@ -0,0 +1,1658 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -2405,7 +2434,15 @@ index 00000000000..1bda0826d35
 +// nullptr is a language keyword; uint32_t comes from <cstdint>.
 +#include <cstdint>
 +#include <memory>
++// Phase 0 path X: AppKit transitively pulls Carbon CoreServices, which declares
++// `typedef ComponentRecord* Component;` in the GLOBAL namespace. ets_runtime's
++// log_base.h (reached later in this TU via the napi/jsnapi chain) declares a
++// global `enum class Component`, which then conflicts. Rename the Carbon typedef
++// to CarbonComponent for AppKit's parse only, then restore so the ets enum is
++// seen unchanged. No ace/ets code in this TU uses the Carbon Component type.
++#define Component CarbonComponent
 +#import <AppKit/AppKit.h>
++#undef Component
 +#include <objc/objc.h>
 +#include "WindowView.h"
 +#include "adapter/macos/stage/uicontent/ui_content_impl.h"
@@ -2428,7 +2465,13 @@ index 00000000000..1bda0826d35
 +#include "core/pipeline/pipeline_base.h"
 +#include "interaction/interaction_impl.h"
 +#include "mmi_event_convertor.h"
++// Phase 0 path X: AccessibilityWindowView is a UIKit subclass (iOS-only). On
++// macOS the AppKit-backed WindowView (already included above) provides the same
++// setWindowDelegate:/createSurfaceNode: surface, so the iOS accessibility header
++// is not included for the mac build.
++#ifndef MAC_PLATFORM
 +#include "AccessibilityWindowView.h"
++#endif
 +
 +namespace OHOS::Rosen {
 +#define BOTTOM_SAFE_AREA_HEIGHT_VP 28.0
@@ -2683,7 +2726,12 @@ index 00000000000..1bda0826d35
 +    }
 +
 +    auto window = std::shared_ptr<Window>(new Window(context, windowId), DummyWindowRelease);
++    // Phase 0 path X: macOS uses the AppKit WindowView (no UIKit accessibility subclass).
++#ifdef MAC_PLATFORM
++    WindowView* windowView = [[WindowView alloc] init];
++#else
 +    AccessibilityWindowView* windowView = [[AccessibilityWindowView alloc]init];
++#endif
 +    LOGI("Window::Createsubwindow with %{public}p", windowView);
 +    window->SetWindowView(windowView);
 +    [windowView setWindowDelegate:window];
@@ -3116,7 +3164,12 @@ index 00000000000..1bda0826d35
 +        LOGE("Window: SetTouchable failed");
 +        return WMError::WM_ERROR_INVALID_WINDOW;
 +    }
++    // Phase 0 path X: userInteractionEnabled is a UIKit (UIView) property. The
++    // macOS WindowView is an NSView with no direct equivalent; touchability is
++    // tracked in isTouchable_ and enforced via hit-testing, so just record it.
++#ifndef MAC_PLATFORM
 +    windowView_.userInteractionEnabled = isTouchable;
++#endif
 +    isTouchable_ = isTouchable;
 +    return WMError::WM_OK;
 +}
@@ -4413,7 +4466,7 @@ index 00000000000..2e8f5872e4a
 \ No newline at end of file
 diff --git a/adapter/macos/osal/accessibility_manager_impl.cpp b/adapter/macos/osal/accessibility_manager_impl.cpp
 new file mode 100644
-index 00000000000..db48a1b480f
+index 00000000000..a0fe0201f37
 --- /dev/null
 +++ b/adapter/macos/osal/accessibility_manager_impl.cpp
 @@ -0,0 +1,2149 @@
@@ -4432,7 +4485,7 @@ index 00000000000..db48a1b480f
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/accessibility_manager_impl.h"
++#include "adapter/macos/osal/accessibility_manager_impl.h"
 +
 +#include <algorithm>
 +#include <cstdio>
@@ -6569,7 +6622,7 @@ index 00000000000..db48a1b480f
 \ No newline at end of file
 diff --git a/adapter/macos/osal/accessibility_manager_impl.h b/adapter/macos/osal/accessibility_manager_impl.h
 new file mode 100644
-index 00000000000..66c22c25cbd
+index 00000000000..5f56d0d3fc6
 --- /dev/null
 +++ b/adapter/macos/osal/accessibility_manager_impl.h
 @@ -0,0 +1,217 @@
@@ -6597,8 +6650,8 @@ index 00000000000..66c22c25cbd
 +#include "foundation/appframework/arkui/uicontent/component_info.h"
 +
 +#include "adapter/ios/capability/environment/environment_proxy_impl.h"
-+#include "adapter/ios/osal/mock/accessibility_constants.h"
-+#include "adapter/ios/osal/mock/accessibility_element_info.h"
++#include "adapter/macos/osal/mock/accessibility_constants.h"
++#include "adapter/macos/osal/mock/accessibility_element_info.h"
 +#include "base/log/ace_trace.h"
 +#include "base/log/dump_log.h"
 +#include "base/log/event_report.h"
@@ -8090,7 +8143,7 @@ index 00000000000..c3ec2aa0d82
 \ No newline at end of file
 diff --git a/adapter/macos/osal/fetch_manager.cpp b/adapter/macos/osal/fetch_manager.cpp
 new file mode 100644
-index 00000000000..56ed392d0b6
+index 00000000000..ee355a4aead
 --- /dev/null
 +++ b/adapter/macos/osal/fetch_manager.cpp
 @@ -0,0 +1,56 @@
@@ -8114,7 +8167,7 @@ index 00000000000..56ed392d0b6
 +#include <memory>
 +#include <mutex>
 +
-+#include "adapter/ios/osal/http_constant.h"
++#include "adapter/macos/osal/http_constant.h"
 +#include "base/log/log.h"
 +#include "base/utils/singleton.h"
 +
@@ -8195,7 +8248,7 @@ index 00000000000..a3bd1ffc877
 +#endif // #ifndef FOUNDATION_ACE_ADAPTER_IOS_OSAL_FETCH_MANAGER_H
 diff --git a/adapter/macos/osal/file_asset_provider.cpp b/adapter/macos/osal/file_asset_provider.cpp
 new file mode 100644
-index 00000000000..3ac59cca6f7
+index 00000000000..529ccefa3e1
 --- /dev/null
 +++ b/adapter/macos/osal/file_asset_provider.cpp
 @@ -0,0 +1,144 @@
@@ -8214,7 +8267,7 @@ index 00000000000..3ac59cca6f7
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/file_asset_provider.h"
++#include "adapter/macos/osal/file_asset_provider.h"
 +
 +#include <dirent.h>
 +#include <limits>
@@ -11221,7 +11274,7 @@ index 00000000000..9e5ab7015a5
 +} // namespace OHOS::Ace
 diff --git a/adapter/macos/osal/mouse_style_ios.cpp b/adapter/macos/osal/mouse_style_ios.cpp
 new file mode 100644
-index 00000000000..1bcafc93750
+index 00000000000..8677b6b391b
 --- /dev/null
 +++ b/adapter/macos/osal/mouse_style_ios.cpp
 @@ -0,0 +1,35 @@
@@ -11240,7 +11293,7 @@ index 00000000000..1bcafc93750
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/mouse_style_ios.h"
++#include "adapter/macos/osal/mouse_style_ios.h"
 +
 +namespace OHOS::Ace {
 +
@@ -11829,7 +11882,7 @@ index 00000000000..2b0c46ab920
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_OSAL_PICTURE_IOS_H
 diff --git a/adapter/macos/osal/pixel_map_ios.cpp b/adapter/macos/osal/pixel_map_ios.cpp
 new file mode 100644
-index 00000000000..f1ac1d82ed1
+index 00000000000..347556fdee9
 --- /dev/null
 +++ b/adapter/macos/osal/pixel_map_ios.cpp
 @@ -0,0 +1,333 @@
@@ -11850,7 +11903,7 @@ index 00000000000..f1ac1d82ed1
 +#include <sstream>
 +#include "base/log/log_wrapper.h"
 +#include "base/utils/utils.h"
-+#include "adapter/ios/osal/pixel_map_ios.h"
++#include "adapter/macos/osal/pixel_map_ios.h"
 +#include "core/image/image_file_cache.h"
 +#include "drawable_descriptor.h"
 +
@@ -12325,7 +12378,7 @@ index 00000000000..9281aace6a3
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_OSAL_REQUESTDATA_H
 diff --git a/adapter/macos/osal/resource_adapter_impl.cpp b/adapter/macos/osal/resource_adapter_impl.cpp
 new file mode 100644
-index 00000000000..f2a1ef3b973
+index 00000000000..302dc7a9988
 --- /dev/null
 +++ b/adapter/macos/osal/resource_adapter_impl.cpp
 @@ -0,0 +1,756 @@
@@ -12344,13 +12397,13 @@ index 00000000000..f2a1ef3b973
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/resource_adapter_impl.h"
++#include "adapter/macos/osal/resource_adapter_impl.h"
 +
 +#include <dirent.h>
 +
 +#include "adapter/ios/entrance/ace_application_info_impl.h"
-+#include "adapter/ios/osal/resource_convertor.h"
-+#include "adapter/ios/osal/resource_theme_style.h"
++#include "adapter/macos/osal/resource_convertor.h"
++#include "adapter/macos/osal/resource_theme_style.h"
 +#include "core/common/resource/resource_manager.h"
 +#include "core/components/theme/theme_attributes.h"
 +#include "core/components_ng/base/view_stack_processor.h"
@@ -13196,7 +13249,7 @@ index 00000000000..4c6ef4f89fb
 \ No newline at end of file
 diff --git a/adapter/macos/osal/resource_adapter_impl_v2.cpp b/adapter/macos/osal/resource_adapter_impl_v2.cpp
 new file mode 100644
-index 00000000000..5c18e81c9cb
+index 00000000000..c6f81c57d3c
 --- /dev/null
 +++ b/adapter/macos/osal/resource_adapter_impl_v2.cpp
 @@ -0,0 +1,767 @@
@@ -13215,14 +13268,14 @@ index 00000000000..5c18e81c9cb
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/resource_adapter_impl_v2.h"
++#include "adapter/macos/osal/resource_adapter_impl_v2.h"
 +
 +#include <dirent.h>
 +
 +#include "adapter/ios/entrance/ace_application_info_impl.h"
-+#include "adapter/ios/osal/resource_convertor.h"
-+#include "adapter/ios/stage/uicontent/ace_container_sg.h"
-+#include "adapter/ios/osal/resource_theme_style.h"
++#include "adapter/macos/osal/resource_convertor.h"
++#include "adapter/macos/stage/uicontent/ace_container_sg.h"
++#include "adapter/macos/osal/resource_theme_style.h"
 +#include "core/common/resource/resource_manager.h"
 +#include "core/components/theme/theme_attributes.h"
 +#include "core/components_ng/base/view_stack_processor.h"
@@ -14070,7 +14123,7 @@ index 00000000000..15d29121987
 \ No newline at end of file
 diff --git a/adapter/macos/osal/resource_convertor.cpp b/adapter/macos/osal/resource_convertor.cpp
 new file mode 100644
-index 00000000000..fd6fef7d450
+index 00000000000..273dcbb177e
 --- /dev/null
 +++ b/adapter/macos/osal/resource_convertor.cpp
 @@ -0,0 +1,156 @@
@@ -14089,7 +14142,7 @@ index 00000000000..fd6fef7d450
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/resource_convertor.h"
++#include "adapter/macos/osal/resource_convertor.h"
 +
 +namespace {
 +constexpr double DENSITY_120 = 120.0;
@@ -14346,7 +14399,7 @@ index 00000000000..a0e42743090
 \ No newline at end of file
 diff --git a/adapter/macos/osal/resource_theme_style.cpp b/adapter/macos/osal/resource_theme_style.cpp
 new file mode 100644
-index 00000000000..68999f6aef3
+index 00000000000..34bf58c52f8
 --- /dev/null
 +++ b/adapter/macos/osal/resource_theme_style.cpp
 @@ -0,0 +1,108 @@
@@ -14365,7 +14418,7 @@ index 00000000000..68999f6aef3
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/resource_theme_style.h"
++#include "adapter/macos/osal/resource_theme_style.h"
 +
 +#include <set>
 +
@@ -15021,7 +15074,7 @@ index 00000000000..d51019698e4
 \ No newline at end of file
 diff --git a/adapter/macos/osal/subwindow_ios.cpp b/adapter/macos/osal/subwindow_ios.cpp
 new file mode 100644
-index 00000000000..1060ca13a77
+index 00000000000..d771889e382
 --- /dev/null
 +++ b/adapter/macos/osal/subwindow_ios.cpp
 @@ -0,0 +1,916 @@
@@ -15040,10 +15093,10 @@ index 00000000000..1060ca13a77
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/subwindow_ios.h"
++#include "adapter/macos/osal/subwindow_ios.h"
 +
-+#include "adapter/ios/stage/uicontent/ace_view_sg.h"
-+#include "adapter/ios/entrance/display_info.h"
++#include "adapter/macos/stage/uicontent/ace_view_sg.h"
++#include "adapter/macos/entrance/display_info.h"
 +#include "base/error/error_code.h"
 +#include "core/accessibility/accessibility_manager.h"
 +#include "core/components_ng/pattern/menu/wrapper/menu_wrapper_pattern.h"
@@ -16260,7 +16313,7 @@ index 00000000000..b1d5c0f1d69
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_OSAL_SUBWINDOW_IOS_H
 diff --git a/adapter/macos/osal/system_bar_style_ohos.cpp b/adapter/macos/osal/system_bar_style_ohos.cpp
 new file mode 100644
-index 00000000000..2e01f828c83
+index 00000000000..a51899c50b0
 --- /dev/null
 +++ b/adapter/macos/osal/system_bar_style_ohos.cpp
 @@ -0,0 +1,31 @@
@@ -16279,7 +16332,7 @@ index 00000000000..2e01f828c83
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/osal/system_bar_style_ohos.h"
++#include "adapter/macos/osal/system_bar_style_ohos.h"
 +#include "base/log/log.h"
 +
 +namespace OHOS::Ace {
@@ -21014,7 +21067,7 @@ index 00000000000..4d728b67208
 +}
 diff --git a/adapter/macos/stage/uicontent/ace_container_sg.cpp b/adapter/macos/stage/uicontent/ace_container_sg.cpp
 new file mode 100644
-index 00000000000..d39e79bd8a0
+index 00000000000..3e5a93d7685
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_container_sg.cpp
 @@ -0,0 +1,1497 @@
@@ -21033,15 +21086,15 @@ index 00000000000..d39e79bd8a0
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/stage/uicontent/ace_container_sg.h"
++#include "adapter/macos/stage/uicontent/ace_container_sg.h"
 +
 +#include <numeric>
 +
 +#include "adapter/ios/entrance/ace_application_info_impl.h"
 +#include "adapter/ios/entrance/ace_platform_plugin.h"
-+#include "adapter/ios/osal/file_asset_provider.h"
-+#include "adapter/ios/osal/high_contrast_observer.h"
-+#include "adapter/ios/stage/uicontent/ace_view_sg.h"
++#include "adapter/macos/osal/file_asset_provider.h"
++#include "adapter/macos/osal/high_contrast_observer.h"
++#include "adapter/macos/stage/uicontent/ace_view_sg.h"
 +#include "base/log/ace_trace.h"
 +#include "base/log/event_report.h"
 +#include "base/log/log.h"
@@ -22517,7 +22570,7 @@ index 00000000000..d39e79bd8a0
 +} // namespace OHOS::Ace::Platform
 diff --git a/adapter/macos/stage/uicontent/ace_container_sg.h b/adapter/macos/stage/uicontent/ace_container_sg.h
 new file mode 100644
-index 00000000000..a6bbefbb57b
+index 00000000000..a799d307ab4
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_container_sg.h
 @@ -0,0 +1,459 @@
@@ -22545,7 +22598,7 @@ index 00000000000..a6bbefbb57b
 +
 +#include "ability_context.h"
 +#include "adapter/ios/entrance/ace_resource_register.h"
-+#include "adapter/ios/stage/uicontent/platform_event_callback.h"
++#include "adapter/macos/stage/uicontent/platform_event_callback.h"
 +#include "base/resource/asset_manager.h"
 +#include "base/thread/task_executor.h"
 +#include "base/utils/noncopyable.h"
@@ -22982,7 +23035,7 @@ index 00000000000..a6bbefbb57b
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_STAGE_ACE_CONTAINER_SG_H
 diff --git a/adapter/macos/stage/uicontent/ace_view_sg.cpp b/adapter/macos/stage/uicontent/ace_view_sg.cpp
 new file mode 100644
-index 00000000000..5d3a56248ba
+index 00000000000..8a30f59e54e
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_view_sg.cpp
 @@ -0,0 +1,506 @@
@@ -23001,11 +23054,11 @@ index 00000000000..5d3a56248ba
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/stage/uicontent/ace_view_sg.h"
++#include "adapter/macos/stage/uicontent/ace_view_sg.h"
 +
 +#include "adapter/ios/entrance/ace_platform_plugin.h"
 +#include "adapter/ios/entrance/ace_resource_register.h"
-+#include "adapter/ios/stage/uicontent/ace_container_sg.h"
++#include "adapter/macos/stage/uicontent/ace_container_sg.h"
 +#include "base/log/dump_log.h"
 +#include "base/log/event_report.h"
 +#include "base/log/log.h"
@@ -23494,10 +23547,10 @@ index 00000000000..5d3a56248ba
 +} // namespace OHOS::Ace::Platform
 diff --git a/adapter/macos/stage/uicontent/ace_view_sg.h b/adapter/macos/stage/uicontent/ace_view_sg.h
 new file mode 100644
-index 00000000000..7c812bde1bb
+index 00000000000..1e97fd42944
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_view_sg.h
-@@ -0,0 +1,179 @@
+@@ -0,0 +1,181 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23533,7 +23586,9 @@ index 00000000000..7c812bde1bb
 +// Phase 0 path X: use the macOS virtual_rs_window.h (distinct include guard
 +// from the iOS one; mixing both -> redefinition of VsyncCallback/Window/...).
 +#include "adapter/macos/entrance/virtual_rs_window.h"
-+#include "adapter/ios/entrance/mmi_event_convertor.h"
++// Phase 0 path X: macOS copy of the mmi event convertor (the iOS header guard
++// would collide if both were ever pulled into one TU).
++#include "adapter/macos/entrance/mmi_event_convertor.h"
 +#include "core/event/touch_event.h"
 +#include "core/pipeline_ng/pipeline_context.h"
 +
@@ -23720,7 +23775,7 @@ index 00000000000..f7536e2d5ed
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_STAGE_PLATFORM_EVENT_CALLBACK_H
 diff --git a/adapter/macos/stage/uicontent/ui_content_impl.cpp b/adapter/macos/stage/uicontent/ui_content_impl.cpp
 new file mode 100644
-index 00000000000..c6c8d6e40fc
+index 00000000000..3298d005dc0
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ui_content_impl.cpp
 @@ -0,0 +1,1048 @@
@@ -23739,7 +23794,7 @@ index 00000000000..c6c8d6e40fc
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/stage/uicontent/ui_content_impl.h"
++#include "adapter/macos/stage/uicontent/ui_content_impl.h"
 +
 +#include <mutex>
 +
@@ -23754,14 +23809,14 @@ index 00000000000..c6c8d6e40fc
 +
 +#include "adapter/ios/entrance/ace_application_info_impl.h"
 +#include "adapter/ios/entrance/utils.h"
-+#include "adapter/ios/entrance/display_info.h"
-+#include "adapter/ios/osal/accessibility_manager_impl.h"
-+#include "adapter/ios/osal/file_asset_provider.h"
++#include "adapter/macos/entrance/display_info.h"
++#include "adapter/macos/osal/accessibility_manager_impl.h"
++#include "adapter/macos/osal/file_asset_provider.h"
 +#include "adapter/ios/osal/navigation_route_ios.h"
-+#include "adapter/ios/osal/page_url_checker_ios.h"
-+#include "adapter/ios/stage/ability/stage_asset_provider.h"
-+#include "adapter/ios/stage/uicontent/ace_view_sg.h"
-+#include "adapter/ios/stage/uicontent/platform_event_callback.h"
++#include "adapter/macos/osal/page_url_checker_ios.h"
++#include "adapter/macos/stage/ability/stage_asset_provider.h"
++#include "adapter/macos/stage/uicontent/ace_view_sg.h"
++#include "adapter/macos/stage/uicontent/platform_event_callback.h"
 +#include "base/log/ace_trace.h"
 +#include "base/log/event_report.h"
 +#include "base/log/log.h"
@@ -24911,7 +24966,7 @@ index 00000000000..0722d3b9997
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_STAGE_UI_CONTENT_IMPL_H
 diff --git a/adapter/macos/stage/uicontent/ui_event_monitor.cpp b/adapter/macos/stage/uicontent/ui_event_monitor.cpp
 new file mode 100644
-index 00000000000..1fd48c224b6
+index 00000000000..52d7d14b967
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ui_event_monitor.cpp
 @@ -0,0 +1,118 @@
@@ -24930,12 +24985,12 @@ index 00000000000..1fd48c224b6
 + * limitations under the License.
 + */
 +
-+#include "adapter/ios/stage/uicontent/ui_event_monitor.h"
++#include "adapter/macos/stage/uicontent/ui_event_monitor.h"
 +
 +#include <chrono>
 +#include <thread>
 +
-+#include "adapter/ios/osal/accessibility_manager_impl.h"
++#include "adapter/macos/osal/accessibility_manager_impl.h"
 +#include "base/log/log.h"
 +
 +namespace OHOS::Ace::Platform {
@@ -25126,10 +25181,10 @@ index 00000000000..54cd7f7ed45
 +ability_runtime_cross_platform_path =
 +    "//foundation/appframework/ability/ability_runtime/cross_platform"
 diff --git a/adapter/preview/build/config_mac.gni b/adapter/preview/build/config_mac.gni
-index 5bdfafed3cd..1b5c925cfac 100644
+index 5bdfafed3cd..1e4f247fa9e 100644
 --- a/adapter/preview/build/config_mac.gni
 +++ b/adapter/preview/build/config_mac.gni
-@@ -12,9 +12,68 @@
+@@ -12,9 +12,99 @@
  # limitations under the License.
  
  import("preview_common.gni")
@@ -25140,14 +25195,32 @@ index 5bdfafed3cd..1b5c925cfac 100644
  defines += [
    "MAC_PLATFORM",
    "SK_BUILD_FONT_MGR_FOR_PREVIEW_MAC",
++
++  # Phase 0 path X: bounds_checking_function securectype.h leaves
++  # SECUREC_ENABLE_SNPRINTF/VSNPRINTF at 0 on non-MSVC (mac), so securec.h hides
++  # snprintf_s/vsnprintf_s. Many libace TUs (ace ios_trace.cpp, graphic_2d
++  # rs_dfx_string.h, ...) call them. The bounds_checking lib implements them; just
++  # turn the declarations on for the mac build.
++  "SECUREC_ENABLE_SNPRINTF=1",
++  "SECUREC_ENABLE_VSNPRINTF=1",
  ]
 +
 +# Phase 1 path X: the macOS desktop build uses the appframework (iOS-style)
 +# backend, not the previewer. The "PREVIEW" define (from preview_common.gni)
 +# collides with enum identifiers in image_framework (e.g. Cr3UuidType::PREVIEW),
 +# so drop it for the native-mac build.
-+if (defined(preview_support) && preview_support) {
-+  defines -= [ "PREVIEW" ]
++# Phase 0 path X: the native-mac (appframework/iOS-style) backend is NOT the
++# previewer, so PREVIEW must be dropped. It was previously only removed under
++# preview_support, but PREVIEW (added by preview_common.gni) leaks into the macos
++# adapter TUs regardless. With PREVIEW set, JsMessageDispatcher::CallCurlFunction
++# becomes a pure virtual that AceContainerSG does not implement -> "allocating an
++# object of abstract class type 'AceContainerSG'". Remove it whenever the iOS-style
++# backend is active (and still under the old preview_support path for safety).
++if ((defined(mac_use_ios_backend) && mac_use_ios_backend) ||
++    (defined(preview_support) && preview_support)) {
++  if (filter_include(defines, [ "PREVIEW" ]) != []) {
++    defines -= [ "PREVIEW" ]
++  }
 +}
 +
 +# Phase 2 path X (M1): wire the native-macOS adapter into libace so the ace_engine
@@ -25171,6 +25244,11 @@ index 5bdfafed3cd..1b5c925cfac 100644
 +    # without it the macos osal input_method_manager_ios.cpp out-of-line defs do
 +    # not match any declaration.
 +    "CROSS_PLATFORM",
++    # Phase 0 path X: mirror adapter/ios/build/config.gni — NG_BUILD selects the
++    # new (NG) pipeline frontend. ace_container_sg.cpp instantiates
++    # DeclarativeFrontendNG; without NG_BUILD the NG frontend delegate header is
++    # compiled out and the type is unknown.
++    "NG_BUILD",
 +    "VIRTUAL_RS_WINDOW",
 +    "ENABLE_ROSEN_BACKEND",
 +    "QUICK_PUSH_TRANSITION",
@@ -25197,6 +25275,14 @@ index 5bdfafed3cd..1b5c925cfac 100644
 +  # foreach over ace_platforms; the macos platform_deps above are pulled into it
 +  # via ace_lib.gni.
 +  libace_target = "//foundation/arkui/ace_engine/build:libace_static_mac"
++
++  # Phase 0 path X: drop PREVIEW at the very end of the mac iOS-backend config
++  # (after every import/define above). PREVIEW makes JsMessageDispatcher::
++  # CallCurlFunction a pure virtual that AceContainerSG never implements
++  # ("allocating an object of abstract class type 'AceContainerSG'").
++  if (filter_include(defines, [ "PREVIEW" ]) != []) {
++    defines -= [ "PREVIEW" ]
++  }
 +}
 diff --git a/adapter/preview/build/platform.gni b/adapter/preview/build/platform.gni
 index eb25f0049ec..ca804727826 100644

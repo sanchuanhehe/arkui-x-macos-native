@@ -21,6 +21,8 @@ MAP=(
   "arkcompiler/ets_frontend:ets_frontend"
   "arkcompiler/runtime_core:runtime_core"
   "interface/sdk-js:sdk-js"
+  "foundation/arkui/napi:napi"
+  "foundation/multimodalinput/input:input"
 )
 
 for e in "${MAP[@]}"; do
