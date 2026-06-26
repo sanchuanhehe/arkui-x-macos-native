@@ -15,3 +15,5 @@ interface/sdk-js            f31b3ab9b9
 # libace 编通新增仓:
 foundation/arkui/napi              261c6a74
 foundation/multimodalinput/input   c82ad85e1
+# c2 内容运行时:
+arkcompiler/ets_runtime           c5f1b0ffd

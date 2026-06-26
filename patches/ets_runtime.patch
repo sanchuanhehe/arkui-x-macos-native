@@ -1,0 +1,55 @@
+diff --git a/ecmascript/platform/unix/mac/module.cpp b/ecmascript/platform/unix/mac/module.cpp
+index f93b8ca57..eb3de9195 100644
+--- a/ecmascript/platform/unix/mac/module.cpp
++++ b/ecmascript/platform/unix/mac/module.cpp
+@@ -20,38 +20,28 @@
+ namespace panda::ecmascript {
+ CString GetOutEntryPoint(EcmaVM *vm, const CString &inputFileName)
+ {
+-    CString outEntryPoint;
+-    // if the inputFileName starts with '.test', the preview test page is started.
+-    // in this case, the path ets does not need to be combined.
+-    // inputFileName: .test/xxx/xxx.abc
+-    if (StringHelper::StringStartWith(inputFileName, ModulePathHelper::PREVIER_TEST_DIR)) {
+-        outEntryPoint = base::ConcatToCString(vm->GetBundleName(), PathHelper::SLASH_TAG, vm->GetModuleName(),
+-            PathHelper::SLASH_TAG, inputFileName);
+-    } else {
+-        // inputFileName: xxx/xxx.abc
+-        outEntryPoint = base::ConcatToCString(vm->GetBundleName(), PathHelper::SLASH_TAG, vm->GetModuleName(),
+-            ModulePathHelper::MODULE_DEFAULE_ETS.data(), inputFileName);
+-    }
+-    return outEntryPoint;
++    // The arkui-x cross-platform ability loader (js_runtime.cpp LoadJsModule) passes
++    // inputFileName already prefixed with "moduleName/ets/...". Match the common/iOS
++    // GetOutEntryPoint contract so the derived record name lines up with the abc.
++    // inputFileName: moduleName/ets/xxx/xxx.abc
++    return base::ConcatToCString(vm->GetBundleName(), PathHelper::SLASH_TAG, inputFileName);
+ }
+ 
+ CString GetBaseFileName(EcmaVM *vm, [[maybe_unused]] CString &moduleRequestName, CString &baseFileName,
+     const CString &bundleName, const CString &moduleName, [[maybe_unused]] CString &recordName)
+ {
+-    CVector<CString> currentVec;
+-    StringHelper::SplitString(moduleRequestName, currentVec, 0, ModulePathHelper::SEGMENTS_LIMIT_TWO);
+-    if (currentVec.size() < ModulePathHelper::SEGMENTS_LIMIT_TWO) { // LCOV_EXCL_BR_LINE
+-        LOG_ECMA(FATAL) << " Exceptional module path : " << moduleRequestName << ", abc path: " <<
+-            baseFileName << ", current file name: " << recordName;
+-    }
+-    CString currentModuleName = currentVec[1];
+-    PathHelper::DeleteNamespace(currentModuleName);
++    // Align with common/iOS GetBaseFileName: for intra-module imports the abc buffer is
++    // the same modules.abc, so fall back to the VM asset path instead of leaving the
++    // caller-provided baseFileName untouched.
+     if (bundleName != vm->GetBundleName()) {
+         baseFileName = base::ConcatToCString(ModulePathHelper::BUNDLE_INSTALL_PATH, bundleName, PathHelper::SLASH_TAG,
+             moduleName, PathHelper::SLASH_TAG, moduleName, ModulePathHelper::MERGE_ABC_ETS_MODULES);
+-    } else if (currentModuleName != vm->GetModuleName()) {
++    } else if (moduleName != vm->GetModuleName()) {
+         baseFileName = base::ConcatToCString(ModulePathHelper::BUNDLE_INSTALL_PATH, moduleName,
+             ModulePathHelper::MERGE_ABC_ETS_MODULES);
++    } else {
++        // Support multi-module card service
++        baseFileName = vm->GetAssetPath();
+     }
+     return baseFileName;
+ }

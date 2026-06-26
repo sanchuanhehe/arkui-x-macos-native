@@ -20,6 +20,7 @@ MAP=(
   "third_party/skia:skia"
   "arkcompiler/ets_frontend:ets_frontend"
   "arkcompiler/runtime_core:runtime_core"
+  "arkcompiler/ets_runtime:ets_runtime"
   "interface/sdk-js:sdk-js"
   "foundation/arkui/napi:napi"
   "foundation/multimodalinput/input:input"
