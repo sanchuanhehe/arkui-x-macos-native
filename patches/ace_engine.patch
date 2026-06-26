@@ -120,10 +120,10 @@ index 00000000000..181d1fa6fc0
 +}
 diff --git a/adapter/macos/entrance/BUILD.gn b/adapter/macos/entrance/BUILD.gn
 new file mode 100644
-index 00000000000..6592f2aa6e9
+index 00000000000..fae7e412f82
 --- /dev/null
 +++ b/adapter/macos/entrance/BUILD.gn
-@@ -0,0 +1,137 @@
+@@ -0,0 +1,140 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -172,6 +172,9 @@ index 00000000000..6592f2aa6e9
 +      # Phase 0 path X: the mmi event convertor pulls the MMI PointerEvent header
 +      # ("pointer_event.h") from the multimodalinput innerkits.
 +      "//foundation/multimodalinput/input/interfaces/native/innerkits/event/include",
++      # Phase 0 path X (M1 格-c1): render_context_gl.h (GetResourceContext share
++      # group) for the FBO -> CAOpenGLLayer presentation handshake.
++      "//foundation/graphic/graphic_2d/rosen/modules/2d_graphics/src",
 +    ]
 +
 +    sources = [
@@ -296,10 +299,10 @@ index 00000000000..2087ccc09db
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_MAC_APP_DELEGATE_H
 diff --git a/adapter/macos/entrance/MacAppDelegate.mm b/adapter/macos/entrance/MacAppDelegate.mm
 new file mode 100644
-index 00000000000..e36fe7e378c
+index 00000000000..9d5d9d55c12
 --- /dev/null
 +++ b/adapter/macos/entrance/MacAppDelegate.mm
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,65 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -325,7 +328,11 @@ index 00000000000..e36fe7e378c
 +#import "StageViewController.h"
 +
 +#define BUNDLE_DIRECTORY @"arkui-x"
-+#define BUNDLE_NAME @"packageName"
++// Phase 0 path X (M1 格-c2): the prebuilt sample asset bundle copied next to the
++// executable (out/.../arkui-x/dynamicHap) ships these names in its module.json.
++#define BUNDLE_NAME @"com.example.enjoyarkuix"
++#define MODULE_NAME @"dynamicHap"
++#define ABILITY_NAME @"DynamicHapAbility"
 +
 +@implementation MacAppDelegate
 +
@@ -335,9 +342,9 @@ index 00000000000..e36fe7e378c
 +    [StageApplication configModuleWithBundleDirectory:BUNDLE_DIRECTORY];
 +    [StageApplication launchApplication];
 +
-+    // 2. Build the stage view controller for entry/EntryAbility.
++    // 2. Build the stage view controller for the sample ability.
 +    NSString* instanceName =
-+        [NSString stringWithFormat:@"%@:%@:%@", BUNDLE_NAME, @"entry", @"EntryAbility"];
++        [NSString stringWithFormat:@"%@:%@:%@", BUNDLE_NAME, MODULE_NAME, ABILITY_NAME];
 +    StageViewController* rootVC =
 +        [[StageViewController alloc] initWithInstanceName:instanceName];
 +
@@ -451,10 +458,10 @@ index 00000000000..cbb5011c9f2
 +#endif  // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_WINDOW_VIEW_H
 diff --git a/adapter/macos/entrance/WindowView.mm b/adapter/macos/entrance/WindowView.mm
 new file mode 100644
-index 00000000000..30ca0118387
+index 00000000000..7969a97292f
 --- /dev/null
 +++ b/adapter/macos/entrance/WindowView.mm
-@@ -0,0 +1,676 @@
+@@ -0,0 +1,755 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -495,6 +502,11 @@ index 00000000000..30ca0118387
 +#import <Foundation/Foundation.h>
 +#import <OpenGL/OpenGL.h>
 +#import <OpenGL/gl3.h>
++
++// Phase 0 path X (M1 格-c1): share the layer's CGL context with render_context's
++// resource context (share group root) so the offscreen FBO it renders can be
++// blitted to the layer drawable.
++#include "render_context/new_render_context/render_context_gl.h"
 +#import <QuartzCore/QuartzCore.h>
 +
 +#include "hilog.h"
@@ -525,6 +537,15 @@ index 00000000000..30ca0118387
 +@end
 +
 +@implementation WindowGLLayer
++{
++    // Phase 0 path X (M1 格-c1): a self-contained test FBO created in the shared
++    // context, filled with a pattern, to prove the cross-context FBO -> blit ->
++    // screen path independent of the (not-yet-running) RS pipeline.
++    GLuint _testFbo;
++    GLuint _testTex;
++    GLint _testW;
++    GLint _testH;
++}
 +
 +- (instancetype)init
 +{
@@ -533,8 +554,31 @@ index 00000000000..30ca0118387
 +        self.needsDisplayOnBoundsChange = YES;
 +        self.opaque = NO;
 +        _sourceFramebuffer = 0;
++        _testFbo = 0;
++        _testTex = 0;
++        _testW = 0;
++        _testH = 0;
 +    }
 +    return self;
++}
++
++// Phase 0 path X (M1 格-c1): make the layer's CGL context part of render_context's
++// share group, so an FBO rendered in render_context's NSOpenGLContext (which also
++// shares with the resource context) is readable here for the blit.
++- (CGLContextObj)copyCGLContextForPixelFormat:(CGLPixelFormatObj)pixelFormat
++{
++    CGLContextObj shareCgl = nullptr;
++    void* resCtx = OHOS::Rosen::RenderContextGL::GetResourceContext();
++    if (resCtx != nullptr) {
++        NSOpenGLContext* nsShare = static_cast<NSOpenGLContext*>(resCtx);
++        shareCgl = [nsShare CGLContextObj];
++    }
++    CGLContextObj ctx = nullptr;
++    if (shareCgl != nullptr && CGLCreateContext(pixelFormat, shareCgl, &ctx) == kCGLNoError) {
++        return ctx;
++    }
++    // Fall back to the default (unshared) context if the share group is not ready.
++    return [super copyCGLContextForPixelFormat:pixelFormat];
 +}
 +
 +- (BOOL)canDrawInCGLContext:(CGLContextObj)glContext
@@ -543,6 +587,43 @@ index 00000000000..30ca0118387
 +                displayTime:(const CVTimeStamp*)timeStamp
 +{
 +    return YES;
++}
++
++// Phase 0 path X (M1 格-c1): lazily build/refresh a test FBO with a recognizable
++// pattern (cyan field + magenta diagonal band) in the current (shared) context.
++// Returns the FBO id, or 0 on failure.
++- (GLuint)ensureTestFramebufferWidth:(GLint)w height:(GLint)h
++{
++    if (w <= 0 || h <= 0) {
++        return 0;
++    }
++    if (_testFbo == 0) {
++        glGenFramebuffers(1, &_testFbo);
++        glGenTextures(1, &_testTex);
++    }
++    if (w != _testW || h != _testH) {
++        glBindTexture(GL_TEXTURE_2D, _testTex);
++        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
++        glBindFramebuffer(GL_FRAMEBUFFER, _testFbo);
++        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _testTex, 0);
++        _testW = w;
++        _testH = h;
++    }
++    glBindFramebuffer(GL_FRAMEBUFFER, _testFbo);
++    glViewport(0, 0, w, h);
++    // Background: cyan.
++    glClearColor(0.0f, 0.8f, 0.9f, 1.0f);
++    glClear(GL_COLOR_BUFFER_BIT);
++    // A magenta diagonal band via scissor stripes (no shaders needed).
++    glEnable(GL_SCISSOR_TEST);
++    glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
++    const GLint band = h / 8 > 1 ? h / 8 : 1;
++    for (GLint y = 0; y < h; y += band * 2) {
++        glScissor(0, y, w, band);
++        glClear(GL_COLOR_BUFFER_BIT);
++    }
++    glDisable(GL_SCISSOR_TEST);
++    return _testFbo;
 +}
 +
 +- (void)drawInCGLContext:(CGLContextObj)glContext
@@ -557,24 +638,29 @@ index 00000000000..30ca0118387
 +    const GLint dstW = static_cast<GLint>(size.width * scale);
 +    const GLint dstH = static_cast<GLint>(size.height * scale);
 +
-+    // The CAOpenGLLayer-provided context has its own default framebuffer bound
-+    // (the drawable). Blit the render_context offscreen FBO color attachment
-+    // into it. render_context renders top-left origin (isFlipped), so we flip Y.
-+    //
-+    // TODO(path X, follow-up): publish render_context::framebuffer_ into
-+    // self.sourceFramebuffer so this blit pulls the real first frame. Until the
-+    // handshake lands, sourceFramebuffer == 0 means "nothing rendered yet" and
-+    // we simply clear so the layer is well-defined and the view composites.
-+    if (self.sourceFramebuffer != 0 && dstW > 0 && dstH > 0) {
-+        GLint drawFbo = 0;
-+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFbo);
-+        glBindFramebuffer(GL_READ_FRAMEBUFFER, self.sourceFramebuffer);
++    // The CAOpenGLLayer-provided context has the layer drawable bound as the
++    // default framebuffer. Capture that binding FIRST, before any FBO work below
++    // rebinds it (e.g. building the test FBO), so we blit into the real drawable.
++    GLint drawFbo = 0;
++    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFbo);
++
++    // Source FBO: the real render_context framebuffer once published; otherwise a
++    // self-contained c1 test FBO (proves cross-context FBO -> blit -> screen).
++    GLuint readFbo = self.sourceFramebuffer;
++    if (readFbo == 0) {
++        readFbo = [self ensureTestFramebufferWidth:dstW height:dstH];
++    }
++
++    if (readFbo != 0 && dstW > 0 && dstH > 0) {
++        glBindFramebuffer(GL_READ_FRAMEBUFFER, readFbo);
 +        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +        // Flip Y: read bottom-to-top of source into top-to-bottom of dest.
 +        glBlitFramebuffer(0, 0, dstW, dstH, 0, dstH, dstW, 0,
 +                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
 +        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
++        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +    } else {
++        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 +        glClear(GL_COLOR_BUFFER_BIT);
 +    }
