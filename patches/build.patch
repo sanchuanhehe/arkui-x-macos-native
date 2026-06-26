@@ -62,10 +62,10 @@ index 6c3ff5e4..feb4b042 100755
          _cfi_enable = true
          if (build_framework_security_configs_policy == "basic") {
 diff --git a/config/security/BUILD.gn b/config/security/BUILD.gn
-index 27c250aa..bcbc4bd0 100644
+index 27c250aa..1d9680cb 100644
 --- a/config/security/BUILD.gn
 +++ b/config/security/BUILD.gn
-@@ -40,10 +40,14 @@ config("auto_var_pattern_init_config") {
+@@ -40,10 +40,16 @@ config("auto_var_pattern_init_config") {
  # instability. So on the premise that the system is stable, the config of zero need to be gradually replaced with
  # the config of pattern.
  config("auto_var_zero_init_config") {
@@ -76,8 +76,10 @@ index 27c250aa..bcbc4bd0 100644
 +  cflags = [ "-ftrivial-auto-var-init=zero" ]
 +
 +  # The -enable-...-knowing-it-will-be-removed flag is an OHOS-clang-only spelling
-+  # that Xcode's clang rejects. Phase 1 path X (macOS) builds with Xcode's clang.
-+  if (!use_xcode_clang) {
++  # that Xcode's clang rejects. Phase 1/2 path X: the TARGET mac toolchain uses
++  # Xcode's clang (drop the flag), but the HOST toolchain still uses the prebuilt
++  # OHOS clang which REQUIRES it paired with -ftrivial-auto-var-init=zero.
++  if (!use_xcode_clang || current_toolchain == host_toolchain) {
 +    cflags +=
 +        [ "-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang" ]
 +  }
@@ -85,19 +87,20 @@ index 27c250aa..bcbc4bd0 100644
  
  # Do not set the uninitialized local variables to any value.
 diff --git a/core/gn/BUILD.gn b/core/gn/BUILD.gn
-index a8183f4d..85e3db7f 100755
+index a8183f4d..71ffc65d 100755
 --- a/core/gn/BUILD.gn
 +++ b/core/gn/BUILD.gn
-@@ -30,7 +30,14 @@ if (product_name == "ohos-sdk") {
+@@ -30,7 +30,15 @@ if (product_name == "ohos-sdk") {
    }
  } else if (product_name == "arkui-x") {
    group("arkui_targets") {
 -    deps = [ "//build_plugins/sdk:arkui_cross_sdk" ]
 +    if (target_os == "mac") {
-+      # Phase 0 de-risk: compile only the graphic_2d platform backend for mac
-+      # (path X routes this to the appframework/iOS backend), not the full
-+      # cross-platform SDK packaging graph (which has no mac section yet).
-+      deps = [ "//foundation/appframework/graphic_2d:platform" ]
++      # Phase 2 path X (M1): the native macOS app executable. This pulls the full
++      # chain (libace_static_mac + macos adapter + graphic backend) into the build
++      # graph; the OHOS component loader otherwise prunes targets not reachable
++      # from a product root.
++      deps = [ "//foundation/arkui/ace_engine/adapter/macos/build:ace_macos" ]
 +    } else {
 +      deps = [ "//build_plugins/sdk:arkui_cross_sdk" ]
 +    }

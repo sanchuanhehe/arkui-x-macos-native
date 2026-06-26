@@ -13,6 +13,236 @@ index 5107487..8675451 100644
        defines += [ "IOS_PLATFORM" ]
        sources += [
          "${ability_runtime_cross_platform_path}/frameworks/native/base/event_handler/src/platform/ios/ios_message_loop.mm",
+diff --git a/ability/ability_runtime/cross_platform/interfaces/inner_api/bundle/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/inner_api/bundle/BUILD.gn
+index 0015f8d..13bfade 100644
+--- a/ability/ability_runtime/cross_platform/interfaces/inner_api/bundle/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/interfaces/inner_api/bundle/BUILD.gn
+@@ -1,73 +1,73 @@
+-# Copyright (c) 2023-2025 Huawei Device Co., Ltd.
+-# Licensed under the Apache License, Version 2.0 (the "License");
+-# you may not use this file except in compliance with the License.
+-# You may obtain a copy of the License at
+-#
+-#     http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an "AS IS" BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-
+-import("//build/ohos.gni")
+-import("//foundation/appframework/ability/ability_runtime/ability_runtime.gni")
+-
+-config("bundle_parser_config") {
+-  include_dirs = [
+-    "//third_party/json/include",
+-    "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/include",
+-    "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/include/navigation",
+-    "${ability_runtime_cross_platform_path}/interfaces/inner_api/bundle",
+-    "${ability_runtime_cross_platform_path}/interfaces/inner_api/error",
+-    "${ability_runtime_cross_platform_path}/interfaces/kits/native/appkit",
+-  ]
+-}
+-
+-template("ability_runtime_bundle_parser") {
+-  forward_variables_from(invoker, "*")
+-
+-  ohos_source_set(target_name) {
+-    subsystem_name = ability_subsystem_name
+-    part_name = ability_part_name
+-    configs = [
+-      ":bundle_parser_config",
+-      "//third_party/json:nlohmann_json_config",
+-      "${ability_runtime_cross_platform_path}/interfaces/inner_api/hilog:ability_cross_platform_hilog_config",
+-    ]
+-
+-    if (target_cpu == "arm64") {
+-      defines = [ "_ARM64_" ]
+-    }
+-    if (target_os == "android") {
+-      defines += [ "ANDROID_PLATFORM" ]
+-    } else if (target_os == "ios") {
+-      defines += [ "IOS_PLATFORM" ]
+-    }
+-
+-    cross_platform_base_path =
+-        "${ability_runtime_cross_platform_path}/frameworks/native/base"
+-    sources = [
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/ability_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/application_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_container.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_parser.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_user_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/hap_module_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/inner_bundle_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/inner_bundle_user_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/module_info.cpp",
+-      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/module_profile.cpp",
+-      "${cross_platform_base_path}/bundle_parser/src/navigation/router_item_compare.cpp",
+-      "${cross_platform_base_path}/bundle_parser/src/navigation/router_map_helper.cpp",
+-      "${cross_platform_base_path}/bundle_parser/src/navigation/sem_ver.cpp",
+-    ]
+-
+-    deps = [ "//third_party/jsoncpp:jsoncpp_static" ]
+-  }
+-}
+-
+-ability_runtime_bundle_parser("cross_platform_bundle_parser") {
+-}
++# Copyright (c) 2023-2025 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++import("//build/ohos.gni")
++import("//foundation/appframework/ability/ability_runtime/ability_runtime.gni")
++
++config("bundle_parser_config") {
++  include_dirs = [
++    "//third_party/json/include",
++    "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/include",
++    "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/include/navigation",
++    "${ability_runtime_cross_platform_path}/interfaces/inner_api/bundle",
++    "${ability_runtime_cross_platform_path}/interfaces/inner_api/error",
++    "${ability_runtime_cross_platform_path}/interfaces/kits/native/appkit",
++  ]
++}
++
++template("ability_runtime_bundle_parser") {
++  forward_variables_from(invoker, "*")
++
++  ohos_source_set(target_name) {
++    subsystem_name = ability_subsystem_name
++    part_name = ability_part_name
++    configs = [
++      ":bundle_parser_config",
++      "//third_party/json:nlohmann_json_config",
++      "${ability_runtime_cross_platform_path}/interfaces/inner_api/hilog:ability_cross_platform_hilog_config",
++    ]
++
++    if (target_cpu == "arm64") {
++      defines = [ "_ARM64_" ]
++    }
++    if (target_os == "android") {
++      defines += [ "ANDROID_PLATFORM" ]
++    } else if (target_os == "ios" || target_os == "mac") {
++      defines += [ "IOS_PLATFORM" ]
++    }
++
++    cross_platform_base_path =
++        "${ability_runtime_cross_platform_path}/frameworks/native/base"
++    sources = [
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/ability_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/application_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_container.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_parser.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/bundle_user_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/hap_module_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/inner_bundle_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/inner_bundle_user_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/module_info.cpp",
++      "${ability_runtime_cross_platform_path}/frameworks/native/base/bundle_parser/src/module_profile.cpp",
++      "${cross_platform_base_path}/bundle_parser/src/navigation/router_item_compare.cpp",
++      "${cross_platform_base_path}/bundle_parser/src/navigation/router_map_helper.cpp",
++      "${cross_platform_base_path}/bundle_parser/src/navigation/sem_ver.cpp",
++    ]
++
++    deps = [ "//third_party/jsoncpp:jsoncpp_static" ]
++  }
++}
++
++ability_runtime_bundle_parser("cross_platform_bundle_parser") {
++}
+diff --git a/ability/ability_runtime/cross_platform/interfaces/inner_api/error/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/inner_api/error/BUILD.gn
+index f490ac8..dddf2e6 100644
+--- a/ability/ability_runtime/cross_platform/interfaces/inner_api/error/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/interfaces/inner_api/error/BUILD.gn
+@@ -42,7 +42,7 @@ ohos_source_set("ability_runtime_error_util") {
+ 
+   if (target_os == "android") {
+     defines += [ "ANDROID_PLATFORM" ]
+-  } else if (target_os == "ios") {
++  } else if (target_os == "ios" || target_os == "mac") {
+     defines += [ "IOS_PLATFORM" ]
+   }
+ 
+diff --git a/ability/ability_runtime/cross_platform/interfaces/inner_api/jsruntime/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/inner_api/jsruntime/BUILD.gn
+index 20aadf5..4876f62 100644
+--- a/ability/ability_runtime/cross_platform/interfaces/inner_api/jsruntime/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/interfaces/inner_api/jsruntime/BUILD.gn
+@@ -102,7 +102,8 @@ template("ability_runtime_jsruntime") {
+ 
+     if (target_os == "android") {
+       defines += [ "ANDROID_PLATFORM" ]
+-    } else if (target_os == "ios") {
++    } else if (target_os == "ios" || target_os == "mac") {
++      # Phase 2 path X: mac follows the iOS code branches in ability_runtime.
+       defines += [ "IOS_PLATFORM" ]
+     }
+     deps += [ "//arkcompiler/ets_runtime:libark_jsruntime_static" ]
+diff --git a/ability/ability_runtime/cross_platform/interfaces/inner_api/want/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/inner_api/want/BUILD.gn
+index 76bf033..790d69b 100644
+--- a/ability/ability_runtime/cross_platform/interfaces/inner_api/want/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/interfaces/inner_api/want/BUILD.gn
+@@ -41,7 +41,7 @@ template("ability_runtime_want") {
+ 
+     if (target_os == "android") {
+       defines += [ "ANDROID_PLATFORM" ]
+-    } else if (target_os == "ios") {
++    } else if (target_os == "ios" || target_os == "mac") {
+       defines += [ "IOS_PLATFORM" ]
+     }
+ 
+@@ -82,7 +82,7 @@ template("ability_runtime_want_params") {
+ 
+     if (target_os == "android") {
+       defines += [ "ANDROID_PLATFORM" ]
+-    } else if (target_os == "ios") {
++    } else if (target_os == "ios" || target_os == "mac") {
+       defines += [ "IOS_PLATFORM" ]
+     }
+ 
+diff --git a/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn
+index b4b9eb6..4d8f797 100644
+--- a/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn
+@@ -38,6 +38,9 @@ config("abilitykit_native_config") {
+   } else if (target_os == "ios") {
+     include_dirs +=
+         [ "//foundation/arkui/ace_engine/adapter/ios/stage/ability" ]
++  } else if (target_os == "mac") {
++    include_dirs +=
++        [ "//foundation/arkui/ace_engine/adapter/macos/stage/ability" ]
+   }
+ }
+ 
+diff --git a/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn
+index c001ea9..1ec1340 100644
+--- a/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn
+@@ -50,6 +50,11 @@ config("appkit_native_config") {
+   } else if (target_os == "ios") {
+     include_dirs +=
+         [ "//foundation/arkui/ace_engine/adapter/ios/stage/ability" ]
++  } else if (target_os == "mac") {
++    # Phase 2 path X: stage adapter headers (stage_asset_provider.h,
++    # ability_context_adapter.h, etc.) live in the macos stage adapter.
++    include_dirs +=
++        [ "//foundation/arkui/ace_engine/adapter/macos/stage/ability" ]
+   }
+ }
+ 
 diff --git a/graphic_2d/BUILD.gn b/graphic_2d/BUILD.gn
 index 57e4708..b6a1656 100644
 --- a/graphic_2d/BUILD.gn
@@ -3023,3 +3253,51 @@ index 0000000..1ba192e
 +}
 +} // namespace Rosen
 +} // namespace OHOS
+diff --git a/hiviewdfx/hiappevent/native/src/hiappevent_base.cpp b/hiviewdfx/hiappevent/native/src/hiappevent_base.cpp
+index 94b7a0c..fd45354 100644
+--- a/hiviewdfx/hiappevent/native/src/hiappevent_base.cpp
++++ b/hiviewdfx/hiappevent/native/src/hiappevent_base.cpp
+@@ -366,7 +366,9 @@ void AppEventPack::InitTimeZone()
+ void AppEventPack::InitProcessInfo()
+ {
+     pid_ = getpid();
+-#if defined(IOS_PLATFORM)
++#if defined(IOS_PLATFORM) || defined(__APPLE__)
++    // Phase 2 path X: gettid() is Linux-only; Apple platforms use
++    // pthread_threadid_np (covers both iOS and native macOS).
+     pthread_threadid_np(NULL, &tid_);
+ #else
+     tid_ = gettid();
+diff --git a/hiviewdfx/hilog/BUILD.gn b/hiviewdfx/hilog/BUILD.gn
+index 9d5e53b..4534ac6 100644
+--- a/hiviewdfx/hilog/BUILD.gn
++++ b/hiviewdfx/hilog/BUILD.gn
+@@ -39,7 +39,9 @@ ohos_static_library("hiviewdfx_hilog_base") {
+   defines = [
+   ]
+ 
+-  if (target_os == "android" || target_os == "ios") {
++  if (target_os == "android" || target_os == "ios" || target_os == "mac") {
++    # Phase 2 path X: the vsnprintf output code uses SECUREC_FLAG_INTMAX which the
++    # securec header only defines under SECUREC_COMPATIBLE_LINUX_FORMAT.
+     defines += [ "SECUREC_COMPATIBLE_LINUX_FORMAT" ]
+   }
+   configs = [ ":hiviewdfx_base_config" ]
+diff --git a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn b/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
+index e658ab7..11b4dac 100644
+--- a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
++++ b/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
+@@ -58,6 +58,13 @@ template("display_manager_napi") {
+     } else if (current_os == "ios") {
+       defines += [ "IOS_PLATFORM" ]
+       include_dirs += [ "//foundation/arkui/ace_engine/adapter/ios/entrance" ]
++    } else if (current_os == "mac") {
++      # Phase 2 path X: display_info.h lives next to the mac entrance.
++      defines += [
++        "IOS_PLATFORM",
++        "MAC_PLATFORM",
++      ]
++      include_dirs += [ "//foundation/arkui/ace_engine/adapter/macos/entrance" ]
+     }
+ 
+     sources = [

@@ -155,10 +155,10 @@ index 71a4a0a34..31b987b07 100644
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
 diff --git a/ide/image_decode_config.gni b/ide/image_decode_config.gni
-index be093ae5a..574ab82d4 100644
+index be093ae5a..b59fae36f 100644
 --- a/ide/image_decode_config.gni
 +++ b/ide/image_decode_config.gni
-@@ -20,7 +20,7 @@ declare_args() {
+@@ -20,17 +20,31 @@ declare_args() {
  
  # source code for Windows.
  use_mingw_win = "${current_os}_${current_cpu}" == "mingw_x86_64"
@@ -167,7 +167,19 @@ index be093ae5a..574ab82d4 100644
  use_clang_ios = current_os == "ios" || current_os == "tvos"
  use_clang_android = current_os == "android"
  
-@@ -30,7 +30,12 @@ mac_buildtool = "//build/toolchain/mac:clang_x64"
+ # Toolchain
+ windows_buildtool = "//build/toolchain/mingw:mingw_x86_64"
+-mac_buildtool = "//build/toolchain/mac:clang_x64"
++
++# Phase 2 path X: make mac_buildtool arch-aware so it agrees with the value
++# ace_config.gni computes (clang_arm64 on Apple Silicon). When both gni files are
++# imported into one scope (e.g. drawable_descriptor on arkui-x), gn requires the
++# values to be identical or it reports a "Value collision".
++if ("${current_os}_${current_cpu}" == "mac_arm64") {
++  mac_buildtool = "//build/toolchain/mac:clang_arm64"
++} else {
++  mac_buildtool = "//build/toolchain/mac:clang_x64"
++}
  
  # Defines
  image_decode_windows_defines = [ "_WIN32" ]
