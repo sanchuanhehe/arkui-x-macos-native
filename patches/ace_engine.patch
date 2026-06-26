@@ -1,3 +1,26 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 5168ec96d72..fe52b52d03e 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -74,6 +74,18 @@ config("ace_config") {
+     ]
+   }
+ 
++  # Phase 0 path X (mac): the Xcode clang used on mac (use_xcode_clang) does not
++  # know the "enum-constexpr-conversion" warning. The base mac config passes a
++  # harmless "-Wno-error=enum-constexpr-conversion", but combined with this
++  # "-Werror=unknown-warning-option" clang promotes that unknown -Wno-error to a
++  # hard error ("unknown warning option '-Werror=enum-constexpr-conversion'"),
++  # failing ~all ace TUs. Drop the unknown-warning-option hardening on mac so the
++  # unknown flag is merely ignored (a "-Wno-unknown-warning-option" is already
++  # present in the base config).
++  if (target_os == "mac") {
++    cflags -= [ "-Werror=unknown-warning-option" ]
++  }
++
+   if (is_ohos && is_clang && (target_cpu == "arm" || target_cpu == "arm64") &&
+       enhanced_opt) {
+     if (ace_engine_feature_enable_pgo) {
 diff --git a/adapter/macos/build/BUILD.gn b/adapter/macos/build/BUILD.gn
 new file mode 100644
 index 00000000000..c2323139b10
@@ -68,10 +91,10 @@ index 00000000000..c2323139b10
 +}
 diff --git a/adapter/macos/entrance/BUILD.gn b/adapter/macos/entrance/BUILD.gn
 new file mode 100644
-index 00000000000..7caf0e99e6f
+index 00000000000..a9688b607d4
 --- /dev/null
 +++ b/adapter/macos/entrance/BUILD.gn
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,116 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -112,6 +135,11 @@ index 00000000000..7caf0e99e6f
 +      "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
 +      "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
 +      "//foundation/graphic/graphic_2d/rosen/modules/render_service_client/core",
++      # Phase 0 path X: napi's native_node_api.h pulls js_native_api.h, which
++      # lives in third_party/node/src (napi adds it as a private include only).
++      "//third_party/node/src",
++      # Phase 0 path X: "napi/native_api.h" lives under napi/interfaces/kits.
++      "//foundation/arkui/napi/interfaces/kits",
 +    ]
 +
 +    sources = [
@@ -2351,10 +2379,10 @@ index 00000000000..902cfe5dd3a
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_VIRTUAL_RS_WINDOW_H
 diff --git a/adapter/macos/entrance/virtual_rs_window.mm b/adapter/macos/entrance/virtual_rs_window.mm
 new file mode 100644
-index 00000000000..87dcc3c0162
+index 00000000000..1bda0826d35
 --- /dev/null
 +++ b/adapter/macos/entrance/virtual_rs_window.mm
-@@ -0,0 +1,1632 @@
+@@ -0,0 +1,1634 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -2372,8 +2400,10 @@ index 00000000000..87dcc3c0162
 +
 +#include "adapter/macos/entrance/virtual_rs_window.h"
 +
-+#include <__nullptr>
-+#include <_types/_uint32_t.h>
++// Phase 0 path X: dropped iOS-SDK-internal libc++ headers (<__nullptr>,
++// <_types/_uint32_t.h>) that do not resolve under the macOS SDK/Xcode clang.
++// nullptr is a language keyword; uint32_t comes from <cstdint>.
++#include <cstdint>
 +#include <memory>
 +#import <AppKit/AppKit.h>
 +#include <objc/objc.h>
@@ -3989,10 +4019,10 @@ index 00000000000..87dcc3c0162
 +} // namespace OHOS::Rosen
 diff --git a/adapter/macos/osal/BUILD.gn b/adapter/macos/osal/BUILD.gn
 new file mode 100644
-index 00000000000..ab7d319fe31
+index 00000000000..2823f57da9e
 --- /dev/null
 +++ b/adapter/macos/osal/BUILD.gn
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,173 @@
 +# Copyright (c) 2022-2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -4105,6 +4135,9 @@ index 00000000000..ab7d319fe31
 +
 +    include_dirs = [
 +      "$ace_root/adapter/macos/entrance",
++      # Phase 0 path X: mac reuses the iOS logging bridge header
++      # (LogInterfaceBridge.h lives under the iOS entrance logIntercept dir).
++      "$ace_root/adapter/ios/entrance/logIntercept",
 +      "$ace_root/frameworks/core/common",
 +      "$ace_root/interfaces/inner_api/ace",
 +      "$app_framework_window_path/dm/include",
@@ -15910,10 +15943,10 @@ index 00000000000..1060ca13a77
 +} // namespace OHOS::Ace
 diff --git a/adapter/macos/osal/subwindow_ios.h b/adapter/macos/osal/subwindow_ios.h
 new file mode 100644
-index 00000000000..34f6a348571
+index 00000000000..b1d5c0f1d69
 --- /dev/null
 +++ b/adapter/macos/osal/subwindow_ios.h
-@@ -0,0 +1,309 @@
+@@ -0,0 +1,311 @@
 +/*
 + * Copyright (c) 2024 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15934,8 +15967,10 @@ index 00000000000..34f6a348571
 +
 +#include <unordered_map>
 +
-+#include "adapter/ios/entrance/virtual_rs_window.h"
-+#include "adapter/ios/stage/uicontent/ace_container_sg.h"
++// Phase 0 path X: use the macOS adapter copies (different include guard than the
++// iOS ones; mixing both causes redefinition of VsyncCallback/Window/...).
++#include "adapter/macos/entrance/virtual_rs_window.h"
++#include "adapter/macos/stage/uicontent/ace_container_sg.h"
 +#include "base/subwindow/subwindow.h"
 +#include "base/subwindow/subwindow_manager.h"
 +#include "core/pipeline/pipeline_base.h"
@@ -17261,10 +17296,10 @@ index 00000000000..6919bfb6ed9
 +@end
 diff --git a/adapter/macos/stage/ability/BUILD.gn b/adapter/macos/stage/ability/BUILD.gn
 new file mode 100644
-index 00000000000..5923f30a3f5
+index 00000000000..53c5051a26b
 --- /dev/null
 +++ b/adapter/macos/stage/ability/BUILD.gn
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,112 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -17300,6 +17335,10 @@ index 00000000000..5923f30a3f5
 +    include_dirs = [
 +      "./",
 +      "//foundation/arkui/ace_engine/adapter/macos/entrance",
++      # Phase 0 path X: StageViewController.mm needs dump_helper.h, which only the
++      # iOS entrance provides. Safe here: this target's sources do not include
++      # virtual_rs_window.h, so the iOS copy of that header cannot collide.
++      "//foundation/arkui/ace_engine/adapter/ios/entrance",
 +      "//foundation/appframework/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit",
 +      "$ace_root/frameworks",
 +      "$ace_root",
@@ -20871,10 +20910,10 @@ index 00000000000..e330e815b25
 +} // namespace OHOS
 diff --git a/adapter/macos/stage/uicontent/BUILD.gn b/adapter/macos/stage/uicontent/BUILD.gn
 new file mode 100644
-index 00000000000..0c6b56ee7c8
+index 00000000000..4d728b67208
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/BUILD.gn
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,98 @@
 +# Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -20914,6 +20953,9 @@ index 00000000000..0c6b56ee7c8
 +      "//arkcompiler/runtime_core",
 +      "//base/global/resource_management/interfaces/inner_api/include",
 +      "//foundation/arkui/napi",
++      # Phase 0 path X: napi's native_node_api.h pulls js_native_api.h from
++      # third_party/node/src (a private napi include, not exported to consumers).
++      "//third_party/node/src",
 +      "//foundation/appframework/arkui/uicontent",
 +      "//foundation/appframework/window_manager/interfaces/innerkits/dm",
 +      "//foundation/appframework/window_manager/utils/include",
@@ -22475,10 +22517,10 @@ index 00000000000..d39e79bd8a0
 +} // namespace OHOS::Ace::Platform
 diff --git a/adapter/macos/stage/uicontent/ace_container_sg.h b/adapter/macos/stage/uicontent/ace_container_sg.h
 new file mode 100644
-index 00000000000..74161555b8c
+index 00000000000..a6bbefbb57b
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_container_sg.h
-@@ -0,0 +1,457 @@
+@@ -0,0 +1,459 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22515,7 +22557,9 @@ index 00000000000..74161555b8c
 +#include "core/components/theme/theme_manager.h"
 +#include "core/pipeline_ng/pipeline_context.h"
 +
-+#include "adapter/ios/entrance/virtual_rs_window.h"
++// Phase 0 path X: use the macOS virtual_rs_window.h (distinct include guard
++// from the iOS one; mixing both -> redefinition of VsyncCallback/Window/...).
++#include "adapter/macos/entrance/virtual_rs_window.h"
 +#include "native_engine/native_engine.h"
 +
 +namespace OHOS::Ace::Platform {
@@ -23450,10 +23494,10 @@ index 00000000000..5d3a56248ba
 +} // namespace OHOS::Ace::Platform
 diff --git a/adapter/macos/stage/uicontent/ace_view_sg.h b/adapter/macos/stage/uicontent/ace_view_sg.h
 new file mode 100644
-index 00000000000..47c0d3949f2
+index 00000000000..7c812bde1bb
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_view_sg.h
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,179 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23486,7 +23530,9 @@ index 00000000000..47c0d3949f2
 +#include "core/common/thread_model_impl.h"
 +#endif
 +
-+#include "adapter/ios/entrance/virtual_rs_window.h"
++// Phase 0 path X: use the macOS virtual_rs_window.h (distinct include guard
++// from the iOS one; mixing both -> redefinition of VsyncCallback/Window/...).
++#include "adapter/macos/entrance/virtual_rs_window.h"
 +#include "adapter/ios/entrance/mmi_event_convertor.h"
 +#include "core/event/touch_event.h"
 +#include "core/pipeline_ng/pipeline_context.h"
@@ -24728,10 +24774,10 @@ index 00000000000..c6c8d6e40fc
 +} // namespace OHOS::Ace::Platform
 diff --git a/adapter/macos/stage/uicontent/ui_content_impl.h b/adapter/macos/stage/uicontent/ui_content_impl.h
 new file mode 100644
-index 00000000000..3030dc156e9
+index 00000000000..0722d3b9997
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ui_content_impl.h
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,131 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24752,9 +24798,13 @@ index 00000000000..3030dc156e9
 +
 +#include <memory>
 +
-+#include "adapter/ios/entrance/virtual_rs_window.h"
-+#include "adapter/ios/stage/uicontent/ace_container_sg.h"
-+#include "adapter/ios/stage/uicontent/ui_event_monitor.h"
++// Phase 0 path X: include the macOS adapter copies of these headers, not the
++// iOS ones. The macos/ios virtual_rs_window.h have different include guards, so
++// pulling the iOS copy here (while the .mm includes the macos copy) caused
++// "redefinition of VsyncCallback/WindowSizeChangeReason/Window/...".
++#include "adapter/macos/entrance/virtual_rs_window.h"
++#include "adapter/macos/stage/uicontent/ace_container_sg.h"
++#include "adapter/macos/stage/uicontent/ui_event_monitor.h"
 +#include "base/utils/macros.h"
 +#include "core/accessibility/accessibility_node.h"
 +#include "core/event/key_event.h"
@@ -25076,10 +25126,10 @@ index 00000000000..54cd7f7ed45
 +ability_runtime_cross_platform_path =
 +    "//foundation/appframework/ability/ability_runtime/cross_platform"
 diff --git a/adapter/preview/build/config_mac.gni b/adapter/preview/build/config_mac.gni
-index 5bdfafed3cd..72baebcf2bb 100644
+index 5bdfafed3cd..1b5c925cfac 100644
 --- a/adapter/preview/build/config_mac.gni
 +++ b/adapter/preview/build/config_mac.gni
-@@ -12,9 +12,56 @@
+@@ -12,9 +12,68 @@
  # limitations under the License.
  
  import("preview_common.gni")
@@ -25115,10 +25165,22 @@ index 5bdfafed3cd..72baebcf2bb 100644
 +
 +  defines += [
 +    "IOS_PLATFORM",
++    # Phase 0 path X: mirror adapter/ios/build/config.gni — CROSS_PLATFORM gates
++    # the cross-platform InputMethodManager method declarations (ShowKeyboard /
++    # SetEditingState / Attach / ...) in core/common/ime/input_method_manager.h;
++    # without it the macos osal input_method_manager_ios.cpp out-of-line defs do
++    # not match any declaration.
++    "CROSS_PLATFORM",
 +    "VIRTUAL_RS_WINDOW",
 +    "ENABLE_ROSEN_BACKEND",
 +    "QUICK_PUSH_TRANSITION",
 +    "ACE_ENABLE_GL",
++
++    # Phase 0 path X: the macos uicontent reuses the iOS ace_view_sg.cpp, which
++    # calls PipelineBase::OnTouchTargetHitTest — a method declared only under
++    # #if defined(SUPPORT_TOUCH_TARGET_TEST). iOS turns this on via its config
++    # (support_touch_target_test); mirror it for mac.
++    "SUPPORT_TOUCH_TARGET_TEST",
 +  ]
 +
 +  # Replace the previewer platform_deps (set in preview_common.gni) with the
@@ -25283,3 +25345,17 @@ index e58f8e0b0a1..0a812c0f2a1 100644
      if (ace_enable_gpu) {
        defines += [ "RS_ENABLE_GPU" ]
      }
+diff --git a/interfaces/napi/kits/drag_controller/BUILD.gn b/interfaces/napi/kits/drag_controller/BUILD.gn
+index fabbd18d316..b97638c01c8 100644
+--- a/interfaces/napi/kits/drag_controller/BUILD.gn
++++ b/interfaces/napi/kits/drag_controller/BUILD.gn
+@@ -42,6 +42,9 @@ template("napi_dragcontroller_static") {
+         include_dirs = [ "$ace_root/adapter/android/entrance/java/jni" ]
+       } else if (target_os == "ios") {
+         include_dirs = [ "$ace_root/adapter/ios/entrance" ]
++      } else if (target_os == "mac") {
++        # Phase 0 path X: mac reuses the iOS entrance headers.
++        include_dirs = [ "$ace_root/adapter/macos/entrance" ]
+       }
+       include_dirs += [
+         "$ace_graphic/rosen/modules",

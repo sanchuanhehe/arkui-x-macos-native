@@ -214,7 +214,7 @@ index 76bf033..790d69b 100644
      }
  
 diff --git a/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn
-index b4b9eb6..4d8f797 100644
+index b4b9eb6..2adb5db 100644
 --- a/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn
 +++ b/ability/ability_runtime/cross_platform/interfaces/kits/native/ability/BUILD.gn
 @@ -38,6 +38,9 @@ config("abilitykit_native_config") {
@@ -227,8 +227,23 @@ index b4b9eb6..4d8f797 100644
    }
  }
  
+@@ -90,6 +93,14 @@ template("ability_runtime_abilitykit_native") {
+       defines += [ "ANDROID_PLATFORM" ]
+     } else if (target_os == "ios") {
+       defines += [ "IOS_PLATFORM" ]
++    } else if (target_os == "mac") {
++      # Phase 0 path X: mac reuses the iOS ability path (gates jni.h out of
++      # window_stage.h); mac stage/ability include dir is already added by
++      # abilitykit_native_config above.
++      defines += [
++        "IOS_PLATFORM",
++        "MAC_PLATFORM",
++      ]
+     }
+     deps += [ "//foundation/appframework/resource_management:global_resmgr" ]
+   }
 diff --git a/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn b/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn
-index c001ea9..1ec1340 100644
+index c001ea9..3270ca9 100644
 --- a/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn
 +++ b/ability/ability_runtime/cross_platform/interfaces/kits/native/appkit/BUILD.gn
 @@ -50,6 +50,11 @@ config("appkit_native_config") {
@@ -243,6 +258,52 @@ index c001ea9..1ec1340 100644
    }
  }
  
+@@ -120,6 +125,14 @@ template("ability_runtime_appkit_native") {
+         "CROSS_PLATFORM",
+       ]
+       deps += [ "//foundation/arkui/napi:ace_napi" ]
++    } else if (target_os == "mac") {
++      # Phase 0 path X: mac reuses the iOS appkit path (gates jni.h out).
++      defines += [
++        "IOS_PLATFORM",
++        "MAC_PLATFORM",
++        "CROSS_PLATFORM",
++      ]
++      deps += [ "//foundation/arkui/napi:ace_napi" ]
+     }
+     deps += [ "//foundation/appframework/resource_management:global_resmgr" ]
+   }
+@@ -187,6 +200,13 @@ template("appkit_delegator_appkit_native") {
+       if (target_os == "ios") {
+         defines += [ "IOS_PLATFORM" ]
+       }
++      if (target_os == "mac") {
++        # Phase 0 path X: mac reuses the iOS appkit path (gates jni.h out).
++        defines += [
++          "IOS_PLATFORM",
++          "MAC_PLATFORM",
++        ]
++      }
+     }
+     subsystem_name = ability_subsystem_name
+     part_name = ability_part_name
+diff --git a/arkui/uicontent/BUILD.gn b/arkui/uicontent/BUILD.gn
+index c89c451..8e5605f 100644
+--- a/arkui/uicontent/BUILD.gn
++++ b/arkui/uicontent/BUILD.gn
+@@ -41,6 +41,12 @@ ohos_source_set("ace_uicontent_interface") {
+   public_configs = [ ":uicontent_config" ]
+   if (current_os == "ios") {
+     defines = [ "IOS_PLATFORM" ]
++  } else if (current_os == "mac") {
++    # Phase 0 path X: mac reuses the iOS uicontent path.
++    defines = [
++      "IOS_PLATFORM",
++      "MAC_PLATFORM",
++    ]
+   }
+   sources = [
+     "//foundation/appframework/arkui/uicontent/declarative_module_preloader.cpp",
 diff --git a/graphic_2d/BUILD.gn b/graphic_2d/BUILD.gn
 index 57e4708..b6a1656 100644
 --- a/graphic_2d/BUILD.gn
@@ -3283,6 +3344,34 @@ index 9d5e53b..4534ac6 100644
      defines += [ "SECUREC_COMPATIBLE_LINUX_FORMAT" ]
    }
    configs = [ ":hiviewdfx_base_config" ]
+diff --git a/window_manager/dm/BUILD.gn b/window_manager/dm/BUILD.gn
+index 539b3a1..4166d1b 100644
+--- a/window_manager/dm/BUILD.gn
++++ b/window_manager/dm/BUILD.gn
+@@ -67,6 +67,23 @@ template("display_manager") {
+     } else if (current_os == "ios") {
+       defines += [ "IOS_PLATFORM" ]
+       include_dirs += [ "//foundation/arkui/ace_engine/adapter/ios/entrance" ]
++    } else if (current_os == "mac") {
++      # Phase 0 path X: mac reuses the iOS cross-platform window/display shim
++      # (IOS_PLATFORM gates jni.h out and routes display_info.h to the mac
++      # entrance headers, which provide AppKit-backed versions). This dm module's
++      # display_manager.cpp also needs display_manager_agent.h, which only the iOS
++      # entrance provides; it is safe to add adapter/ios/entrance HERE because the
++      # dm sources do NOT include virtual_rs_window.h (so the iOS copy of that
++      # header cannot collide with the mac one in this target). macos/entrance is
++      # listed first so any mac-specific overrides win.
++      defines += [
++        "IOS_PLATFORM",
++        "MAC_PLATFORM",
++      ]
++      include_dirs += [
++        "//foundation/arkui/ace_engine/adapter/macos/entrance",
++        "//foundation/arkui/ace_engine/adapter/ios/entrance",
++      ]
+     }
+   }
+ }
 diff --git a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn b/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
 index e658ab7..11b4dac 100644
 --- a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
@@ -3301,3 +3390,65 @@ index e658ab7..11b4dac 100644
      }
  
      sources = [
+diff --git a/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn b/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
+index 48afd8c..19b5862 100644
+--- a/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
++++ b/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
+@@ -64,6 +64,16 @@ template("window_manager_napi") {
+     } else if (current_os == "ios") {
+       defines += [ "IOS_PLATFORM" ]
+       include_dirs += [ "//foundation/arkui/ace_engine/adapter/ios/entrance" ]
++    } else if (current_os == "mac") {
++      # Phase 0 path X: mac reuses the iOS window/display shim; entrance headers
++      # come from the macos adapter (AppKit-backed virtual_rs_window/display_info).
++      # Do NOT also add adapter/ios/entrance: its virtual_rs_window.h has a
++      # different include guard and collides with the mac one.
++      defines += [
++        "IOS_PLATFORM",
++        "MAC_PLATFORM",
++      ]
++      include_dirs += [ "//foundation/arkui/ace_engine/adapter/macos/entrance" ]
+     }
+ 
+     sources = [
+diff --git a/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn b/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn
+index 73741b5..d553314 100644
+--- a/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn
++++ b/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn
+@@ -77,6 +77,12 @@ ohos_source_set("application_windowstage_source_set") {
+     defines = [ "ANDROID_PLATFORM" ]
+   } else if (target_os == "ios") {
+     defines = [ "IOS_PLATFORM" ]
++  } else if (target_os == "mac") {
++    # Phase 0 path X: mac reuses the iOS window_stage napi path.
++    defines = [
++      "IOS_PLATFORM",
++      "MAC_PLATFORM",
++    ]
+   }
+ 
+   part_name = "window_manager"
+diff --git a/window_manager/wm/BUILD.gn b/window_manager/wm/BUILD.gn
+index 9a57b55..201eb54 100644
+--- a/window_manager/wm/BUILD.gn
++++ b/window_manager/wm/BUILD.gn
+@@ -72,6 +72,19 @@ template("window_manager") {
+       deps += [
+         "//foundation/arkui/ace_engine/adapter/ios/entrance:ace_ios_entrance",
+       ]
++    } else if (current_os == "mac") {
++      # Phase 0 path X: mac reuses the iOS window shim; entrance code/headers
++      # come from the macos adapter (ace_macos_entrance, AppKit-backed). Do NOT
++      # also add adapter/ios/entrance: its virtual_rs_window.h has a different
++      # include guard and collides with the mac one.
++      defines += [
++        "IOS_PLATFORM",
++        "MAC_PLATFORM",
++      ]
++      include_dirs += [ "//foundation/arkui/ace_engine/adapter/macos/entrance" ]
++      deps += [
++        "//foundation/arkui/ace_engine/adapter/macos/entrance:ace_macos_entrance",
++      ]
+     }
+ 
+     deps += [

@@ -215,10 +215,28 @@ index be093ae5a..eac70c731 100644
  exif_root = "//third_party"
  
 diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
-index 605575d0b..90f2d0919 100644
+index 605575d0b..88b0a8cc1 100644
 --- a/interfaces/innerkits/BUILD.gn
 +++ b/interfaces/innerkits/BUILD.gn
-@@ -114,7 +114,8 @@ if (use_clang_android) {
+@@ -69,8 +69,16 @@ config("image_external_config") {
+     include_dirs +=
+         [ "//foundation/multimedia/image_framework/mock/native/include" ]
+   } else if (use_clang_mac) {
++    # Phase 0 path X (mac dedup): the full "mock/native/include" dir contains
++    # parcel.h / nocopyable.h / message_parcel.h / errors.h / securec.h etc. that
++    # ALSO exist in real c_utils / bounds_checking_function (added above + below).
++    # Exporting the full mock dir publicly makes consumers fail with "redefinition
++    # of 'Parcel'/'NoCopyable'/..."; and the mock "secure/securec.h" only declares
++    # sprintf_s (not snprintf_s), shadowing the real bounds_checking securec.h. On
++    # mac we use the real c_utils + bounds_checking securec, so pull only the
++    # non-conflicting mock "log" subdir instead of the whole include tree.
+     include_dirs += [
+-      "//foundation/multimedia/image_framework/mock/native/include",
++      "//foundation/multimedia/image_framework/mock/native/include/log",
+       "//third_party/bounds_checking_function/include",
+       "//commonlibrary/c_utils/base/include",
+       "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
+@@ -114,7 +122,8 @@ if (use_clang_android) {
      subsystem_name = "multimedia"
      part_name = "image_framework"
    }
@@ -228,7 +246,7 @@ index 605575d0b..90f2d0919 100644
    ohos_source_set("image_native") {
      public_configs = [ ":image_external_config" ]
      configs = [ ":image_postproc_config" ]
-@@ -130,7 +131,18 @@ if (use_clang_android) {
+@@ -130,7 +139,18 @@ if (use_clang_android) {
      include_dirs = image_native_ios_include_dirs
      sources = image_native_ios_sources
      deps = image_native_ios_deps
