@@ -41,10 +41,10 @@ index 5168ec96d72..899c379ae51 100644
      if (ace_engine_feature_enable_pgo) {
 diff --git a/adapter/macos/build/BUILD.gn b/adapter/macos/build/BUILD.gn
 new file mode 100644
-index 00000000000..c2323139b10
+index 00000000000..181d1fa6fc0
 --- /dev/null
 +++ b/adapter/macos/build/BUILD.gn
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,73 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -95,6 +95,17 @@ index 00000000000..c2323139b10
 +    # The full ArkUI framework, built for mac (pulls platform_deps incl. the
 +    # macos adapter via ace_lib.gni).
 +    "//foundation/arkui/ace_engine/build:libace_static_mac",
++
++    # Phase 0 path X (M1 link): the ArkTS VM file loader. js_pandafile_manager.o
++    # (ets_runtime) references panda::panda_file::*/panda::Logger/panda::os::*;
++    # those live in the libpanda* static libs which the ace group does not pull
++    # into the exe. Link them directly.
++    "//arkcompiler/runtime_core/libpandabase:libarkbase_static",
++    "//arkcompiler/runtime_core/libpandafile:libarkfile_runtime_static",
++
++    # Phase 0 path X (M1 link): ace_kit provides the theme TokenColors/TokenTheme
++    # and Kit::UIContext/ContentModifier symbols (rendering uses theme tokens).
++    "//foundation/arkui/ace_engine/interfaces/inner_api/ace_kit:ace_kit",
 +  ]
 +
 +  frameworks = [
@@ -109,10 +120,10 @@ index 00000000000..c2323139b10
 +}
 diff --git a/adapter/macos/entrance/BUILD.gn b/adapter/macos/entrance/BUILD.gn
 new file mode 100644
-index 00000000000..64a362c941d
+index 00000000000..6592f2aa6e9
 --- /dev/null
 +++ b/adapter/macos/entrance/BUILD.gn
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,137 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -173,10 +184,16 @@ index 00000000000..64a362c941d
 +      # virtual_rs_window.mm); mirrors adapter/ios/entrance/mmi_event_convertor.
 +      "mmi_event_convertor.mm",
 +      # Phase 0 path X: macOS copies of the iOS entrance helpers needed at link
-+      # (AcePlatformPlugin, DumpHelper, InspectorJsonValue/ui_session).
++      # (AcePlatformPlugin, DumpHelper, InspectorJsonValue/ui_session,
++      # DisplayInfo/DisplayManagerAgent — AppKit NSScreen-backed display info).
 +      "ace_platform_plugin.cpp",
 +      "dump_helper.cpp",
 +      "ui_session/ui_session_json_util.cpp",
++      "display_info.mm",
++      "display_manager_agent.cpp",
++      # Phase 0 path X (M1 link): AceApplicationInfo concrete impl (startup-
++      # critical singleton); real impl ported from iOS (UIKit-free).
++      "ace_application_info_impl.cpp",
 +      "ace_pointer_data.cc",
 +      "ace_pointer_data_packet.cc",
 +      "touch_event.cpp",
@@ -1114,6 +1131,191 @@ index 00000000000..30ca0118387
 +// macOS: no-op
 +
 +@end
+diff --git a/adapter/macos/entrance/ace_application_info_impl.cpp b/adapter/macos/entrance/ace_application_info_impl.cpp
+new file mode 100644
+index 00000000000..48372744445
+--- /dev/null
++++ b/adapter/macos/entrance/ace_application_info_impl.cpp
+@@ -0,0 +1,110 @@
++/*
++ * Copyright (c) 2022 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "adapter/macos/entrance/ace_application_info_impl.h"
++
++#include <cstring>
++#include <dirent.h>
++#include <iostream>
++#include <sys/stat.h>
++
++// Phase 0 path X: removed unused minizip include (no unz* symbols used).
++#include "unicode/locid.h"
++
++#include "base/i18n/localization.h"
++#include "base/log/ace_trace.h"
++#include "base/log/event_report.h"
++#include "base/log/log.h"
++#include "base/resource/ace_res_config.h"
++#include "base/resource/ace_res_data_struct.h"
++#include "core/common/ace_engine.h"
++
++using namespace icu;
++
++namespace OHOS::Ace::Platform {
++
++AceApplicationInfoImpl::AceApplicationInfoImpl() {}
++
++AceApplicationInfoImpl::~AceApplicationInfoImpl() = default;
++
++void AceApplicationInfoImpl::SetJsEngineParam(const std::string& key, const std::string& value)
++{
++    jsEngineParams_[key] = value;
++}
++
++std::string AceApplicationInfoImpl::GetJsEngineParam(const std::string& key) const
++{
++    std::string value;
++    auto iter = jsEngineParams_.find(key);
++    if (iter != jsEngineParams_.end()) {
++        value = iter->second;
++    }
++    return value;
++}
++
++void AceApplicationInfoImpl::ChangeLocale(const std::string& language, const std::string& countryOrRegion) {}
++
++void AceApplicationInfoImpl::SetLocale(const std::string& language, const std::string& countryOrRegion,
++    const std::string& script, const std::string& keywordsAndValues)
++{
++    language_ = language;
++    countryOrRegion_ = countryOrRegion;
++    script_ = script;
++    keywordsAndValues_ = keywordsAndValues;
++
++    localeTag_ = language;
++    if (!script_.empty()) {
++        localeTag_.append("-" + script_);
++    }
++
++    if (!countryOrRegion_.empty()) {
++        localeTag_.append("-" + countryOrRegion_);
++    }
++
++    Locale locale(language_.c_str(), countryOrRegion_.c_str());
++    UErrorCode status = U_ZERO_ERROR;
++    Locale::setDefault(locale, status);
++    
++    isRightToLeft_ = locale.isRightToLeft();
++    auto languageList = Localization::GetLanguageList(language_);
++    if (languageList.size() == 1) {
++        Localization::SetLocale(language_, countryOrRegion_, script_, languageList.front(), keywordsAndValues_);
++    } else {
++        auto selectLanguage = AceResConfig::GetLocaleFallback(localeTag_, languageList);
++        Localization::SetLocale(language_, countryOrRegion_, script_, selectLanguage.front(), keywordsAndValues_);
++    }
++}
++
++bool AceApplicationInfoImpl::GetBundleInfo(const std::string& packageName, AceBundleInfo& bundleInfo)
++{
++    return false;
++}
++
++AceApplicationInfoImpl& AceApplicationInfoImpl::GetInstance()
++{
++    static AceApplicationInfoImpl instance;
++    return instance;
++}
++
++} // namespace OHOS::Ace::Platform
++
++namespace OHOS::Ace {
++
++AceApplicationInfo& AceApplicationInfo::GetInstance()
++{
++    return Platform::AceApplicationInfoImpl::GetInstance();
++}
++
++} // namespace OHOS::Ace
+diff --git a/adapter/macos/entrance/ace_application_info_impl.h b/adapter/macos/entrance/ace_application_info_impl.h
+new file mode 100644
+index 00000000000..9b649100f56
+--- /dev/null
++++ b/adapter/macos/entrance/ace_application_info_impl.h
+@@ -0,0 +1,63 @@
++/*
++ * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_ACE_APPLICATION_INFO_IMPL_H
++#define FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_ACE_APPLICATION_INFO_IMPL_H
++
++#include <map>
++#include <memory>
++#include <string>
++#include <vector>
++
++#include "base/utils/noncopyable.h"
++#include "core/common/ace_application_info.h"
++#include "resource_manager.h"
++
++namespace OHOS::Ace::Platform {
++
++class ACE_FORCE_EXPORT AceApplicationInfoImpl : public AceApplicationInfo {
++public:
++    AceApplicationInfoImpl();
++    ~AceApplicationInfoImpl() override;
++
++    static AceApplicationInfoImpl& GetInstance();
++
++    void SetLocale(const std::string& language, const std::string& countryOrRegion, const std::string& script,
++                   const std::string& keywordsAndValues) override;
++    void ChangeLocale(const std::string& language, const std::string& countryOrRegion) override;
++
++    bool GetBundleInfo(const std::string& packageName, AceBundleInfo& bundleInfo) override;
++
++    double GetLifeTime() const override
++    {
++        return 0.0;
++    }
++    std::string GetJsEngineParam(const std::string& key) const override;
++
++    void SetJsEngineParam(const std::string& key, const std::string& value);
++
++    void SetDebug(bool isDebugVersion, bool needDebugBreakpoint) override
++    {
++        AceApplicationInfoImpl::GetInstance().isDebugVersion_ = isDebugVersion;
++        AceApplicationInfoImpl::GetInstance().needDebugBreakpoint_ = needDebugBreakpoint;
++    }
++
++private:
++    std::map<std::string, std::string> jsEngineParams_;
++    std::shared_ptr<Global::Resource::ResourceManager> resMgr_;
++};
++} // namespace OHOS::Ace::Platform
++
++#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_ACE_APPLICATION_INFO_IMPL_H
 diff --git a/adapter/macos/entrance/ace_platform_plugin.cpp b/adapter/macos/entrance/ace_platform_plugin.cpp
 new file mode 100644
 index 00000000000..9160f03cf88
@@ -1805,6 +2007,135 @@ index 00000000000..d0615736556
 +}
 +
 +} // namespace OHOS::Rosen
+\ No newline at end of file
+diff --git a/adapter/macos/entrance/display_manager_agent.cpp b/adapter/macos/entrance/display_manager_agent.cpp
+new file mode 100755
+index 00000000000..7f4101b5830
+--- /dev/null
++++ b/adapter/macos/entrance/display_manager_agent.cpp
+@@ -0,0 +1,68 @@
++/*
++ * Copyright (c) 2025-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "display_manager_agent.h"
++
++namespace OHOS::Rosen {
++std::shared_ptr<DisplayManagerAgent> DisplayManagerAgent::instance_ = nullptr;
++std::mutex DisplayManagerAgent::mutex_;
++DisplayManagerAgent::DisplayManagerAgent() {}
++
++DisplayManagerAgent::~DisplayManagerAgent() {}
++
++std::shared_ptr<DisplayManagerAgent> DisplayManagerAgent::GetInstance()
++{
++    if (instance_ == nullptr) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (instance_ == nullptr) {
++            instance_ = std::make_shared<DisplayManagerAgent>();
++        }
++    }
++    return instance_;
++}
++
++bool DisplayManagerAgent::IsFoldable() const
++{
++    return false;
++}
++
++uint32_t DisplayManagerAgent::GetFoldStatus() const
++{
++    return 0;
++}
++
++uint32_t DisplayManagerAgent::GetFoldDisplayMode() const
++{
++    return 0;
++}
++
++void DisplayManagerAgent::RegisterDisplayListener()
++{
++}
++
++void DisplayManagerAgent::UnregisterDisplayListener()
++{
++}
++
++std::string DisplayManagerAgent::RegisterFoldStatusListener()
++{
++    return "";
++}
++
++void DisplayManagerAgent::UnRegisterFoldStatusListener()
++{
++}
++
++} // namespace OHOS::Rosen
+\ No newline at end of file
+diff --git a/adapter/macos/entrance/display_manager_agent.h b/adapter/macos/entrance/display_manager_agent.h
+new file mode 100755
+index 00000000000..c9215fd3b43
+--- /dev/null
++++ b/adapter/macos/entrance/display_manager_agent.h
+@@ -0,0 +1,47 @@
++/*
++ * Copyright (c) 2025-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FOUNDATION_DMSERVER_DISPLAY_MANAGER_AGENT_H
++#define FOUNDATION_DMSERVER_DISPLAY_MANAGER_AGENT_H
++
++#include <cstdint>
++#include <parcel.h>
++#include <mutex>
++#include <memory>
++#include "nocopyable.h"
++#include "base/utils/macros.h"
++
++namespace OHOS::Rosen {
++
++class ACE_EXPORT DisplayManagerAgent : public virtual RefBase {
++public:
++    DisplayManagerAgent();
++    ~DisplayManagerAgent();
++    DISALLOW_COPY_AND_MOVE(DisplayManagerAgent);
++    static std::shared_ptr<DisplayManagerAgent> GetInstance();
++    bool IsFoldable() const;
++    uint32_t GetFoldStatus() const;
++    uint32_t GetFoldDisplayMode() const;
++    void RegisterDisplayListener();
++    void UnregisterDisplayListener();
++    std::string RegisterFoldStatusListener();
++    void UnRegisterFoldStatusListener();
++
++private:
++    static std::shared_ptr<DisplayManagerAgent> instance_;
++    static std::mutex mutex_;
++};
++} // namespace OHOS::Rosen
++#endif // FOUNDATION_DMSERVER_DISPLAY_MANAGER_AGENT_H
 \ No newline at end of file
 diff --git a/adapter/macos/entrance/dump_helper.cpp b/adapter/macos/entrance/dump_helper.cpp
 new file mode 100755
@@ -6417,10 +6748,10 @@ index 00000000000..53f090376ce
 +} // namespace OHOS::Rosen
 diff --git a/adapter/macos/osal/BUILD.gn b/adapter/macos/osal/BUILD.gn
 new file mode 100644
-index 00000000000..2823f57da9e
+index 00000000000..30f1de21ffe
 --- /dev/null
 +++ b/adapter/macos/osal/BUILD.gn
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,177 @@
 +# Copyright (c) 2022-2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -6454,6 +6785,10 @@ index 00000000000..2823f57da9e
 +      defines += [ "USE_NEW_SKIA" ]
 +    }
 +    sources = [
++      # Phase 0 path X (M1 link): centralized link stubs for non-rendering-path
++      # symbols (DynamicModule menu factories, accessibility/log OC bridge, skia
++      # SkDebugf/SkFontMgr port). Lets ace_macos link and open a window.
++      "mac_link_stubs.cpp",
 +      "accessibility_event_manager.cpp",
 +      "accessibility_manager_impl.cpp",
 +      "ace_checker.cpp",
@@ -12104,10 +12439,10 @@ index 00000000000..9e3bf065d0e
 +} // namespace OHOS::Ace
 diff --git a/adapter/macos/osal/log_wrapper.cpp b/adapter/macos/osal/log_wrapper.cpp
 new file mode 100755
-index 00000000000..ccb8e4150ea
+index 00000000000..c2b6296c661
 --- /dev/null
 +++ b/adapter/macos/osal/log_wrapper.cpp
-@@ -0,0 +1,174 @@
+@@ -0,0 +1,282 @@
 +/*
 + * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12143,6 +12478,114 @@ index 00000000000..ccb8e4150ea
 +#include "vsnprintf_s_p.h"
 +
 +namespace OHOS::Ace {
++// Phase 0 path X (M1 link): g_DOMAIN_CONTENTS_MAP (used by every ACE log macro
++// via .at(tag)) is defined in the OHOS osal log_wrapper but not the macOS one;
++// an empty/missing map would throw on .at(). Copy the real table.
++const std::unordered_map<AceLogTag, const char*> g_DOMAIN_CONTENTS_MAP = {
++    { AceLogTag::ACE_DEFAULT_DOMAIN, "Ace" },
++    { AceLogTag::ACE_ALPHABET_INDEXER, "AceAlphabetIndexer" },
++    { AceLogTag::ACE_COUNTER, "AceCounter" },
++    { AceLogTag::ACE_SUB_WINDOW, "AceSubWindow" },
++    { AceLogTag::ACE_FORM, "AceForm" },
++    { AceLogTag::ACE_DRAG, "AceDrag" },
++    { AceLogTag::ACE_VIDEO, "AceVideo" },
++    { AceLogTag::ACE_COMPONENT_SNAPSHOT, "AceComponentSnapshot" },
++    { AceLogTag::ACE_CANVAS, "AceCanvas" },
++    { AceLogTag::ACE_REFRESH, "AceRefresh" },
++    { AceLogTag::ACE_SCROLL, "AceScroll" },
++    { AceLogTag::ACE_SCROLLABLE, "AceScrollable" },
++    { AceLogTag::ACE_FONT, "AceFont" },
++    { AceLogTag::ACE_OVERLAY, "AceOverlay" },
++    { AceLogTag::ACE_DIALOG_TIMEPICKER, "AceDialogTimePicker" },
++    { AceLogTag::ACE_DIALOG, "AceDialog" },
++    { AceLogTag::ACE_PANEL, "AcePanel" },
++    { AceLogTag::ACE_MENU, "AceMenu" },
++    { AceLogTag::ACE_TEXTINPUT, "AceTextInput" },
++    { AceLogTag::ACE_TEXT, "AceText" },
++    { AceLogTag::ACE_TEXT_FIELD, "AceTextField" },
++    { AceLogTag::ACE_SWIPER, "AceSwiper" },
++    { AceLogTag::ACE_TABS, "AceTabs" },
++    { AceLogTag::ACE_SAFE_AREA, "AceSafeArea" },
++    { AceLogTag::ACE_GRIDROW, "AceGridRow" },
++    { AceLogTag::ACE_INPUTTRACKING, "AceInputTracking" },
++    { AceLogTag::ACE_RICH_TEXT, "AceRichText" },
++    { AceLogTag::ACE_WEB, "AceWeb" },
++    { AceLogTag::ACE_FOCUS, "AceFocus" },
++    { AceLogTag::ACE_MOUSE, "AceMouse" },
++    { AceLogTag::ACE_GESTURE, "AceGesture" },
++    { AceLogTag::ACE_IMAGE, "AceImage" },
++    { AceLogTag::ACE_RATING, "AceRating" },
++    { AceLogTag::ACE_LIST, "AceList" },
++    { AceLogTag::ACE_NAVIGATION, "AceNavigation" },
++    { AceLogTag::ACE_WATERFLOW, "AceWaterFlow" },
++    { AceLogTag::ACE_ACCESSIBILITY, "AceAccessibility" },
++    { AceLogTag::ACE_ROUTER, "AceRouter" },
++    { AceLogTag::ACE_THEME, "AceTheme" },
++    { AceLogTag::ACE_BORDER_IMAGE, "AceBorderImage" },
++    { AceLogTag::ACE_GRID, "AceGrid" },
++    { AceLogTag::ACE_PLUGIN_COMPONENT, "AcePluginComponent" },
++    { AceLogTag::ACE_UIEXTENSIONCOMPONENT, "AceUiExtensionComponent" },
++    { AceLogTag::ACE_IF, "AceIf" },
++    { AceLogTag::ACE_FOREACH, "AceForEach" },
++    { AceLogTag::ACE_LAZY_FOREACH, "AceLazyForEach" },
++    { AceLogTag::ACE_GAUGE, "AceGauge" },
++    { AceLogTag::ACE_HYPERLINK, "AceHyperLink" },
++    { AceLogTag::ACE_ANIMATION, "AceAnimation" },
++    { AceLogTag::ACE_XCOMPONENT, "AceXcomponent" },
++    { AceLogTag::ACE_AUTO_FILL, "AceAutoFill" },
++    { AceLogTag::ACE_KEYBOARD, "AceKeyboard" },
++    { AceLogTag::ACE_UIEVENT, "AceUIEvent" },
++    { AceLogTag::ACE_UI_SERVICE, "AceUIService" },
++    { AceLogTag::ACE_DISPLAY_SYNC, "AceDisplaySync" },
++    { AceLogTag::ACE_RESOURCE, "AceResource" },
++    { AceLogTag::ACE_SIDEBAR, "AceSideBarContainer" },
++    { AceLogTag::ACE_GEOMETRY_TRANSITION, "AceGeometryTransition" },
++    { AceLogTag::ACE_DOWNLOAD_MANAGER, "DownloadManager" },
++    { AceLogTag::ACE_WINDOW_SCENE, "AceWindowScene" },
++    { AceLogTag::ACE_NODE_CONTAINER, "AceNodeContainer" },
++    { AceLogTag::ACE_NATIVE_NODE, "AceNativeNode" },
++    { AceLogTag::ACE_ISOLATED_COMPONENT, "AceIsolatedComponent" },
++    { AceLogTag::ACE_DYNAMIC_COMPONENT, "AceDynamicComponent" },
++    { AceLogTag::ACE_SECURITYUIEXTENSION, "AceSecurityUiExtensionComponent" },
++    { AceLogTag::ACE_MARQUEE, "AceMarquee" },
++    { AceLogTag::ACE_OBSERVER, "AceObserver" },
++    { AceLogTag::ACE_EMBEDDED_COMPONENT, "AceEmbeddedComponent" },
++    { AceLogTag::ACE_TEXT_CLOCK, "AceTextClock" },
++    { AceLogTag::ACE_FOLDER_STACK, "AceFolderStack" },
++    { AceLogTag::ACE_SELECT_COMPONENT, "AceSelectComponent" },
++    { AceLogTag::ACE_STATE_STYLE, "AceStateStyle" },
++    { AceLogTag::ACE_SEARCH, "AceSearch" },
++    { AceLogTag::ACE_STATE_MGMT, "AceStateMgmt" },
++    { AceLogTag::ACE_REPEAT, "AceRepeat" },
++    { AceLogTag::ACE_SHEET, "AceSheet" },
++    { AceLogTag::ACE_CANVAS_COMPONENT, "AceCanvasComponent" },
++    { AceLogTag::ACE_SCROLL_BAR, "AceScrollBar" },
++    { AceLogTag::ACE_MOVING_PHOTO, "AceMovingPhoto" },
++    { AceLogTag::ACE_ARK_COMPONENT, "AceArkComponent" },
++    { AceLogTag::ACE_WINDOW, "AceWindow" },
++    { AceLogTag::ACE_WINDOW_PIPELINE, "AceWindowPipeline" },
++    { AceLogTag::ACE_INPUTKEYFLOW, "InputKeyFlow" },
++    { AceLogTag::ACE_APPBAR, "AceAppBar" },
++    { AceLogTag::ACE_SELECT_OVERLAY, "AceSelectOverlay" },
++    { AceLogTag::ACE_CLIPBOARD, "AceClipBoard" },
++    { AceLogTag::ACE_VISUAL_EFFECT, "AceVisualEffect" },
++    { AceLogTag::ACE_SECURITY_COMPONENT, "AceSecurityComponent" },
++    { AceLogTag::ACE_MEDIA_QUERY, "AceMediaQuery" },
++    { AceLogTag::ACE_LAYOUT_INSPECTOR, "AceLayoutInspector" },
++    { AceLogTag::ACE_LAYOUT, "AceLayout" },
++    { AceLogTag::ACE_STYLUS, "AceStylus" },
++    { AceLogTag::ACE_BADGE, "AceBadge" },
++    { AceLogTag::ACE_QRCODE, "AceQRCode" },
++    { AceLogTag::ACE_PROGRESS, "ACE_PROGRESS" },
++    { AceLogTag::ACE_DRAWABLE_DESCRIPTOR, "AceDrawableDescriptor" },
++    { AceLogTag::ACE_LAZY_GRID, "AceLazyGrid" },
++    { AceLogTag::ACE_CONTAINER_PICKER, "AceContainerPicker" },
++    { AceLogTag::ACE_COLOR_SAMPLER, "AceColorSampler" },
++    { AceLogTag::ACE_DEPTH_COMPONENT, "AceDepthComponent" },
++    { AceLogTag::ACE_LAZY_COLUMN, "AceLazyColumn" },
++    { AceLogTag::ACE_LAZY_WATER_FLOW, "AceLazyWaterFlow" },
++};
++
 +namespace {
 +
 +constexpr uint32_t MAX_BUFFER_SIZE = 4000; // MAX_BUFFER_SIZE same with hilog
@@ -12280,6 +12723,362 @@ index 00000000000..ccb8e4150ea
 +CallbackLogger::CallbackLogger(const std::string& funcName, uintptr_t callback) {}
 +
 +CallbackLogger::~CallbackLogger() {}
++
++} // namespace OHOS::Ace
+diff --git a/adapter/macos/osal/mac_link_stubs.cpp b/adapter/macos/osal/mac_link_stubs.cpp
+new file mode 100644
+index 00000000000..4165e8f0604
+--- /dev/null
++++ b/adapter/macos/osal/mac_link_stubs.cpp
+@@ -0,0 +1,350 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Phase 0 path X (M1 link): centralized link stubs for the native-macOS app
++// shell. These cover non-rendering-path symbols that are referenced by libace
++// but whose real implementations are iOS/OHOS-only (or need deps not built for
++// mac, e.g. ffmpeg). They let `ace_macos` link and open a window; the real
++// implementations are follow-up work. Each stub no-ops / returns a default and
++// is defined exactly once here (do not also stub these elsewhere).
++
++#include <cstddef>
++#include <cstdint>
++#include <list>
++#include <memory>
++#include <string>
++
++#include "base/log/log_wrapper.h"
++
++// ---------------------------------------------------------------------------
++// DynamicModule menu factories (extern "C", referenced by menu pattern bridge).
++// ---------------------------------------------------------------------------
++extern "C" void* OHOS_ACE_DynamicModule_Create_Menu()
++{
++    return nullptr;
++}
++extern "C" void* OHOS_ACE_DynamicModule_Create_MenuItem()
++{
++    return nullptr;
++}
++extern "C" void* OHOS_ACE_DynamicModule_Create_MenuItemGroup()
++{
++    return nullptr;
++}
++
++// ---------------------------------------------------------------------------
++// LogInterfaceBridge free functions (declared in
++// adapter/ios/entrance/logIntercept/LogInterfaceBridge.h). The macOS osal
++// log_wrapper references these to optionally forward logs to a delegate; with
++// no delegate they are inert.
++// ---------------------------------------------------------------------------
++bool HasDelegateMethod()
++{
++    return false;
++}
++
++void PassLogMessageOC(const std::string& /* domain */, const int& /* level */, const std::string& /* logInfo */)
++{
++}
++
++OHOS::Ace::LogLevel GetCurrentLogLevel()
++{
++    return OHOS::Ace::LogLevel::INFO;
++}
++
++// ---------------------------------------------------------------------------
++// Accessibility ObjC-bridge free functions (declared in
++// adapter/ios/entrance/accessibility/AceAccessibilityBridge.h). The macOS osal
++// accessibility_manager_impl.cpp references these; on mac accessibility is not
++// wired to AppKit NSAccessibility yet, so they are inert.
++// ---------------------------------------------------------------------------
++#include "adapter/macos/osal/accessibility_manager_impl.h"
++
++using namespace OHOS::Ace::Framework;
++
++bool ExecuteActionOC(
++    const int /* windowId */, const std::shared_ptr<AccessibilityManagerImpl::InteractionOperation>& /* op */)
++{
++    return false;
++}
++
++void UpdateNodesOC(
++    const std::list<OHOS::Accessibility::AccessibilityElementInfo>& /* infos */, const int /* windowId */,
++    const size_t /* eventType */)
++{
++}
++
++void SendAccessibilityEventOC(const int64_t /* elementId */, const int /* windowId */, const size_t /* eventType */)
++{
++}
++
++bool SubscribeState(
++    const int /* windowId */, const std::shared_ptr<AccessibilityManagerImpl::AccessibilityStateObserver>& /* obs */)
++{
++    return false;
++}
++
++void UnSubscribeState(const int /* windowId */)
++{
++}
++
++void AnnounceForAccessibilityOC(const std::string& /* text */)
++{
++}
++
++bool IsUITestingEnabled(const uint32_t /* windowId */)
++{
++    return false;
++}
++
++// ---------------------------------------------------------------------------
++// skia port stubs. The mac build does not compile skia's platform SkDebugf
++// (SkDebug_stdio/ohos) nor a runtimeOS SkFontMgr::Factory / HmSymbolConfig port.
++// Provide inert versions so libace links; text/raster paths use the default
++// fontmgr wiring elsewhere.
++// ---------------------------------------------------------------------------
++#include <functional>
++
++#include "include/core/SkFontMgr.h"
++#include "src/ports/skia_ohos/HmSymbolConfig_ohos.h"
++
++// SkDebugf has C++ linkage (declared in skia's SkDebug.h); match it.
++void SkDebugf(const char* /* format */, ...)
++{
++}
++
++std::string SkFontMgr::containerFontPath;
++std::string SkFontMgr::runtimeOS;
++
++sk_sp<SkFontMgr> SkFontMgr::Factory()
++{
++    return nullptr;
++}
++
++namespace skia::text {
++void HmSymbolConfig_OHOS::SetLoadSymbolConfig(std::function<int(const char* filePath)>& /* loadSymbolConfigFunc */)
++{
++}
++void HmSymbolConfig_OHOS::ClearLoadSymbolConfig()
++{
++}
++} // namespace skia::text
++
++// ---------------------------------------------------------------------------
++// ace platform services (non-startup paths): static helpers + concrete-class
++// methods that have no mac implementation. Inert so libace links; these cover
++// vibration, html<->spanstring, and multi-type clipboard records.
++// ---------------------------------------------------------------------------
++#include <vector>
++
++#include "core/common/vibrator/vibrator_utils.h"
++// span_string.h provides the NG::SpanItem / FontStyle / TextLineStyle types used
++// by the HtmlUtils overloads below.
++#include "core/components_ng/pattern/text/span/span_string.h"
++#include "core/text/html_utils.h"
++
++namespace OHOS::Ace::NG {
++void VibratorUtils::StartVibraFeedback(const std::string& /*vibratorType*/)
++{
++}
++void VibratorUtils::StartViratorDirectly(const std::string& /*vibratorType*/)
++{
++}
++} // namespace OHOS::Ace::NG
++
++namespace OHOS::Ace {
++RefPtr<MutableSpanString> HtmlUtils::FromHtml(const std::string& /*str*/)
++{
++    return nullptr;
++}
++std::string HtmlUtils::ToHtml(const SpanString* /*str*/)
++{
++    return std::string();
++}
++std::string HtmlUtils::ToHtml(const std::list<RefPtr<NG::SpanItem>>& /*spanItems*/)
++{
++    return std::string();
++}
++std::string HtmlUtils::ToHtmlForNormalType(
++    const NG::FontStyle& /*fontStyle*/, const NG::TextLineStyle& /*textLineStyle*/, const std::u16string& /*content*/)
++{
++    return std::string();
++}
++} // namespace OHOS::Ace
++
++// ---------------------------------------------------------------------------
++// MultiTypeRecordImpl (concrete clipboard record). Real impl is iOS/OHOS-only;
++// inert versions suffice for the M1 shell (no clipboard on the render path).
++// ---------------------------------------------------------------------------
++#include "adapter/macos/osal/multiType_record_impl.h"
++
++namespace OHOS::Ace {
++void MultiTypeRecordImpl::SetPlainText(const std::string /*plainText*/) {}
++void MultiTypeRecordImpl::SetUri(const std::string /*uri*/) {}
++void MultiTypeRecordImpl::SetPixelMap(RefPtr<PixelMap> /*pixelMap*/) {}
++void MultiTypeRecordImpl::SetHtmlText(const std::string& /*htmlText*/) {}
++std::vector<uint8_t>& MultiTypeRecordImpl::GetSpanStringBuffer()
++{
++    static std::vector<uint8_t> buffer;
++    return buffer;
++}
++} // namespace OHOS::Ace
++
++// ---------------------------------------------------------------------------
++// Singleton services with no mac implementation. Pointer-returning factories
++// return nullptr (callers on non-startup paths null-check); reference-returning
++// abstract singletons get a minimal inert concrete subclass.
++// ---------------------------------------------------------------------------
++#include "base/network/download_manager.h"
++#include "base/window/foldable_window.h"
++#include "core/common/setting_data_manager.h"
++#include "core/common/udmf/udmf_client.h"
++#include "core/common/xcollie/xcollieInterface.h"
++
++namespace OHOS::Ace {
++
++DownloadManager* DownloadManager::GetInstance()
++{
++    return nullptr;
++}
++
++RefPtr<FoldableWindow> FoldableWindow::CreateFoldableWindow(int32_t /*instanceId*/)
++{
++    return nullptr;
++}
++
++UdmfClient* UdmfClient::GetInstance()
++{
++    return nullptr;
++}
++
++// XcollieInterface has only non-pure virtuals (default empty bodies) -> a bare
++// instance is concrete; return a static one.
++XcollieInterface& XcollieInterface::GetInstance()
++{
++    static XcollieInterface instance;
++    return instance;
++}
++
++namespace {
++class MacStubSettingDataManager final : public SettingDataManager {
++public:
++    int32_t Initialize() override { return 0; }
++    bool IsInitialized() const override { return false; }
++    int32_t GetCurrentUserId() override { return INVALID_USER_ID; }
++    int32_t RegisterObserver(const std::string&, const DataUpdateFunc&, int32_t) override { return 0; }
++    int32_t UnregisterObserver(const std::string&, int32_t) override { return 0; }
++    int32_t GetStringValue(const std::string&, std::string&, int32_t) const override { return 0; }
++    int32_t GetInt32ValueStrictly(const std::string&, int32_t&, int32_t) const override { return 0; }
++};
++} // namespace
++
++SettingDataManager& SettingDataManager::GetInstance()
++{
++    static MacStubSettingDataManager instance;
++    return instance;
++}
++
++} // namespace OHOS::Ace
++
++// ---------------------------------------------------------------------------
++// Reporter (abstract, reference-returning) + UiSessionManager (pointer).
++// ---------------------------------------------------------------------------
++#include "core/common/reporter/reporter.h"
++#include "interfaces/inner_api/ui_session/ui_session_manager.h"
++
++namespace OHOS::Ace {
++namespace NG {
++namespace {
++class MacStubReporter final : public Reporter {
++public:
++    void HandleUISessionReporting(const JsonReport&) const override {}
++    void HandleInputEventInspectorReporting(const TouchEvent&) const override {}
++    void HandleInputEventInspectorReporting(const MouseEvent&) const override {}
++    void HandleInputEventInspectorReporting(const AxisEvent&) const override {}
++    void HandleInputEventInspectorReporting(const KeyEvent&) const override {}
++    void HandleWindowFocusInspectorReporting(bool) const override {}
++    void HandleInspectorReporting(const JsonReport&) const override {}
++};
++} // namespace
++
++Reporter& Reporter::GetInstance()
++{
++    static MacStubReporter instance;
++    return instance;
++}
++} // namespace NG
++
++UiSessionManager* UiSessionManager::GetInstance()
++{
++    return nullptr;
++}
++} // namespace OHOS::Ace
++
++// ---------------------------------------------------------------------------
++// Picker audio-haptic factory, environment proxy, and text-input handler/
++// connection. These have UIKit/iOS-only real impls; inert versions here.
++// ---------------------------------------------------------------------------
++#include "adapter/ios/entrance/picker/picker_haptic_factory.h"
++#include "adapter/ios/capability/environment/environment_proxy_impl.h"
++#include "adapter/ios/capability/editing/text_input_client_handler.h"
++#include "adapter/ios/capability/editing/text_input_connection_impl.h"
++
++namespace OHOS::Ace {
++
++namespace NG {
++std::shared_ptr<IPickerAudioHaptic> PickerAudioHapticFactory::GetInstance(
++    const std::string& /*uri*/, const std::string& /*effectId*/)
++{
++    return nullptr;
++}
++} // namespace NG
++
++namespace Platform {
++
++EnvironmentProxyImpl* EnvironmentProxyImpl::GetInstance()
++{
++    return nullptr;
++}
++
++RefPtr<Environment> EnvironmentProxyImpl::GetEnvironment(const RefPtr<TaskExecutor>& /*taskExecutor*/) const
++{
++    return nullptr;
++}
++
++// DECLARE_SINGLETON makes the ctor/dtor private (declared only); define them.
++TextInputClientHandler::TextInputClientHandler() = default;
++TextInputClientHandler::~TextInputClientHandler() = default;
++
++// TextInputConnectionImpl's real (UIKit) impl lives in the .mm; provide an inert
++// one (ctor + all virtual overrides so the vtable is complete).
++TextInputConnectionImpl::TextInputConnectionImpl(const WeakPtr<TextInputClient>& client,
++    const RefPtr<TaskExecutor>& taskExecutor, const TextInputConfiguration& /*config*/)
++    : TextInputConnection(client, taskExecutor)
++{
++}
++void TextInputConnectionImpl::Show(bool /*isFocusViewChanged*/, int32_t /*instanceId*/) {}
++void TextInputConnectionImpl::SetEditingState(
++    const TextEditingValue& /*value*/, int32_t /*instanceId*/, bool /*needFireChangeEvent*/) {}
++void TextInputConnectionImpl::Close(int32_t /*instanceId*/) {}
++void TextInputConnectionImpl::FinishComposing(int32_t /*instanceId*/) {}
++
++} // namespace Platform
++
++// Singleton<TextInputClientHandler>::GetInstance() (SINGLETON_INSTANCE_IMPL).
++// Must sit inside OHOS::Ace: the macro expands the unqualified `Singleton<...>`.
++SINGLETON_INSTANCE_IMPL(Platform::TextInputClientHandler);
 +
 +} // namespace OHOS::Ace
 diff --git a/adapter/macos/osal/mock/accessibility_constants.cpp b/adapter/macos/osal/mock/accessibility_constants.cpp
@@ -13714,6 +14513,63 @@ index 00000000000..000b2bea445
 +
 +#endif // FOUNDATION_ACE_ADAPTER_OHOS_OSAL_MOUSE_STYLE_IOS_H
 \ No newline at end of file
+diff --git a/adapter/macos/osal/multiType_record_impl.h b/adapter/macos/osal/multiType_record_impl.h
+new file mode 100644
+index 00000000000..401031746fe
+--- /dev/null
++++ b/adapter/macos/osal/multiType_record_impl.h
+@@ -0,0 +1,51 @@
++/*
++ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FOUNDATION_ACE_ACE_ENGINE_ADAPTER_PREVIEW_ENTRANCE_MULTITYPE_RECORD_IMPL_H
++#define FOUNDATION_ACE_ACE_ENGINE_ADAPTER_PREVIEW_ENTRANCE_MULTITYPE_RECORD_IMPL_H
++
++#include <vector>
++#include "core/common/clipboard/clipboard_interface.h"
++
++namespace OHOS::Ace {
++
++class ACE_FORCE_EXPORT MultiTypeRecordImpl : public MultiTypeRecordMix {
++    DECLARE_ACE_TYPE(MultiTypeRecordImpl, MultiTypeRecordMix);
++
++public:
++    MultiTypeRecordImpl();
++    ~MultiTypeRecordImpl() = default;
++
++    void SetPlainText(const std::string plainText);
++    void SetUri(const std::string uri);
++    void SetPixelMap(RefPtr<PixelMap> pixelMap);
++    void SetSpanStringBuffer(const std::vector<uint8_t>& buffer);
++    void SetHtmlText(const std::string& htmlText);
++    const RefPtr<PixelMap> GetPixelMap();
++    const std::string GetPlainText();
++    const std::string GetUri();
++    std::vector<uint8_t>& GetSpanStringBuffer();
++
++private:
++    RefPtr<PixelMap> pixelMap_;
++    std::string plainText_;
++    std::string uri_;
++    std::string htmlText_;
++    std::vector<uint8_t> spanStringBuffer_;
++};
++
++} // namespace OHOS::Ace
++
++#endif // FOUNDATION_ACE_ACE_ENGINE_ADAPTER_PREVIEW_ENTRANCE_MULTITYPE_RECORD_IMPL_H
 diff --git a/adapter/macos/osal/navigation_route_ios.cpp b/adapter/macos/osal/navigation_route_ios.cpp
 new file mode 100644
 index 00000000000..7a01af8ee64
@@ -21385,10 +22241,10 @@ index 00000000000..d2431609c26
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_STAGE_ABILITY_STAGEVIEWCONTROLLER_H
 diff --git a/adapter/macos/stage/ability/StageViewController.mm b/adapter/macos/stage/ability/StageViewController.mm
 new file mode 100644
-index 00000000000..1b3774650d5
+index 00000000000..c5ef1115b96
 --- /dev/null
 +++ b/adapter/macos/stage/ability/StageViewController.mm
-@@ -0,0 +1,219 @@
+@@ -0,0 +1,223 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21494,7 +22350,11 @@ index 00000000000..1b3774650d5
 +
 +// NSViewController: the root view must be supplied via loadView (no nib in M1).
 +- (void)loadView {
-+    _stageContainerView = [[StageContainerView alloc] initWithFrame:NSMakeRect(0, 0, 0, 0)];
++    // Phase 0 path X (M1 window): give the root view a real initial frame so the
++    // hosting NSWindow does not collapse to a title-bar sliver. The window resizes
++    // this view to its content rect, and the WindowView autoresizes to fill it.
++    _stageContainerView = [[StageContainerView alloc] initWithFrame:NSMakeRect(0, 0, 480, 800)];
++    _stageContainerView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 +    self.view = _stageContainerView;
 +}
 +
@@ -27675,6 +28535,144 @@ index 20b15499ef9..6002ad91115 100644
        deps += [ ":gen_obj_src_js_mock_system_plugin" ]
      } else {
        if (defined(config.plugin_components_support) &&
+diff --git a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp
+index 3d1be9d56f3..47345bc9fac 100644
+--- a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp
++++ b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp
+@@ -17,7 +17,7 @@
+ 
+ namespace OHOS::Ace::Framework {
+ 
+-    thread_local std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> IFunctionBinding::functions;
+-    thread_local void* IFunctionBinding::runtime = nullptr;
++    ACE_JSI_THREAD_LOCAL std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> IFunctionBinding::functions;
++    ACE_JSI_THREAD_LOCAL void* IFunctionBinding::runtime = nullptr;
+ 
+ }; // namespace OHOS::Ace::Framework
+diff --git a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h
+index 0b5f5b15ce7..a4f6ee97f7b 100644
+--- a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h
++++ b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h
+@@ -16,6 +16,18 @@
+ #ifndef FOUNDATION_ACE_FRAMEWORKS_DECLARATIVE_FRONTEND_ENGINE_BINDINGS_IMPLEMENTATION_H
+ #define FOUNDATION_ACE_FRAMEWORKS_DECLARATIVE_FRONTEND_ENGINE_BINDINGS_IMPLEMENTATION_H
+ 
++// Phase 0 path X (M1 link): on macOS, `ACE_JSI_THREAD_LOCAL` template static members
++// (JsiClass<T>::className_/jsName/staticFunctions_/...) emit a strong, per-TU
++// TLS-init helper symbol that the Apple linker refuses to coalesce, producing
++// "duplicate symbol" for every JS binding type instantiated in >1 TU. The
++// desktop app drives the JS engine from a single thread, so use a plain static
++// (clang emits it as a coalesced weak symbol) on mac.
++#if defined(MAC_PLATFORM)
++#define ACE_JSI_THREAD_LOCAL
++#else
++#define ACE_JSI_THREAD_LOCAL thread_local
++#endif
++
+ #include <cmath>
+ #include <string>
+ #include <unordered_map>
+@@ -35,8 +47,8 @@ enum MethodOptions : uint8_t {
+ 
+ class IFunctionBinding {
+ public:
+-    thread_local static std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> functions;
+-    thread_local static void* runtime;
++    ACE_JSI_THREAD_LOCAL static std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> functions;
++    ACE_JSI_THREAD_LOCAL static void* runtime;
+     IFunctionBinding(const char* name, MethodOptions options) : name_(name), options_(options)
+     {
+         functions[runtime].emplace_back(this);
+@@ -396,7 +408,7 @@ public:
+     static JSRef<JSObject> NewInstance();
+ 
+ private:
+-    static thread_local std::string jsName;
++    static ACE_JSI_THREAD_LOCAL std::string jsName;
+ };
+ 
+ }; // namespace OHOS::Ace::Framework
+diff --git a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl
+index 65dfcf561ef..39149a607a1 100644
+--- a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl
++++ b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl
+@@ -18,7 +18,7 @@
+ namespace OHOS::Ace::Framework {
+ 
+ template<typename T, template<typename> typename ImplDetail>
+-thread_local std::string JSClassImpl<T, ImplDetail>::jsName;
++ACE_JSI_THREAD_LOCAL std::string JSClassImpl<T, ImplDetail>::jsName;
+ 
+ template<typename C, template<typename> typename ImplDetail>
+ void JSClassImpl<C, ImplDetail>::Declare(const char* name)
+diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h
+index 7d4b11d1dfb..f3143a20181 100644
+--- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h
++++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h
+@@ -130,14 +130,14 @@ private:
+ 
+     static bool CheckIfConstructCall(panda::JsiRuntimeCallInfo* runtimeCallInfo);
+ 
+-    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> staticFunctions_;
+-    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customFunctions_;
+-    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customGetFunctions_;
+-    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customSetFunctions_;
+-    static thread_local FunctionCallback constructor_;
+-    static thread_local JsiClassConstructorBinding jsConstructorBinding_;
+-    static thread_local std::string className_;
+-    static thread_local panda::Global<panda::FunctionRef> classFunction_;
++    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> staticFunctions_;
++    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customFunctions_;
++    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customGetFunctions_;
++    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customSetFunctions_;
++    static ACE_JSI_THREAD_LOCAL FunctionCallback constructor_;
++    static ACE_JSI_THREAD_LOCAL JsiClassConstructorBinding jsConstructorBinding_;
++    static ACE_JSI_THREAD_LOCAL std::string className_;
++    static ACE_JSI_THREAD_LOCAL panda::Global<panda::FunctionRef> classFunction_;
+ };
+ 
+ template<typename T>
+diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl
+index 85895498d4e..c94abc792bd 100644
+--- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl
++++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl
+@@ -24,28 +24,28 @@
+ namespace OHOS::Ace::Framework {
+ 
+ template<typename C>
+-thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::staticFunctions_;
++ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::staticFunctions_;
+ 
+ template<typename C>
+-thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customFunctions_;
++ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customFunctions_;
+ 
+ template<typename C>
+-thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customGetFunctions_;
++ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customGetFunctions_;
+ 
+ template<typename C>
+-thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customSetFunctions_;
++ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customSetFunctions_;
+ 
+ template<typename C>
+-thread_local FunctionCallback JsiClass<C>::constructor_ = nullptr;
++ACE_JSI_THREAD_LOCAL FunctionCallback JsiClass<C>::constructor_ = nullptr;
+ 
+ template<typename C>
+-thread_local JsiClassConstructorBinding JsiClass<C>::jsConstructorBinding_;
++ACE_JSI_THREAD_LOCAL JsiClassConstructorBinding JsiClass<C>::jsConstructorBinding_;
+ 
+ template<typename C>
+-thread_local std::string JsiClass<C>::className_;
++ACE_JSI_THREAD_LOCAL std::string JsiClass<C>::className_;
+ 
+ template<typename C>
+-thread_local panda::Global<panda::FunctionRef> JsiClass<C>::classFunction_;
++ACE_JSI_THREAD_LOCAL panda::Global<panda::FunctionRef> JsiClass<C>::classFunction_;
+ 
+ template<typename C>
+ void JsiClass<C>::Declare(const char* name)
 diff --git a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json b/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
 index 303990672eb..241e87f0aa6 100644
 --- a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json

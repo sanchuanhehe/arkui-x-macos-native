@@ -22,7 +22,7 @@ index f1181a4d8..06282abf8 100644
      defines = image_decode_ios_defines
      deps = [
 diff --git a/frameworks/innerkitsimpl/utils/BUILD.gn b/frameworks/innerkitsimpl/utils/BUILD.gn
-index 71a4a0a34..31b987b07 100644
+index 71a4a0a34..7f60b5aa4 100644
 --- a/frameworks/innerkitsimpl/utils/BUILD.gn
 +++ b/frameworks/innerkitsimpl/utils/BUILD.gn
 @@ -14,7 +14,9 @@
@@ -36,7 +36,7 @@ index 71a4a0a34..31b987b07 100644
    ohos_source_set("image_utils") {
      include_dirs = [
        "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/include",
-@@ -37,18 +39,56 @@ if (use_clang_ios) {
+@@ -37,18 +39,69 @@ if (use_clang_ios) {
        "src/vpe_utils.cpp",
      ]
  
@@ -51,6 +51,19 @@ index 71a4a0a34..31b987b07 100644
      sources += [ "src/image_dfx.cpp" ]
      sources += [ "src/image_data_statistics.cpp" ]
 +    if (use_clang_mac) {
++      # Phase 0 path X (M1 link): these are ffmpeg-free and were only collaterally
++      # dropped on mac (they live in the OHOS-only block). The exe references
++      # ImageTrace/ImageFuncTimer/ImageFwkExtManager/HispeedImageManager, so build
++      # them for mac. image_trace was removed just above; re-add it here.
++      sources += [
++        "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp",
++        "src/image_func_timer.cpp",
++        "src/image_fwk_ext_manager.cpp",
++        "src/hispeed_image_manager.cpp",
++        # Phase 0 path X (M1 link): inert ffmpeg swscale/avutil entry points that
++        # image_utils.cpp references on mac (the ffmpeg lib is not linked).
++        "src/mac_image_link_stubs.cpp",
++      ]
 +      # Phase 1 path X: pixel_yuv_utils/vpe_utils need ffmpeg (libavfilter),
 +      # which is dropped on mac; YUV/video conversion isn't needed for M1.
 +      sources -= [
@@ -97,7 +110,7 @@ index 71a4a0a34..31b987b07 100644
      if (defined(global_parts_info) &&
          defined(global_parts_info.open_source_libyuv)) {
        defines += [ "EXT_PIXEL" ]
-@@ -110,6 +150,12 @@ if (use_clang_ios) {
+@@ -110,6 +163,12 @@ if (use_clang_ios) {
        sources -= [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
        include_dirs += [
          "//foundation/multimedia/image_framework/mock/native/include",
@@ -110,7 +123,7 @@ index 71a4a0a34..31b987b07 100644
          "//third_party/bounds_checking_function/include",
        ]
        deps = [
-@@ -117,7 +163,10 @@ if (use_clang_ios) {
+@@ -117,7 +176,10 @@ if (use_clang_ios) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_static",
        ]
@@ -122,7 +135,7 @@ index 71a4a0a34..31b987b07 100644
      } else if (use_clang_android) {
        defines = image_decode_android_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -238,17 +287,29 @@ ohos_static_library("image_utils_static") {
+@@ -238,17 +300,29 @@ ohos_static_library("image_utils_static") {
      deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
    } else if (use_clang_mac) {
      defines = image_decode_mac_defines
@@ -154,6 +167,206 @@ index 71a4a0a34..31b987b07 100644
    } else if (use_clang_ios) {
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
+diff --git a/frameworks/innerkitsimpl/utils/src/mac_image_link_stubs.cpp b/frameworks/innerkitsimpl/utils/src/mac_image_link_stubs.cpp
+new file mode 100644
+index 000000000..288bb0596
+--- /dev/null
++++ b/frameworks/innerkitsimpl/utils/src/mac_image_link_stubs.cpp
+@@ -0,0 +1,194 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Phase 0 path X (M1 link): mac stubs for the ffmpeg-dependent image paths that
++// are intentionally dropped on macOS (pixel_yuv_utils/vpe need libavfilter,
++// gst_plugin_fw needs gstreamer). image_utils.cpp still references the ffmpeg
++// swscale/avutil C entry points; provide inert versions so libace links. None of
++// these are on the M1 render path (YUV/video conversion + gst codecs).
++
++#include <cstdint>
++
++// ---------------------------------------------------------------------------
++// ffmpeg swscale / avutil C entry points (referenced by image_utils.cpp). Use
++// the real ffmpeg headers so the definitions match exactly (the lib itself is
++// not linked on mac), then provide inert bodies.
++// ---------------------------------------------------------------------------
++extern "C" {
++#include "libavutil/frame.h"
++#include "libavutil/imgutils.h"
++#include "libswscale/swscale.h"
++}
++
++extern "C" {
++
++struct SwsContext* sws_getContext(int /*srcW*/, int /*srcH*/, enum AVPixelFormat /*srcFormat*/, int /*dstW*/,
++    int /*dstH*/, enum AVPixelFormat /*dstFormat*/, int /*flags*/, SwsFilter* /*srcFilter*/, SwsFilter* /*dstFilter*/,
++    const double* /*param*/)
++{
++    return nullptr;
++}
++
++int sws_scale(struct SwsContext* /*c*/, const uint8_t* const /*srcSlice*/[], const int /*srcStride*/[],
++    int /*srcSliceY*/, int /*srcSliceH*/, uint8_t* const /*dst*/[], const int /*dstStride*/[])
++{
++    return 0;
++}
++
++void sws_freeContext(struct SwsContext* /*swsContext*/)
++{
++}
++
++const int* sws_getCoefficients(int /*colorspace*/)
++{
++    static const int kZero[4] = { 0, 0, 0, 0 };
++    return kZero;
++}
++
++int sws_setColorspaceDetails(struct SwsContext* /*c*/, const int /*inv_table*/[4], int /*srcRange*/,
++    const int /*table*/[4], int /*dstRange*/, int /*brightness*/, int /*contrast*/, int /*saturation*/)
++{
++    return 0;
++}
++
++AVFrame* av_frame_alloc(void)
++{
++    return nullptr;
++}
++
++void av_frame_free(AVFrame** /*frame*/)
++{
++}
++
++int av_image_get_buffer_size(enum AVPixelFormat /*pix_fmt*/, int /*width*/, int /*height*/, int /*align*/)
++{
++    return 0;
++}
++
++int av_image_fill_arrays(uint8_t* /*dst_data*/[4], int /*dst_linesize*/[4], const uint8_t* /*src*/,
++    enum AVPixelFormat /*pix_fmt*/, int /*width*/, int /*height*/, int /*align*/)
++{
++    return 0;
++}
++
++} // extern "C"
++
++// ---------------------------------------------------------------------------
++// PixelYuvUtils: the real impl (src/pixel_yuv_utils.cpp) is dropped on mac
++// because it needs libavfilter. pixel_yuv.cpp (PixelMap YUV path) still calls
++// these; provide inert versions. YUV is not on the M1 render path.
++// ---------------------------------------------------------------------------
++#include "pixel_yuv_utils.h"
++
++namespace OHOS {
++namespace Media {
++
++int32_t PixelYuvUtils::YuvConvertOption(const AntiAliasingOption& /*option*/)
++{
++    return 0;
++}
++bool PixelYuvUtils::WriteYuvConvert(const void* /*srcPixels*/, const ImageInfo& /*srcInfo*/, void* /*dstPixels*/,
++    const Position& /*dstPos*/, const YUVDataInfo& /*yuvDataInfo*/)
++{
++    return false;
++}
++bool PixelYuvUtils::ReadYuvConvert(const void* /*srcPixels*/, const Position& /*srcPos*/, YuvImageInfo& /*srcInfo*/,
++    void* /*dstPixels*/, const ImageInfo& /*dstInfo*/)
++{
++    return false;
++}
++void PixelYuvUtils::SetTranslateDataDefault(uint8_t* /*srcPixels*/, int32_t /*width*/, int32_t /*height*/,
++    PixelFormat /*format*/, YUVStrideInfo& /*dstStrides*/)
++{
++}
++uint8_t PixelYuvUtils::GetYuv420Y(uint32_t /*x*/, uint32_t /*y*/, YUVDataInfo& /*info*/, const uint8_t* /*in*/)
++{
++    return 0;
++}
++uint8_t PixelYuvUtils::GetYuv420U(
++    uint32_t /*x*/, uint32_t /*y*/, YUVDataInfo& /*info*/, PixelFormat /*format*/, const uint8_t* /*in*/)
++{
++    return 0;
++}
++uint8_t PixelYuvUtils::GetYuv420V(
++    uint32_t /*x*/, uint32_t /*y*/, YUVDataInfo& /*info*/, PixelFormat /*format*/, const uint8_t* /*in*/)
++{
++    return 0;
++}
++AVPixelFormat PixelYuvUtils::ConvertFormat(const PixelFormat& /*pixelFormat*/)
++{
++    return AV_PIX_FMT_NONE;
++}
++bool PixelYuvUtils::BGRAToYuv420(const uint8_t* /*src*/, YuvImageInfo& /*srcInfo*/, uint8_t* /*dst*/,
++    YuvImageInfo& /*dstInfo*/)
++{
++    return false;
++}
++bool PixelYuvUtils::Yuv420ToBGRA(const uint8_t* /*in*/, YuvImageInfo& /*srcInfo*/, uint8_t* /*out*/,
++    YuvImageInfo& /*dstInfo*/)
++{
++    return false;
++}
++bool PixelYuvUtils::YuvTranslate(const uint8_t* /*srcPixels*/, YUVDataInfo& /*yuvInfo*/, uint8_t* /*dstPixels*/,
++    XYaxis& /*xyAxis*/, ImageInfo& /*info*/, YUVStrideInfo& /*dstStrides*/)
++{
++    return false;
++}
++bool PixelYuvUtils::Yuv420WritePixels(const YUVDataInfo& /*yuvInfo*/, uint8_t* /*srcPixels*/, ImageInfo& /*info*/,
++    const uint32_t& /*color*/)
++{
++    return false;
++}
++bool PixelYuvUtils::YuvWritePixel(uint8_t* /*srcPixels*/, const YUVDataInfo& /*yuvDataInfo*/,
++    const PixelFormat& /*format*/, const Position& /*pos*/, const uint32_t& /*color*/)
++{
++    return false;
++}
++bool PixelYuvUtils::YuvCrop(uint8_t* /*srcData*/, YuvImageInfo& /*srcInfo*/, uint8_t* /*dstData*/, const Rect& /*rect*/,
++    YUVStrideInfo& /*dstStrides*/)
++{
++    return false;
++}
++bool PixelYuvUtils::YuvRotate(uint8_t* /*srcData*/, YuvImageInfo& /*srcInfo*/, uint8_t* /*dstData*/,
++    YuvImageInfo& /*dstInfo*/, int32_t /*degrees*/)
++{
++    return false;
++}
++bool PixelYuvUtils::YuvFlip(uint8_t* /*srcData*/, YuvImageInfo& /*srcInfo*/, uint8_t* /*dstData*/, bool /*xAxis*/)
++{
++    return false;
++}
++bool PixelYuvUtils::YuvReversal(uint8_t* /*srcData*/, YuvImageInfo& /*srcInfo*/, uint8_t* /*dstData*/,
++    YuvImageInfo& /*dstInfo*/)
++{
++    return false;
++}
++int32_t PixelYuvUtils::YuvScale(uint8_t* /*srcPixels*/, YuvImageInfo& /*srcInfo*/, uint8_t* /*dstPixels*/,
++    YuvImageInfo& /*dstInfo*/, int32_t /*module*/)
++{
++    return 0;
++}
++bool PixelYuvUtils::CheckWidthAndHeightMult(const int32_t& /*width*/, const int32_t& /*height*/,
++    const int32_t& /*multiples*/)
++{
++    return false;
++}
++bool PixelYuvUtils::IsLegalAxis(float /*xAxis*/, float /*yAxis*/, ImageInfo& /*info*/)
++{
++    return false;
++}
++
++} // namespace Media
++} // namespace OHOS
 diff --git a/ide/image_decode_config.gni b/ide/image_decode_config.gni
 index be093ae5a..eac70c731 100644
 --- a/ide/image_decode_config.gni
@@ -316,7 +529,7 @@ index bd3ddae5f..dffbd789e 100644
  
  namespace OHOS {
 diff --git a/plugins/manager/BUILD.gn b/plugins/manager/BUILD.gn
-index b7f6d8182..6092b5d47 100644
+index b7f6d8182..8d015807e 100644
 --- a/plugins/manager/BUILD.gn
 +++ b/plugins/manager/BUILD.gn
 @@ -123,6 +123,8 @@ if (use_clang_ios) {
@@ -328,7 +541,7 @@ index b7f6d8182..6092b5d47 100644
          "//third_party/bounds_checking_function/include",
        ]
        deps = [
-@@ -202,14 +204,30 @@ ohos_static_library("pluginmanager_static") {
+@@ -202,14 +204,35 @@ ohos_static_library("pluginmanager_static") {
      ]
    } else if (use_clang_mac) {
      defines = image_decode_mac_defines
@@ -336,6 +549,11 @@ index b7f6d8182..6092b5d47 100644
 +    # quoted internal headers ("__mutex_base") that Xcode's libc++ lacks, and is
 +    # unused on the desktop. Drop it on mac.
 +    sources -= [ "//foundation/multimedia/image_framework/plugins/manager/src/thirdpartyadp/gstreamer/gst_plugin_fw.cpp" ]
++    # Phase 0 path X (M1 link): inert GstPluginFw so plugin_server.cpp (which
++    # references it via DelayedRefSingleton) links without the real gst adapter.
++    sources += [
++      "//foundation/multimedia/image_framework/plugins/manager/src/thirdpartyadp/gstreamer/mac_gst_plugin_fw_stub.cpp",
++    ]
      include_dirs += [
        "//foundation/multimedia/image_framework/mock/native/include",
 +      # Phase 1 path X: mac needs the mock hilog/log.h (same as iOS).
@@ -359,3 +577,66 @@ index b7f6d8182..6092b5d47 100644
    } else if (use_clang_ios) {
      defines = image_decode_ios_defines
      include_dirs += [ "$image_subsystem/mock/native/include/log" ]
+diff --git a/plugins/manager/src/thirdpartyadp/gstreamer/mac_gst_plugin_fw_stub.cpp b/plugins/manager/src/thirdpartyadp/gstreamer/mac_gst_plugin_fw_stub.cpp
+new file mode 100644
+index 000000000..356c4d11a
+--- /dev/null
++++ b/plugins/manager/src/thirdpartyadp/gstreamer/mac_gst_plugin_fw_stub.cpp
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Phase 0 path X (M1 link): the gstreamer plugin-framework adapter
++// (gst_plugin_fw.cpp) is dropped on mac (uses OHOS-libc++ internal headers and
++// is unused on desktop). plugin_server.cpp still references GstPluginFw via a
++// DelayedRefSingleton; provide inert versions so the plugin manager links. No
++// gstreamer codecs are used on the M1 desktop path.
++
++#include "gst_plugin_fw.h"
++
++namespace OHOS {
++namespace MultimediaPlugin {
++
++GstPluginFw::GstPluginFw() {}
++GstPluginFw::~GstPluginFw() {}
++
++uint32_t GstPluginFw::Register(const std::vector<std::string>& /*canonicalPaths*/)
++{
++    return 0;
++}
++
++PluginClassBase* GstPluginFw::CreateObject(
++    uint16_t /*interfaceID*/, const std::string& /*className*/, uint32_t& errorCode)
++{
++    errorCode = 1;
++    return nullptr;
++}
++
++PluginClassBase* GstPluginFw::CreateObject(uint16_t /*interfaceID*/, uint16_t /*serviceType*/,
++    const std::map<std::string, AttrData>& /*capabilities*/, const PriorityScheme& /*priorityScheme*/,
++    uint32_t& errorCode)
++{
++    errorCode = 1;
++    return nullptr;
++}
++
++uint32_t GstPluginFw::GstPluginFwGetClassInfo(uint16_t /*interfaceID*/, uint16_t /*serviceType*/,
++    const std::map<std::string, AttrData>& /*capabilities*/, std::vector<ClassInfo>& /*classesInfo*/)
++{
++    return 0;
++}
++
++} // namespace MultimediaPlugin
++} // namespace OHOS
