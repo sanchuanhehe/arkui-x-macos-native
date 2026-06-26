@@ -109,10 +109,10 @@ index 00000000000..c2323139b10
 +}
 diff --git a/adapter/macos/entrance/BUILD.gn b/adapter/macos/entrance/BUILD.gn
 new file mode 100644
-index 00000000000..231c45b7f7c
+index 00000000000..64a362c941d
 --- /dev/null
 +++ b/adapter/macos/entrance/BUILD.gn
-@@ -0,0 +1,126 @@
+@@ -0,0 +1,131 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -172,6 +172,11 @@ index 00000000000..231c45b7f7c
 +      # Phase 0 path X: macOS mmi event convertor (used by ace_view_sg.cpp and
 +      # virtual_rs_window.mm); mirrors adapter/ios/entrance/mmi_event_convertor.
 +      "mmi_event_convertor.mm",
++      # Phase 0 path X: macOS copies of the iOS entrance helpers needed at link
++      # (AcePlatformPlugin, DumpHelper, InspectorJsonValue/ui_session).
++      "ace_platform_plugin.cpp",
++      "dump_helper.cpp",
++      "ui_session/ui_session_json_util.cpp",
 +      "ace_pointer_data.cc",
 +      "ace_pointer_data_packet.cc",
 +      "touch_event.cpp",
@@ -1109,6 +1114,143 @@ index 00000000000..30ca0118387
 +// macOS: no-op
 +
 +@end
+diff --git a/adapter/macos/entrance/ace_platform_plugin.cpp b/adapter/macos/entrance/ace_platform_plugin.cpp
+new file mode 100644
+index 00000000000..9160f03cf88
+--- /dev/null
++++ b/adapter/macos/entrance/ace_platform_plugin.cpp
+@@ -0,0 +1,83 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "adapter/macos/entrance/ace_platform_plugin.h"
++
++#include "base/log/log.h"
++#include "base/utils/macros.h"
++#include "base/utils/utils.h"
++
++namespace OHOS::Ace::Platform {
++using NativeLayerMap = std::unordered_map<int64_t, void*>;
++std::unordered_map<int, RefPtr<PlatformResRegister>> g_resRegisters;
++std::unordered_map<int, NativeLayerMap> g_nativeLayerMaps;
++
++void AcePlatformPlugin::InitResRegister(int32_t instanceId, const RefPtr<PlatformResRegister>& resRegister)
++{
++    if (resRegister == nullptr) {
++        LOGE("resRegister is null");
++        return;
++    }
++    g_resRegisters.emplace(static_cast<int32_t>(instanceId), resRegister);
++}
++
++RefPtr<PlatformResRegister> AcePlatformPlugin::GetResRegister(int32_t instanceId)
++{
++    return g_resRegisters[instanceId];
++}
++
++void AcePlatformPlugin::RegisterSurface(int32_t instanceId, int64_t texture_id, void* surface)
++{
++    auto iter = g_nativeLayerMaps.find(static_cast<int32_t>(instanceId));
++    if (iter != g_nativeLayerMaps.end()) {
++        iter->second[texture_id] = surface;       
++    } else {
++        std::unordered_map<int64_t, void*> nativeLayerMap;
++        nativeLayerMap.emplace(static_cast<int64_t>(texture_id), surface);
++        g_nativeLayerMaps.emplace(static_cast<int32_t>(instanceId), nativeLayerMap);
++    }
++}
++
++void AcePlatformPlugin::UnregisterSurface(int32_t instanceId, int64_t texture_id)
++{
++    auto iter = g_nativeLayerMaps.find(static_cast<int32_t>(instanceId));
++    if (iter == g_nativeLayerMaps.end()) {
++        LOGW("UnregisterSurface fail, instanceId :%{public}d", instanceId);
++        return;
++    }
++
++    iter->second.erase(static_cast<int64_t>(texture_id));
++}
++
++void* AcePlatformPlugin::GetNativeWindow(int32_t instanceId, int64_t textureId)
++{
++    auto iter = g_nativeLayerMaps.find(static_cast<int32_t>(instanceId));
++    if (iter != g_nativeLayerMaps.end()) {
++        auto map =  iter->second;
++        auto nativeWindowIter = map.find(static_cast<int64_t>(textureId));
++        if (nativeWindowIter != map.end()) {
++            return nativeWindowIter->second;
++        }
++    }
++    return nullptr;
++}
++
++void AcePlatformPlugin::ReleaseInstance(int32_t instanceId)
++{
++    g_nativeLayerMaps.erase(instanceId);
++    g_resRegisters.erase(instanceId);
++}
++
++}
+\ No newline at end of file
+diff --git a/adapter/macos/entrance/ace_platform_plugin.h b/adapter/macos/entrance/ace_platform_plugin.h
+new file mode 100644
+index 00000000000..f562a312ac5
+--- /dev/null
++++ b/adapter/macos/entrance/ace_platform_plugin.h
+@@ -0,0 +1,41 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_ACE_PLATFORM_PLUGIN_N_H
++#define FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_ACE_PLATFORM_PLUGIN_N_H
++
++#include <memory>
++#include <map>
++
++#include "adapter/ios/entrance/ace_resource_register.h"
++#include "base/utils/noncopyable.h"
++
++namespace OHOS::Ace::Platform {
++class AcePlatformPlugin {
++public:
++    AcePlatformPlugin() = delete;
++    ~AcePlatformPlugin() = delete;
++
++    static void InitResRegister(int32_t instanceId, const RefPtr<PlatformResRegister>& resRegister);
++
++    static RefPtr<PlatformResRegister> GetResRegister(int32_t instanceId);
++    static void RegisterSurface(int32_t instanceId, int64_t texture_id, void* surface);
++    static void UnregisterSurface(int32_t instanceId, int64_t texture_id);
++    static void* GetNativeWindow(int32_t instanceId, int64_t textureId);
++    static void ReleaseInstance(int32_t instanceId);
++
++};
++} // namespace OHOS::Ace::Platform
++#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_ACE_PLATFORM_PLUGIN_N_H
 diff --git a/adapter/macos/entrance/ace_pointer_data.cc b/adapter/macos/entrance/ace_pointer_data.cc
 new file mode 100644
 index 00000000000..565f5554847
@@ -1664,6 +1806,1251 @@ index 00000000000..d0615736556
 +
 +} // namespace OHOS::Rosen
 \ No newline at end of file
+diff --git a/adapter/macos/entrance/dump_helper.cpp b/adapter/macos/entrance/dump_helper.cpp
+new file mode 100755
+index 00000000000..9af3f5d5130
+--- /dev/null
++++ b/adapter/macos/entrance/dump_helper.cpp
+@@ -0,0 +1,56 @@
++/*
++ * Copyright (c) 2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "dump_helper.h"
++
++#include <time.h>
++#include "base/log/dump_log.h"
++#include "base/log/log.h"
++#include "core/common/ace_engine.h"
++#include "core/common/container.h"
++
++namespace OHOS::Ace::Platform {
++
++void DumpHelper::Dump(int32_t instanceId, std::vector<std::string> dumpParamsVector)
++{
++    time_t currentTime = std::time(NULL);
++    char chCurrentTime[64];
++    std::strftime(chCurrentTime, sizeof(chCurrentTime), "%Y%m%d%H%M%S", std::localtime(&currentTime));
++    std::string stCurrentTime = chCurrentTime;
++    std::string filename = Ace::AceApplicationInfo::GetInstance().GetDataFileDirPath() + "/arkui_dump_" + stCurrentTime + ".txt";
++
++    FILE *fp = fopen(filename.c_str(), "wb");
++    if (fp == nullptr) {
++        LOGE("Dump failed: fp is nullptr");
++        return;
++    }
++    DumpLog::DumpFile* file = new DumpLog::DumpFile(fp);
++
++    if (file == nullptr) {
++        LOGE("Dump failed: file is nullptr");
++        return;
++    }
++    DumpLog::GetInstance().SetDumpFile(file);
++    auto container = AceEngine::Get().GetContainer(instanceId);
++    CHECK_NULL_VOID(container);
++    std::vector<std::string> info;
++    if (dumpParamsVector.empty()) {
++        dumpParamsVector.push_back("-element");
++    }
++    container->Dump(dumpParamsVector, info);
++    DumpLog::GetInstance().Reset();
++}
++
++} // namespace OHOS::Ace::Platform
+diff --git a/adapter/macos/entrance/dump_helper.h b/adapter/macos/entrance/dump_helper.h
+new file mode 100755
+index 00000000000..f633fa03f3c
+--- /dev/null
++++ b/adapter/macos/entrance/dump_helper.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_DUMP_HELPER_H
++#define FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_DUMP_HELPER_H
++
++#include <string>
++#include <vector>
++#include <stdint.h>
++
++namespace OHOS::Ace::Platform {
++
++class DumpHelper {
++public:
++    DumpHelper() = default;
++    ~DumpHelper() = default;
++
++    static void Dump(int32_t instanceId, std::vector<std::string> dumpParamsVector);
++};
++
++} // namespace OHOS::Ace::Platform
++
++#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_DUMP_HELPER_H
+\ No newline at end of file
+diff --git a/adapter/macos/entrance/interaction/interaction_impl.cpp b/adapter/macos/entrance/interaction/interaction_impl.cpp
+new file mode 100644
+index 00000000000..cb2ad31f276
+--- /dev/null
++++ b/adapter/macos/entrance/interaction/interaction_impl.cpp
+@@ -0,0 +1,1004 @@
++/*
++ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "interaction_impl.h"
++
++#include <algorithm>
++#include <atomic>
++#include <cmath>
++#include <deque>
++#include <mutex>
++#include <unordered_map>
++
++#include "display_manager.h"
++// Phase 0 path X: macOS uses its own AceContainerSG header (the iOS one pulls
++// the iOS virtual_rs_window.h, whose guard differs from the macOS one).
++#include "adapter/macos/stage/uicontent/ace_container_sg.h"
++#include "base/log/log.h"
++#include "core/common/container.h"
++#include "core/common/interaction/interaction_data.h"
++#include "core/gestures/gesture_info.h"
++#include "core/pipeline_ng/pipeline_context.h"
++
++#if defined(ENABLE_DRAG_FRAMEWORK)
++#include "drag_data.h"
++#include "interaction_manager.h"
++#endif
++
++#if defined(ENABLE_DRAG_FRAMEWORK)
++using namespace OHOS::Msdp::DeviceStatus;
++#endif
++
++namespace OHOS::Ace {
++// Phase 0 path X: the upstream iOS source references these from #else / drag-off
++// paths but only defines them inside #if ENABLE_DRAG_FRAMEWORK (a latent bug
++// hidden on iOS where the macro is always set). The macOS build does not define
++// ENABLE_DRAG_FRAMEWORK, so hoist them out so the drag-off paths compile.
++constexpr uint64_t INVALID_SYNTHETIC_DRAG_SESSION_ID = 0;
++bool windowCreated_ = false;
++std::function<void(const OHOS::Ace::DragNotifyMsg&)> callback_;
++#if defined(ENABLE_DRAG_FRAMEWORK)
++Msdp::DeviceStatus::DragCursorStyle TranslateDragCursorStyle(OHOS::Ace::DragCursorStyleCore style);
++Msdp::DeviceStatus::DragResult TranslateDragResult(DragRet dragResult);
++DragRet TranslateDragResult(Msdp::DeviceStatus::DragResult dragResult);
++Msdp::DeviceStatus::DragBehavior TranslateDragBehavior(OHOS::Ace::DragBehavior dragBehavior);
++OHOS::Ace::DragBehavior TranslateDragBehavior(Msdp::DeviceStatus::DragBehavior dragBehavior);
++
++// Synthetic drag only needs a small recent-event window to bridge start/update routing.
++// Keeping the cache bounded prevents unbounded growth while still tolerating bursty move events.
++constexpr size_t SYNTHETIC_EVENT_SESSION_CACHE_LIMIT = 64;
++constexpr uint32_t SYNTHETIC_POINTER_ID_HASH_SHIFT_BITS = 32;
++
++struct SyntheticPointerDispatchKey {
++    int32_t pointerId = -1;
++    int64_t actionTime = 0;
++
++    bool operator==(const SyntheticPointerDispatchKey& other) const
++    {
++        return pointerId == other.pointerId && actionTime == other.actionTime;
++    }
++};
++
++struct SyntheticPointerDispatchKeyHash {
++    size_t operator()(const SyntheticPointerDispatchKey& key) const
++    {
++        return (static_cast<size_t>(static_cast<uint32_t>(key.pointerId)) <<
++            SYNTHETIC_POINTER_ID_HASH_SHIFT_BITS) ^
++            static_cast<size_t>(key.actionTime);
++    }
++};
++
++struct PendingSyntheticDragContext {
++    uint64_t sessionId = INVALID_SYNTHETIC_DRAG_SESSION_ID;
++};
++
++struct SyntheticDragCompensationState {
++    bool valid = false;
++    uint64_t sessionId = INVALID_SYNTHETIC_DRAG_SESSION_ID;
++    int32_t pointerId = -1;
++    int32_t windowWidth = 0;
++    int32_t windowHeight = 0;
++    int32_t shadowWidth = 0;
++    int32_t shadowHeight = 0;
++    int32_t hotspotX = -1;
++    int32_t hotspotY = -1;
++    Rotation rotation = Rotation::ROTATION_0;
++};
++
++struct SyntheticDragRuntimeState {
++    std::atomic<int32_t> syntheticDragPointerId { -1 };
++    std::atomic<bool> syntheticDragActive { false };
++    std::atomic<uint64_t> syntheticDragSessionGenerator { 1 };
++    std::atomic<uint64_t> activeSyntheticDragSessionId { 0 };
++    // If both mutexes are needed, always acquire session first and compensation second.
++    std::mutex syntheticDragCompensationMutex;
++    std::mutex syntheticDragSessionMutex;
++    std::unordered_map<SyntheticPointerDispatchKey, PendingSyntheticDragContext, SyntheticPointerDispatchKeyHash>
++        pendingSyntheticDragContexts;
++    std::deque<SyntheticPointerDispatchKey> pendingSyntheticDragOrder;
++    std::unordered_map<int32_t, uint64_t> syntheticPointerSessionBindings;
++    std::unordered_map<SyntheticPointerDispatchKey, uint64_t, SyntheticPointerDispatchKeyHash>
++        syntheticPointerDispatchMap;
++    std::deque<SyntheticPointerDispatchKey> syntheticPointerDispatchOrder;
++    SyntheticDragCompensationState syntheticDragCompensationState;
++
++    void ResetCompensationStateLocked()
++    {
++        syntheticDragCompensationState = {};
++    }
++
++    void ResetPendingContextsLocked()
++    {
++        pendingSyntheticDragContexts.clear();
++        pendingSyntheticDragOrder.clear();
++    }
++
++    void ResetPendingContextsLocked(int32_t pointerId)
++    {
++        if (pointerId < 0) {
++            return;
++        }
++        for (auto iter = pendingSyntheticDragContexts.begin(); iter != pendingSyntheticDragContexts.end();) {
++            if (iter->first.pointerId == pointerId) {
++                iter = pendingSyntheticDragContexts.erase(iter);
++            } else {
++                ++iter;
++            }
++        }
++        pendingSyntheticDragOrder.erase(
++            std::remove_if(pendingSyntheticDragOrder.begin(), pendingSyntheticDragOrder.end(),
++                [pointerId](const SyntheticPointerDispatchKey& key) { return key.pointerId == pointerId; }),
++            pendingSyntheticDragOrder.end());
++    }
++
++    void RegisterPendingContextLocked(int32_t pointerId, int64_t actionTime, uint64_t sessionId)
++    {
++        if (pointerId < 0 || actionTime <= 0 || sessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++            return;
++        }
++        SyntheticPointerDispatchKey key { pointerId, actionTime };
++        if (pendingSyntheticDragContexts.find(key) == pendingSyntheticDragContexts.end()) {
++            pendingSyntheticDragOrder.push_back(key);
++        }
++        pendingSyntheticDragContexts[key] = { sessionId };
++        while (pendingSyntheticDragOrder.size() > SYNTHETIC_EVENT_SESSION_CACHE_LIMIT) {
++            const auto oldest = pendingSyntheticDragOrder.front();
++            pendingSyntheticDragOrder.pop_front();
++            pendingSyntheticDragContexts.erase(oldest);
++        }
++    }
++
++    uint64_t FindLatestPendingSessionIdLocked(int32_t pointerId, SyntheticPointerDispatchKey* matchedKey)
++    {
++        if (pointerId < 0) {
++            return INVALID_SYNTHETIC_DRAG_SESSION_ID;
++        }
++        for (auto iter = pendingSyntheticDragOrder.rbegin(); iter != pendingSyntheticDragOrder.rend(); ++iter) {
++            if (iter->pointerId != pointerId) {
++                continue;
++            }
++            auto pendingIter = pendingSyntheticDragContexts.find(*iter);
++            if (pendingIter == pendingSyntheticDragContexts.end()) {
++                continue;
++            }
++            if (matchedKey != nullptr) {
++                *matchedKey = pendingIter->first;
++            }
++            return pendingIter->second.sessionId;
++        }
++        return INVALID_SYNTHETIC_DRAG_SESSION_ID;
++    }
++
++    void ConsumePendingContextLocked(const SyntheticPointerDispatchKey& key)
++    {
++        pendingSyntheticDragContexts.erase(key);
++        pendingSyntheticDragOrder.erase(
++            std::remove(pendingSyntheticDragOrder.begin(), pendingSyntheticDragOrder.end(), key),
++            pendingSyntheticDragOrder.end());
++    }
++
++    void RegisterDispatchLocked(int32_t pointerId, int64_t actionTime, uint64_t sessionId)
++    {
++        if (pointerId < 0 || actionTime <= 0 || sessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++            return;
++        }
++        SyntheticPointerDispatchKey key { pointerId, actionTime };
++        if (syntheticPointerDispatchMap.find(key) == syntheticPointerDispatchMap.end()) {
++            syntheticPointerDispatchOrder.push_back(key);
++        }
++        syntheticPointerDispatchMap[key] = sessionId;
++        while (syntheticPointerDispatchOrder.size() > SYNTHETIC_EVENT_SESSION_CACHE_LIMIT) {
++            const auto oldest = syntheticPointerDispatchOrder.front();
++            syntheticPointerDispatchOrder.pop_front();
++            syntheticPointerDispatchMap.erase(oldest);
++        }
++    }
++
++    enum class SyntheticSessionResolveSource {
++        INVALID,
++        DISPATCH,
++        POINTER_BINDING,
++        PENDING_CONTEXT,
++    };
++
++    std::pair<uint64_t, SyntheticSessionResolveSource> ResolveSessionIdWithSourceLocked(
++        int32_t pointerId, int64_t actionTime)
++    {
++        if (pointerId < 0) {
++            return { INVALID_SYNTHETIC_DRAG_SESSION_ID, SyntheticSessionResolveSource::INVALID };
++        }
++        if (actionTime > 0) {
++            SyntheticPointerDispatchKey key { pointerId, actionTime };
++            auto keyIter = syntheticPointerDispatchMap.find(key);
++            if (keyIter != syntheticPointerDispatchMap.end()) {
++                return { keyIter->second, SyntheticSessionResolveSource::DISPATCH };
++            }
++        }
++        auto bindingIter = syntheticPointerSessionBindings.find(pointerId);
++        if (bindingIter != syntheticPointerSessionBindings.end()) {
++            return { bindingIter->second, SyntheticSessionResolveSource::POINTER_BINDING };
++        }
++        const auto pendingSessionId = FindLatestPendingSessionIdLocked(pointerId, nullptr);
++        if (pendingSessionId != INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++            return { pendingSessionId, SyntheticSessionResolveSource::PENDING_CONTEXT };
++        }
++        return { INVALID_SYNTHETIC_DRAG_SESSION_ID, SyntheticSessionResolveSource::INVALID };
++    }
++};
++
++SyntheticDragRuntimeState& GetSyntheticDragRuntimeState()
++{
++    static SyntheticDragRuntimeState state;
++    return state;
++}
++
++Rotation GetSyntheticDragRotation()
++{
++    auto container = Container::Current();
++    CHECK_NULL_RETURN(container, Rotation::ROTATION_0);
++    auto displayInfo = container->GetDisplayInfo();
++    CHECK_NULL_RETURN(displayInfo, Rotation::ROTATION_0);
++    return displayInfo->GetRotation();
++}
++
++void RegisterSyntheticPointerDispatchLocked(int32_t pointerId, int64_t actionTime, uint64_t sessionId)
++{
++    auto& state = GetSyntheticDragRuntimeState();
++    if (pointerId < 0 || actionTime <= 0 || sessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++        return;
++    }
++    state.RegisterDispatchLocked(pointerId, actionTime, sessionId);
++}
++
++uint64_t ResolveSyntheticDragSessionIdLocked(int32_t pointerId, int64_t actionTime)
++{
++    auto& state = GetSyntheticDragRuntimeState();
++    const auto sessionId = state.ResolveSessionIdWithSourceLocked(pointerId, actionTime).first;
++    if (sessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++        LOGW("[UITEST_IOS_DRAGFIX] resolve synthetic session missed pointerId=%{public}d actionTime=%{public}" PRId64,
++            pointerId, actionTime);
++    }
++    return sessionId;
++}
++
++uint64_t MatchAndConsumeSyntheticDragSessionId(const DragDataCore& dragData, bool isSyntheticDrag)
++{
++    auto& state = GetSyntheticDragRuntimeState();
++    if (!isSyntheticDrag) {
++        return INVALID_SYNTHETIC_DRAG_SESSION_ID;
++    }
++    std::lock_guard<std::mutex> lock(state.syntheticDragSessionMutex);
++    SyntheticPointerDispatchKey matchedKey;
++    const auto sessionId = state.FindLatestPendingSessionIdLocked(dragData.pointerId, &matchedKey);
++    if (sessionId != INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++        state.ConsumePendingContextLocked(matchedKey);
++        return sessionId;
++    }
++    auto bindingIter = state.syntheticPointerSessionBindings.find(dragData.pointerId);
++    if (bindingIter != state.syntheticPointerSessionBindings.end()) {
++        return bindingIter->second;
++    }
++    return INVALID_SYNTHETIC_DRAG_SESSION_ID;
++}
++
++void UpdateSyntheticDragCompensationStateLocked(const DragDataCore& dragData,
++    const std::shared_ptr<OHOS::Rosen::Window>& dragWindow, int32_t width, int32_t height, uint64_t sessionId)
++{
++    auto& compensationState = GetSyntheticDragRuntimeState().syntheticDragCompensationState;
++    compensationState.valid = true;
++    compensationState.sessionId = sessionId;
++    compensationState.pointerId = dragData.pointerId;
++    compensationState.windowWidth = width;
++    compensationState.windowHeight = height;
++    if (dragWindow) {
++        const auto rect = dragWindow->GetRect();
++        if (rect.width_ > 0) {
++            compensationState.windowWidth = rect.width_;
++        }
++        if (rect.height_ > 0) {
++            compensationState.windowHeight = rect.height_;
++        }
++    }
++    compensationState.shadowWidth = 0;
++    compensationState.shadowHeight = 0;
++    compensationState.hotspotX = -1;
++    compensationState.hotspotY = -1;
++    if (!dragData.shadowInfos.empty() && dragData.shadowInfos.front().pixelMap) {
++        compensationState.shadowWidth =
++            dragData.shadowInfos.front().pixelMap->GetWidth();
++        compensationState.shadowHeight =
++            dragData.shadowInfos.front().pixelMap->GetHeight();
++        compensationState.hotspotX = -dragData.shadowInfos.front().x;
++        compensationState.hotspotY = -dragData.shadowInfos.front().y;
++    }
++    compensationState.rotation = GetSyntheticDragRotation();
++}
++
++struct SyntheticCompensatedPoint {
++    int32_t displayX = 0;
++    int32_t displayY = 0;
++};
++
++SyntheticCompensatedPoint CompensateSyntheticDragPointWithHotspotLocked(int32_t displayX, int32_t displayY)
++{
++    const auto& compensationState = GetSyntheticDragRuntimeState().syntheticDragCompensationState;
++    float compensatedX = static_cast<float>(displayX);
++    float compensatedY = static_cast<float>(displayY);
++    const auto hotspotX = static_cast<float>(compensationState.hotspotX);
++    const auto hotspotY = static_cast<float>(compensationState.hotspotY);
++    const auto shadowWidth = static_cast<float>(compensationState.shadowWidth);
++    const auto shadowHeight = static_cast<float>(compensationState.shadowHeight);
++    switch (compensationState.rotation) {
++        case Rotation::ROTATION_0:
++            break;
++        case Rotation::ROTATION_90:
++            compensatedX = static_cast<float>(compensationState.windowWidth) -
++                static_cast<float>(displayY) - hotspotY;
++            compensatedY = static_cast<float>(displayX) - hotspotX;
++            break;
++        case Rotation::ROTATION_180:
++            compensatedX = static_cast<float>(compensationState.windowWidth) -
++                static_cast<float>(displayX) - (shadowWidth - 2.0f * hotspotX);
++            compensatedY = static_cast<float>(compensationState.windowHeight) -
++                static_cast<float>(displayY) - (shadowHeight - 2.0f * hotspotY);
++            break;
++        case Rotation::ROTATION_270:
++            compensatedX = static_cast<float>(displayY) + hotspotY;
++            compensatedY = static_cast<float>(compensationState.windowHeight) -
++                static_cast<float>(displayX) - hotspotX;
++            break;
++        default:
++            break;
++    }
++    return { static_cast<int32_t>(std::lround(compensatedX)), static_cast<int32_t>(std::lround(compensatedY)) };
++}
++
++SyntheticCompensatedPoint CompensateSyntheticDragPointLocked(int32_t displayX, int32_t displayY, int32_t pointerId)
++{
++    const auto& compensationState = GetSyntheticDragRuntimeState().syntheticDragCompensationState;
++    if (!compensationState.valid || compensationState.pointerId != pointerId) {
++        return { displayX, displayY };
++    }
++    const bool hasHotspot = compensationState.shadowWidth > 0 &&
++        compensationState.shadowHeight > 0 &&
++        compensationState.hotspotX >= 0 &&
++        compensationState.hotspotY >= 0;
++    if (!hasHotspot) {
++        LOGW("[UITEST_IOS_DRAGFIX] fallback synthetic compensation without hotspot "
++             "pointerId=%{public}d rotation=%{public}d shadow=(%{public}d,%{public}d) "
++             "hotspot=(%{public}d,%{public}d) display=(%{public}d,%{public}d)",
++            pointerId, static_cast<int32_t>(compensationState.rotation),
++            compensationState.shadowWidth, compensationState.shadowHeight,
++            compensationState.hotspotX, compensationState.hotspotY,
++            displayX, displayY);
++        return { displayX, displayY };
++    }
++    return CompensateSyntheticDragPointWithHotspotLocked(displayX, displayY);
++}
++
++std::shared_ptr<MMI::PointerEvent> CreateSyntheticCompensatedPointerEvent(
++    const std::shared_ptr<MMI::PointerEvent>& pointerEvent, uint64_t sessionId)
++{
++    CHECK_NULL_RETURN(pointerEvent, nullptr);
++    auto& state = GetSyntheticDragRuntimeState();
++    std::lock_guard<std::mutex> lock(state.syntheticDragCompensationMutex);
++    if (!state.syntheticDragCompensationState.valid ||
++        state.syntheticDragCompensationState.sessionId != sessionId ||
++        state.syntheticDragCompensationState.pointerId != pointerEvent->GetPointerId()) {
++        return pointerEvent;
++    }
++    auto adjustedEvent = MMI::PointerEvent::Create();
++    CHECK_NULL_RETURN(adjustedEvent, pointerEvent);
++    adjustedEvent->SetPointerId(pointerEvent->GetPointerId());
++    adjustedEvent->SetDeviceId(pointerEvent->GetDeviceId());
++    adjustedEvent->SetTargetDisplayId(pointerEvent->GetTargetDisplayId());
++    adjustedEvent->SetActionTime(pointerEvent->GetActionTime());
++    adjustedEvent->SetFingerCount(pointerEvent->GetFingerCount());
++    adjustedEvent->SetPointerAction(pointerEvent->GetPointerAction());
++    adjustedEvent->SetSourceType(pointerEvent->GetSourceType());
++    adjustedEvent->SetPullId(pointerEvent->GetPullId());
++    auto pointerIds = pointerEvent->GetPointerIds();
++    for (const auto id : pointerIds) {
++        MMI::PointerEvent::PointerItem pointerItem;
++        if (!pointerEvent->GetPointerItem(id, pointerItem)) {
++            return pointerEvent;
++        }
++        if (id == pointerEvent->GetPointerId()) {
++            const auto originalDisplayX = pointerItem.GetDisplayX();
++            const auto originalDisplayY = pointerItem.GetDisplayY();
++            const auto compensatedPoint = CompensateSyntheticDragPointLocked(originalDisplayX, originalDisplayY, id);
++            pointerItem.SetDisplayX(compensatedPoint.displayX);
++            pointerItem.SetDisplayY(compensatedPoint.displayY);
++            pointerItem.SetWindowX(pointerItem.GetWindowX() + (compensatedPoint.displayX - originalDisplayX));
++            pointerItem.SetWindowY(pointerItem.GetWindowY() + (compensatedPoint.displayY - originalDisplayY));
++        }
++        adjustedEvent->AddPointerItem(pointerItem);
++    }
++    return adjustedEvent;
++}
++
++namespace {
++
++struct SyntheticDragHeightContext {
++    int32_t rootHeight = 0;
++    int32_t displayHeight = 0;
++    int32_t coordinateHeight = 0;
++};
++
++SyntheticDragHeightContext GetSyntheticDragHeightContext()
++{
++    SyntheticDragHeightContext context;
++    context.rootHeight = static_cast<int32_t>(NG::PipelineContext::GetCurrentRootHeight());
++    auto defaultDisplay = Rosen::DisplayManager::GetInstance().GetDefaultDisplaySync();
++    if (defaultDisplay) {
++        auto defaultDisplayInfo = defaultDisplay->GetDisplayInfo();
++        if (defaultDisplayInfo) {
++            context.displayHeight = defaultDisplayInfo->GetHeight();
++        }
++    }
++    context.coordinateHeight = context.rootHeight > 0 ? context.rootHeight : context.displayHeight;
++    return context;
++}
++
++} // namespace
++
++Msdp::DeviceStatus::DragData CreateBaseMsdpDragData(const DragDataCore& dragData)
++{
++    Msdp::DeviceStatus::DragData msdpDragData { {}, dragData.buffer, dragData.udKey, dragData.extraInfo,
++        dragData.filterInfo, dragData.sourceType, dragData.dragNum, dragData.pointerId,
++        dragData.displayX, dragData.displayY, dragData.displayId, dragData.mainWindow, dragData.hasCanceledAnimation,
++        dragData.hasCoordinateCorrected, dragData.summarys };
++    for (auto& shadowInfo : dragData.shadowInfos) {
++        if (shadowInfo.pixelMap) {
++            msdpDragData.shadowInfos.push_back(
++                { shadowInfo.pixelMap->GetPixelMapSharedPtr(), shadowInfo.x, shadowInfo.y });
++        } else {
++            msdpDragData.shadowInfos.push_back({ nullptr, shadowInfo.x, shadowInfo.y });
++        }
++    }
++    return msdpDragData;
++}
++
++void StartManualDragWindow(const DragDataCore& dragData)
++{
++    auto msdpDragData = CreateBaseMsdpDragData(dragData);
++    InteractionManager::GetInstance()->StartDrag(msdpDragData);
++}
++
++void StartSyntheticDragWindow(const DragDataCore& dragData,
++    const std::shared_ptr<OHOS::Rosen::Window>& dragWindow, int32_t width, int32_t height, uint64_t sessionId)
++{
++    auto& state = GetSyntheticDragRuntimeState();
++    InitializeSyntheticDragCompensation(dragData, dragWindow, width, height, sessionId);
++    int32_t adjustedDisplayX = dragData.displayX;
++    int32_t adjustedDisplayY = dragData.displayY;
++    {
++        std::lock_guard<std::mutex> lock(state.syntheticDragCompensationMutex);
++        const auto compensatedPoint =
++            CompensateSyntheticDragPointLocked(dragData.displayX, dragData.displayY, dragData.pointerId);
++        adjustedDisplayX = compensatedPoint.displayX;
++        adjustedDisplayY = compensatedPoint.displayY;
++    }
++
++    auto msdpDragData = CreateBaseMsdpDragData(dragData);
++    msdpDragData.displayX = adjustedDisplayX;
++    msdpDragData.displayY = adjustedDisplayY;
++
++    const auto heightContext = GetSyntheticDragHeightContext();
++    const auto shadowCount = static_cast<int32_t>(dragData.shadowInfos.size());
++    const auto firstShadowX = shadowCount > 0 ? dragData.shadowInfos.front().x : 0;
++    const auto firstShadowY = shadowCount > 0 ? dragData.shadowInfos.front().y : 0;
++    InteractionManager::GetInstance()->StartDrag(msdpDragData);
++}
++
++#endif
++
++void UpdateSyntheticDragTouchState(int32_t pointerId, bool active)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto& state = GetSyntheticDragRuntimeState();
++    if (active) {
++        state.syntheticDragPointerId.store(pointerId, std::memory_order_relaxed);
++        state.syntheticDragActive.store(true, std::memory_order_release);
++        return;
++    }
++    const auto currentPointerId = state.syntheticDragPointerId.load(std::memory_order_acquire);
++    if (pointerId < 0 || currentPointerId == pointerId) {
++        state.syntheticDragActive.store(false, std::memory_order_release);
++    }
++#else
++    (void)pointerId;
++    (void)active;
++#endif
++}
++
++void CompleteSyntheticDragTouchState(int32_t pointerId, bool active)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto& state = GetSyntheticDragRuntimeState();
++    if (active) {
++        return;
++    }
++    const auto currentPointerId = state.syntheticDragPointerId.load(std::memory_order_relaxed);
++    if (pointerId >= 0 && currentPointerId >= 0 && currentPointerId != pointerId) {
++        return;
++    }
++    {
++        std::scoped_lock lock(state.syntheticDragSessionMutex, state.syntheticDragCompensationMutex);
++        state.syntheticPointerSessionBindings.erase(currentPointerId);
++        if (pointerId >= 0 && pointerId != currentPointerId) {
++            state.syntheticPointerSessionBindings.erase(pointerId);
++        }
++        state.ResetPendingContextsLocked(currentPointerId);
++        if (pointerId >= 0 && pointerId != currentPointerId) {
++            state.ResetPendingContextsLocked(pointerId);
++        }
++        state.ResetCompensationStateLocked();
++        state.activeSyntheticDragSessionId.store(INVALID_SYNTHETIC_DRAG_SESSION_ID, std::memory_order_relaxed);
++        state.syntheticDragPointerId.store(-1, std::memory_order_relaxed);
++    }
++#else
++    (void)pointerId;
++    (void)active;
++#endif
++}
++
++void PrepareSyntheticDragCompensationContext(int32_t pointerId, bool active, bool isStart, int64_t actionTime)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto& state = GetSyntheticDragRuntimeState();
++    std::lock_guard<std::mutex> lock(state.syntheticDragSessionMutex);
++    if (pointerId < 0) {
++        return;
++    }
++    auto bindingIter = state.syntheticPointerSessionBindings.find(pointerId);
++    uint64_t sessionId = bindingIter != state.syntheticPointerSessionBindings.end() ?
++        bindingIter->second : INVALID_SYNTHETIC_DRAG_SESSION_ID;
++    if (active && (isStart || sessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID)) {
++        sessionId = state.syntheticDragSessionGenerator.fetch_add(1, std::memory_order_relaxed);
++        state.syntheticPointerSessionBindings[pointerId] = sessionId;
++        state.RegisterPendingContextLocked(pointerId, actionTime, sessionId);
++    } else if (active && sessionId != INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++        state.RegisterPendingContextLocked(pointerId, actionTime, sessionId);
++    } else if (!active && sessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++        sessionId = state.FindLatestPendingSessionIdLocked(pointerId, nullptr);
++    }
++    RegisterSyntheticPointerDispatchLocked(pointerId, actionTime, sessionId);
++#else
++    (void)pointerId;
++    (void)active;
++    (void)isStart;
++    (void)actionTime;
++#endif
++}
++
++uint64_t ResolveSyntheticDragSessionId(const std::shared_ptr<MMI::PointerEvent>& pointerEvent)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    CHECK_NULL_RETURN(pointerEvent, INVALID_SYNTHETIC_DRAG_SESSION_ID);
++    auto& state = GetSyntheticDragRuntimeState();
++    std::lock_guard<std::mutex> lock(state.syntheticDragSessionMutex);
++    return ResolveSyntheticDragSessionIdLocked(pointerEvent->GetPointerId(),
++        static_cast<int64_t>(pointerEvent->GetActionTime()));
++#else
++    (void)pointerEvent;
++    return INVALID_SYNTHETIC_DRAG_SESSION_ID;
++#endif
++}
++void InitializeSyntheticDragCompensation(const DragDataCore& dragData,
++    const std::shared_ptr<OHOS::Rosen::Window>& dragWindow, int32_t width, int32_t height, uint64_t sessionId)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto& state = GetSyntheticDragRuntimeState();
++    std::lock_guard<std::mutex> lock(state.syntheticDragCompensationMutex);
++    UpdateSyntheticDragCompensationStateLocked(dragData, dragWindow, width, height, sessionId);
++#else
++    (void)dragData;
++    (void)dragWindow;
++    (void)width;
++    (void)height;
++    (void)sessionId;
++#endif
++}
++
++bool IsSyntheticDragTouchActiveForPointer(int32_t pointerId)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    const auto& state = GetSyntheticDragRuntimeState();
++    if (!state.syntheticDragActive.load(std::memory_order_acquire)) {
++        return false;
++    }
++    return state.syntheticDragPointerId.load(std::memory_order_relaxed) == pointerId;
++#else
++    (void)pointerId;
++    return false;
++#endif
++}
++
++InteractionInterface* InteractionInterface::GetInstance()
++{
++    static InteractionImpl instance;
++    return &instance;
++}
++
++int32_t InteractionImpl::UpdateShadowPic(const OHOS::Ace::ShadowInfoCore& shadowInfo)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto pixelMap = shadowInfo.pixelMap;
++    if (!pixelMap) {
++        Msdp::DeviceStatus::ShadowInfo msdpShadowInfo { nullptr, shadowInfo.x, shadowInfo.y };
++        return InteractionManager::GetInstance()->UpdateShadowPic(msdpShadowInfo);
++    }
++    Msdp::DeviceStatus::ShadowInfo msdpShadowInfo { shadowInfo.pixelMap->GetPixelMapSharedPtr(), shadowInfo.x,
++        shadowInfo.y };
++    return InteractionManager::GetInstance()->UpdateShadowPic(msdpShadowInfo);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::SetDragWindowVisible(bool visible, const std::shared_ptr<Rosen::RSTransaction>& rSTransaction)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->SetDragWindowVisible(visible);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::SetMouseDragMonitorState(bool state)
++{
++    return -1;
++}
++
++int32_t InteractionImpl::StartDrag(
++    const DragDataCore& dragData, std::function<void(const OHOS::Ace::DragNotifyMsg&)> callback)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    callback_ = callback;
++    auto& state = GetSyntheticDragRuntimeState();
++    std::shared_ptr<OHOS::Rosen::Window> window = GetDragWindow();
++    CHECK_NULL_RETURN(window, -1);
++    const bool isSyntheticDrag = IsSyntheticDragTouchActiveForPointer(dragData.pointerId);
++    const auto syntheticSessionId = MatchAndConsumeSyntheticDragSessionId(dragData, isSyntheticDrag);
++    if (isSyntheticDrag && syntheticSessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++        LOGW("[UITEST_IOS_DRAGFIX] synthetic start without session, pointerId=%{public}d", dragData.pointerId);
++    }
++    state.activeSyntheticDragSessionId.store(
++        isSyntheticDrag ? syntheticSessionId : INVALID_SYNTHETIC_DRAG_SESSION_ID, std::memory_order_relaxed);
++    surfaceNodeListener_ = new SurfaceNodeListener(window, dragData, isSyntheticDrag, syntheticSessionId);
++    CHECK_NULL_RETURN(surfaceNodeListener_, -1);
++    window->RegisterSurfaceNodeListener(surfaceNodeListener_);
++    window->ShowWindow();
++    RegisterDragWindow();
++    return 0;
++#endif
++    return -1;
++}
++
++void InteractionImpl::RegisterDragWindow()
++{
++    // Phase 0 path X: drag window registration needs the msdp InteractionManager,
++    // only available with ENABLE_DRAG_FRAMEWORK (off on mac). No-op otherwise.
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto callback = [surfaceNodeListener = surfaceNodeListener_] {
++        CHECK_NULL_VOID(surfaceNodeListener);
++        CHECK_NULL_VOID(surfaceNodeListener->dragWindow_);
++        auto window = surfaceNodeListener->dragWindow_;
++        CHECK_NULL_VOID(window);
++        window->UnregisterSurfaceNodeListener(surfaceNodeListener);
++        window->Destroy();
++        surfaceNodeListener->dragWindow_ = nullptr;
++        windowCreated_ = false;
++    };
++    InteractionManager::GetInstance()->RegisterDragWindow(callback);
++#endif
++}
++
++int32_t InteractionImpl::GetDragBundleInfo(DragBundleInfo& dragBundleInfo)
++{
++    return -1;
++}
++
++int32_t InteractionImpl::UpdateDragStyle(OHOS::Ace::DragCursorStyleCore style, const int32_t eventId)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->UpdateDragStyle(TranslateDragCursorStyle(style));
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::UpdatePreviewStyle(const OHOS::Ace::PreviewStyle& previewStyle)
++{
++    return -1;
++}
++
++int32_t InteractionImpl::UpdatePreviewStyleWithAnimation(const OHOS::Ace::PreviewStyle& previewStyle,
++    const OHOS::Ace::PreviewAnimation& animation)
++{
++    return -1;
++}
++
++int32_t InteractionImpl::StopDrag(DragDropRet result, std::function<void()> callback)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto& state = GetSyntheticDragRuntimeState();
++    LOGI("InteractionImpl::StopDrag");
++    Msdp::DeviceStatus::DragDropResult dragDropResult { TranslateDragResult(result.result), result.hasCustomAnimation,
++        result.mainWindow, TranslateDragBehavior(result.dragBehavior) };
++    OHOS::Ace::DragNotifyMsg msg { 0, 0, InteractionManager::GetInstance()->GetDragTargetPid(),
++            TranslateDragResult(dragDropResult.result), TranslateDragBehavior(dragDropResult.dragBehavior) };
++    if (callback_) {
++        callback_(msg);
++    }
++    state.activeSyntheticDragSessionId.store(INVALID_SYNTHETIC_DRAG_SESSION_ID, std::memory_order_relaxed);
++    return InteractionManager::GetInstance()->StopDrag(dragDropResult);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::GetUdKey(std::string& udKey)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->GetUdKey(udKey);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::GetShadowOffset(ShadowOffsetData& shadowOffsetData)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->GetShadowOffset(
++        shadowOffsetData.offsetX, shadowOffsetData.offsetY, shadowOffsetData.width, shadowOffsetData.height);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::GetDragState(DragState& dragState) const
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    Msdp::DeviceStatus::DragState state;
++    int32_t ret = InteractionManager::GetInstance()->GetDragState(state);
++    LOGI("InteractionImpl::GetDragState = %{public}d", ret);
++    switch (state) {
++        case Msdp::DeviceStatus::DragState::ERROR:
++            dragState = DragState::ERROR;
++            break;
++        case Msdp::DeviceStatus::DragState::START:
++            dragState = DragState::START;
++            break;
++        case Msdp::DeviceStatus::DragState::STOP:
++            dragState = DragState::STOP;
++            break;
++        case Msdp::DeviceStatus::DragState::CANCEL:
++            dragState = DragState::CANCEL;
++            break;
++        case Msdp::DeviceStatus::DragState::MOTION_DRAGGING:
++            dragState = DragState::MOTION_DRAGGING;
++            break;
++        default:
++            dragState = DragState::ERROR;
++            LOGW("unknow msdp drag state: %d", state);
++            break;
++    }
++    return ret;
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::GetDragSummary(std::map<std::string, int64_t>& summary,
++    std::map<std::string, int64_t>& detailedSummary, std::map<std::string, std::vector<int32_t>>& summaryFormat,
++    int32_t& version, int64_t& totalSize, std::string& tag)
++{
++#ifdef ENABLE_DRAG_FRAMEWORK
++    Msdp::DeviceStatus::DragSummaryInfo dragSummary;
++    auto ret = InteractionManager::GetInstance()->GetDragSummaryInfo(dragSummary);
++    if (ret != 0) {
++        return ret;
++    }
++    summary = dragSummary.summarys;
++    detailedSummary = dragSummary.detailedSummarys;
++    summaryFormat = dragSummary.summaryFormat;
++    version = dragSummary.version;
++    totalSize = dragSummary.totalSize;
++    return ret;
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::GetDragExtraInfo(std::string& extraInfo)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->GetExtraInfo(extraInfo);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::EnterTextEditorArea(bool enable)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->EnterTextEditorArea(enable);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::AddPrivilege(const std::string& signature, const DragEventData& dragEventData)
++{
++    return -1;
++}
++
++int32_t InteractionImpl::RegisterCoordinationListener(std::function<void()> dragOutCallback)
++{
++    return -1;
++}
++
++int32_t InteractionImpl::UnRegisterCoordinationListener()
++{
++    return -1;
++}
++
++int32_t InteractionImpl::EnableInternalDropAnimation(const std::string& animationInfo)
++{
++    return -1;
++}
++
++bool InteractionImpl::IsDragStart() const
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->IsDragStart();
++#endif
++    return false;
++}
++
++int32_t InteractionImpl::UpdatePointAction(const std::shared_ptr<MMI::PointerEvent>& pointerEvent)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    return InteractionManager::GetInstance()->UpdatePointerAction(pointerEvent);
++#endif
++    return -1;
++}
++
++int32_t InteractionImpl::UpdateSyntheticPointAction(const std::shared_ptr<MMI::PointerEvent>& pointerEvent)
++{
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto& state = GetSyntheticDragRuntimeState();
++    const auto sessionId = ResolveSyntheticDragSessionId(pointerEvent);
++    const auto activeSessionId = state.activeSyntheticDragSessionId.load(std::memory_order_relaxed);
++    if (sessionId == INVALID_SYNTHETIC_DRAG_SESSION_ID) {
++        LOGW("[UITEST_IOS_DRAGFIX] skip synthetic update due to missing session, "
++             "pointerId=%{public}d actionTime=%{public}" PRId64,
++            pointerEvent ? pointerEvent->GetPointerId() : -1,
++            pointerEvent ? static_cast<int64_t>(pointerEvent->GetActionTime()) : 0);
++        return 0;
++    }
++    if (activeSessionId != INVALID_SYNTHETIC_DRAG_SESSION_ID && sessionId != activeSessionId) {
++        LOGW("[UITEST_IOS_DRAGFIX] skip stale synthetic update sessionId=%{public}llu "
++             "activeSessionId=%{public}llu pointerId=%{public}d",
++            static_cast<unsigned long long>(sessionId), static_cast<unsigned long long>(activeSessionId),
++            pointerEvent ? pointerEvent->GetPointerId() : -1);
++        return 0;
++    }
++    auto adjustedPointerEvent = CreateSyntheticCompensatedPointerEvent(pointerEvent, sessionId);
++    return InteractionManager::GetInstance()->UpdatePointerAction(adjustedPointerEvent);
++#endif
++    return -1;
++}
++
++std::shared_ptr<OHOS::Rosen::Window> InteractionImpl::GetDragWindow()
++{
++    // Phase 0 path X: needs the msdp InteractionManager (ENABLE_DRAG_FRAMEWORK,
++    // off on mac). Return null when the drag framework is not built.
++#if defined(ENABLE_DRAG_FRAMEWORK)
++    auto containerId = Container::CurrentId();
++    auto container = Platform::AceContainerSG::GetContainer(containerId);
++    CHECK_NULL_RETURN(container, nullptr);
++    std::string packagePath = container->GetPackagePathStr();
++    std::string filePath = packagePath + "/systemres" + "/resources";
++    InteractionManager::GetInstance()->SetSVGFilePath(filePath);
++    sptr<Rosen::Window> window = container->GetUIWindow(containerId);
++    CHECK_NULL_RETURN(window, nullptr);
++    auto dragWindow = Rosen::Window::CreateDragWindow(window->GetContext());
++    return dragWindow;
++#else
++    return nullptr;
++#endif
++}
++
++void SurfaceNodeListener::OnSurfaceNodeChanged(int32_t width, int32_t height, float density)
++{
++#ifdef ENABLE_DRAG_FRAMEWORK
++    (void)density;
++    if (windowCreated_) {
++        return;
++    }
++    InteractionManager::GetInstance()->SetDragWindow(dragWindow_);
++    if (isSyntheticDrag_) {
++        StartSyntheticDragWindow(dragData, dragWindow_, width, height, syntheticSessionId_);
++    } else {
++        StartManualDragWindow(dragData);
++    }
++    windowCreated_ = true;
++#endif
++}
++
++#if defined(ENABLE_DRAG_FRAMEWORK)
++Msdp::DeviceStatus::DragCursorStyle TranslateDragCursorStyle(OHOS::Ace::DragCursorStyleCore style)
++{
++    switch (style) {
++        case OHOS::Ace::DragCursorStyleCore::DEFAULT:
++            return Msdp::DeviceStatus::DragCursorStyle::DEFAULT;
++        case OHOS::Ace::DragCursorStyleCore::FORBIDDEN:
++            return Msdp::DeviceStatus::DragCursorStyle::FORBIDDEN;
++        case OHOS::Ace::DragCursorStyleCore::COPY:
++            return Msdp::DeviceStatus::DragCursorStyle::COPY;
++        case OHOS::Ace::DragCursorStyleCore::MOVE:
++            return Msdp::DeviceStatus::DragCursorStyle::MOVE;
++        default:
++            return Msdp::DeviceStatus::DragCursorStyle::DEFAULT;
++    }
++}
++
++Msdp::DeviceStatus::DragResult TranslateDragResult(DragRet dragResult)
++{
++    switch (dragResult) {
++        case DragRet::DRAG_SUCCESS:
++            return Msdp::DeviceStatus::DragResult::DRAG_SUCCESS;
++        case DragRet::DRAG_FAIL:
++            return Msdp::DeviceStatus::DragResult::DRAG_FAIL;
++        case DragRet::DRAG_CANCEL:
++            return Msdp::DeviceStatus::DragResult::DRAG_CANCEL;
++        default:
++            return Msdp::DeviceStatus::DragResult::DRAG_SUCCESS;
++    }
++}
++
++DragRet TranslateDragResult(Msdp::DeviceStatus::DragResult dragResult)
++{
++    switch (dragResult) {
++        case Msdp::DeviceStatus::DragResult::DRAG_SUCCESS:
++            return DragRet::DRAG_SUCCESS;
++        case Msdp::DeviceStatus::DragResult::DRAG_FAIL:
++            return DragRet::DRAG_FAIL;
++        case Msdp::DeviceStatus::DragResult::DRAG_CANCEL:
++            return DragRet::DRAG_CANCEL;
++        default:
++            return DragRet::DRAG_SUCCESS;
++    }
++}
++
++Msdp::DeviceStatus::DragBehavior TranslateDragBehavior(OHOS::Ace::DragBehavior dragBehavior)
++{
++    switch (dragBehavior) {
++        case OHOS::Ace::DragBehavior::COPY:
++            return Msdp::DeviceStatus::DragBehavior::COPY;
++        case OHOS::Ace::DragBehavior::MOVE:
++            return Msdp::DeviceStatus::DragBehavior::MOVE;
++        default:
++            return Msdp::DeviceStatus::DragBehavior::UNKNOWN;
++    }
++}
++
++OHOS::Ace::DragBehavior TranslateDragBehavior(Msdp::DeviceStatus::DragBehavior dragBehavior)
++{
++    switch (dragBehavior) {
++        case Msdp::DeviceStatus::DragBehavior::COPY:
++            return OHOS::Ace::DragBehavior::COPY;
++        case Msdp::DeviceStatus::DragBehavior::MOVE:
++            return OHOS::Ace::DragBehavior::MOVE;
++        default:
++            return OHOS::Ace::DragBehavior::UNKNOWN;
++    }
++}
++#endif
++
++} // namespace OHOS::Ace
+diff --git a/adapter/macos/entrance/interaction/interaction_impl.h b/adapter/macos/entrance/interaction/interaction_impl.h
+new file mode 100644
+index 00000000000..32a72517cb0
+--- /dev/null
++++ b/adapter/macos/entrance/interaction/interaction_impl.h
+@@ -0,0 +1,125 @@
++/*
++ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Phase 0 path X: macOS copy of the iOS entrance interaction shim. Identical to
++// adapter/ios/entrance/interaction/interaction_impl.h except for the include
++// guard (the iOS guard would collide if both were ever in the same TU) — the
++// bare "virtual_rs_window.h" include resolves to the macOS entrance header via
++// the macos/entrance include path.
++#ifndef FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_INTERACTION_INTERACTION_IMPL_H
++#define FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_INTERACTION_INTERACTION_IMPL_H
++
++#include <cstdint>
++
++#include "virtual_rs_window.h"
++
++#include "core/common/interaction/interaction_interface.h"
++namespace OHOS::Ace {
++
++void UpdateSyntheticDragTouchState(int32_t pointerId, bool active);
++void CompleteSyntheticDragTouchState(int32_t pointerId, bool active);
++void PrepareSyntheticDragCompensationContext(int32_t pointerId, bool active, bool isStart, int64_t actionTime);
++uint64_t ResolveSyntheticDragSessionId(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
++bool IsSyntheticDragTouchActiveForPointer(int32_t pointerId);
++void InitializeSyntheticDragCompensation(const DragDataCore& dragData,
++    const std::shared_ptr<OHOS::Rosen::Window>& dragWindow, int32_t width, int32_t height, uint64_t sessionId);
++
++class SurfaceNodeListener : public OHOS::Rosen::IWindowSurfaceNodeListener {
++public:
++    explicit SurfaceNodeListener(
++        std::shared_ptr<OHOS::Rosen::Window> dragWindow, const DragDataCore& dragData, bool isSyntheticDrag,
++        uint64_t syntheticSessionId)
++        : dragWindow_(dragWindow), dragData(dragData), isSyntheticDrag_(isSyntheticDrag),
++          syntheticSessionId_(syntheticSessionId) {};
++    ~SurfaceNodeListener() = default;
++
++    void OnSurfaceNodeCreated() {};
++
++    void OnSurfaceNodeChanged(int32_t width, int32_t height, float density);
++
++    void OnSurfaceNodeDestroyed() {};
++
++    std::shared_ptr<OHOS::Rosen::Window> dragWindow_;
++    DragDataCore dragData;
++    bool isSyntheticDrag_ = false;
++    uint64_t syntheticSessionId_ = 0;
++};
++class InteractionImpl : public InteractionInterface {
++    DECLARE_ACE_TYPE(InteractionImpl, InteractionInterface);
++
++public:
++    int32_t UpdateShadowPic(const ShadowInfoCore& shadowInfo) override;
++
++    int32_t SetDragWindowVisible(bool visible, const std::shared_ptr<Rosen::RSTransaction>& rSTransaction) override;
++
++    int32_t SetMouseDragMonitorState(bool state) override;
++
++    int32_t StartDrag(const DragDataCore& dragData,
++        std::function<void(const OHOS::Ace::DragNotifyMsg&)> callback) override;
++
++    int32_t GetDragBundleInfo(DragBundleInfo& dragBundleInfo) override;
++
++    int32_t UpdateDragStyle(DragCursorStyleCore style, const int32_t eventId = -1) override;
++
++    int32_t UpdatePreviewStyle(const PreviewStyle& previewStyle) override;
++
++    int32_t UpdatePreviewStyleWithAnimation(const PreviewStyle& previewStyle,
++        const PreviewAnimation& animation) override;
++
++    int32_t StopDrag(DragDropRet result, std::function<void()> callback = nullptr) override;
++
++    int32_t GetUdKey(std::string& udKey) override;
++
++    int32_t GetShadowOffset(ShadowOffsetData& shadowOffsetData) override;
++
++    int32_t GetDragState(DragState& dragState) const override;
++
++    int32_t GetDragSummary(std::map<std::string, int64_t>& summary, std::map<std::string, int64_t>& detailedSummary,
++        std::map<std::string, std::vector<int32_t>>& summaryFormat, int32_t& version, int64_t& totalSize,
++        std::string& tag) override;
++
++    int32_t GetDragExtraInfo(std::string& extraInfo) override;
++
++    int32_t EnterTextEditorArea(bool enable) override;
++
++    int32_t AddPrivilege(const std::string& signature, const DragEventData& dragEventData) override;
++
++    int32_t RegisterCoordinationListener(std::function<void()> dragOutCallback) override;
++
++    int32_t UnRegisterCoordinationListener() override;
++
++    int32_t EnableInternalDropAnimation(const std::string& animationInfo) override;
++
++    bool IsDragStart() const override;
++
++    int32_t UpdatePointAction(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
++
++    int32_t UpdateSyntheticPointAction(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
++
++    int32_t GetPointerId()
++    {
++        if (!surfaceNodeListener_) {
++            return -1;
++        }
++        return surfaceNodeListener_->dragData.pointerId;
++    }
++private:
++    OHOS::sptr<SurfaceNodeListener> surfaceNodeListener_;
++    void RegisterDragWindow();
++    std::shared_ptr<OHOS::Rosen::Window> GetDragWindow();
++};
++
++} // namespace OHOS::Ace
++#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_INTERACTION_INTERACTION_IMPL_H
 diff --git a/adapter/macos/entrance/main.mm b/adapter/macos/entrance/main.mm
 new file mode 100644
 index 00000000000..6c6a03b2f24
@@ -1708,6 +3095,790 @@ index 00000000000..6c6a03b2f24
 +    }
 +    return 0;
 +}
+diff --git a/adapter/macos/entrance/mmi_event_convertor.h b/adapter/macos/entrance/mmi_event_convertor.h
+new file mode 100644
+index 00000000000..5c67a39a389
+--- /dev/null
++++ b/adapter/macos/entrance/mmi_event_convertor.h
+@@ -0,0 +1,86 @@
++/*
++ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_MMI_EVENT_CONVERTOR_H
++#define FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_MMI_EVENT_CONVERTOR_H
++
++
++#include "pointer_event.h"
++
++#include "base/geometry/ng/offset_t.h"
++#include "base/geometry/ng/vector.h"
++#include "base/utils/macros.h"
++#include "core/event/touch_event.h"
++#include "core/event/pointer_event.h"
++
++namespace OHOS::Ace::Platform {
++namespace {
++const std::unordered_map<SourceType, int32_t> SOURCE_TYPE_MAP = {
++    { SourceType::TOUCH, MMI::PointerEvent::SOURCE_TYPE_TOUCHSCREEN },
++    { SourceType::TOUCH_PAD, MMI::PointerEvent::SOURCE_TYPE_TOUCHPAD },
++    { SourceType::MOUSE, MMI::PointerEvent::SOURCE_TYPE_MOUSE },
++};
++
++const std::unordered_map<TouchType, int32_t> TOUCH_TYPE_MAP = {
++    { TouchType::CANCEL, MMI::PointerEvent::POINTER_ACTION_CANCEL },
++    { TouchType::DOWN, MMI::PointerEvent::POINTER_ACTION_DOWN },
++    { TouchType::MOVE, MMI::PointerEvent::POINTER_ACTION_MOVE },
++    { TouchType::UP, MMI::PointerEvent::POINTER_ACTION_UP },
++    { TouchType::PULL_DOWN, MMI::PointerEvent::POINTER_ACTION_PULL_DOWN },
++    { TouchType::PULL_MOVE, MMI::PointerEvent::POINTER_ACTION_PULL_MOVE },
++    { TouchType::PULL_UP, MMI::PointerEvent::POINTER_ACTION_PULL_UP },
++    { TouchType::PULL_IN_WINDOW, MMI::PointerEvent::POINTER_ACTION_PULL_IN_WINDOW },
++    { TouchType::PULL_OUT_WINDOW, MMI::PointerEvent::POINTER_ACTION_PULL_OUT_WINDOW },
++};
++} // namespace
++
++template<typename E>
++void GetEventDevice(int32_t sourceType, E& event)
++{
++    switch (sourceType) {
++        case OHOS::MMI::PointerEvent::SOURCE_TYPE_TOUCHSCREEN:
++            event.sourceType = SourceType::TOUCH;
++            break;
++        case OHOS::MMI::PointerEvent::SOURCE_TYPE_TOUCHPAD:
++            event.sourceType = SourceType::TOUCH_PAD;
++            break;
++        case OHOS::MMI::PointerEvent::SOURCE_TYPE_MOUSE:
++            event.sourceType = SourceType::MOUSE;
++            break;
++        default:
++            event.sourceType = SourceType::NONE;
++            break;
++    }
++}
++
++void ConvertPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, DragPointerEvent& event);
++void ConvertSyntheticPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, DragPointerEvent& event);
++void ConvertTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, std::vector<TouchEvent>& events);
++TouchEvent ConvertTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
++void ConvertSyntheticTouchEvent(
++    const std::shared_ptr<MMI::PointerEvent>& pointerEvent, std::vector<TouchEvent>& events);
++TouchEvent ConvertSyntheticTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
++TouchPoint ConvertTouchPoint(const MMI::PointerEvent::PointerItem& pointerItem);
++void LogPointInfo(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, int32_t instanceId);
++void ConvertMmiPointerEvent(std::shared_ptr<MMI::PointerEvent>& pointerEvent, const std::vector<uint8_t>& data);
++void ConvertMmiPointerEvent(
++    std::vector<std::shared_ptr<MMI::PointerEvent>>& pointerEvents, const std::vector<uint8_t>& data);
++void ConvertSyntheticMmiPointerEvent(
++    std::vector<std::shared_ptr<MMI::PointerEvent>>& pointerEvents, const std::vector<uint8_t>& data);
++int64_t GetPointerDownTimeDiffMs(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, int32_t fingerId0,
++    int32_t fingerId1);
++} // namespace OHOS::Ace::Platform
++
++#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_MMI_EVENT_CONVERTOR_H
+diff --git a/adapter/macos/entrance/mmi_event_convertor.mm b/adapter/macos/entrance/mmi_event_convertor.mm
+new file mode 100644
+index 00000000000..fcbdc7c6873
+--- /dev/null
++++ b/adapter/macos/entrance/mmi_event_convertor.mm
+@@ -0,0 +1,686 @@
++/*
++ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "mmi_event_convertor.h"
++
++#include <atomic>
++#include <limits>
++#include <memory>
++#include <mutex>
++#include <unordered_map>
++
++#include "ace_pointer_data_packet.h"
++#include "base/utils/time_util.h"
++#include "base/utils/utils.h"
++#include "core/event/ace_events.h"
++#include "core/pipeline/pipeline_base.h"
++#include "base/log/log.h"
++// Phase 0 path X: use the macOS interaction shim copy (see comment in
++// interaction/interaction_impl.h about the iOS guard collision).
++#include "interaction/interaction_impl.h"
++
++namespace OHOS::Ace::Platform {
++namespace {
++constexpr int32_t ANGLE_0 = 0;
++constexpr int32_t ANGLE_90 = 90;
++constexpr int32_t ANGLE_180 = 180;
++constexpr int32_t ANGLE_270 = 270;
++constexpr double SIZE_DIVIDE = 2.0;
++constexpr size_t MAX_SYNTHETIC_DOWN_TIME_MAP_SIZE = 64;
++constexpr uint32_t SYNTHETIC_DOWN_TIME_CLEANUP_INTERVAL = 32;
++constexpr int64_t STALE_SYNTHETIC_DOWN_TIME_TIMEOUT_US = 60LL * 1000 * 1000;
++constexpr int64_t US_TO_MS = 1000;
++
++struct SyntheticDownTimeEntry {
++    int64_t downTime = 0;
++    int64_t lastAccessTime = 0;
++};
++
++std::unordered_map<int32_t, SyntheticDownTimeEntry> syntheticDownTimeMap;
++std::atomic<uint32_t> g_syntheticDownTimeCleanupTick { 0 };
++std::mutex g_syntheticDownTimeMapMutex;
++std::mutex g_actionPointMapMutex;
++
++bool ShouldCleanStaleSyntheticDownTimeEntries()
++{
++    const auto tick = g_syntheticDownTimeCleanupTick.fetch_add(1, std::memory_order_relaxed) + 1;
++    return (tick % SYNTHETIC_DOWN_TIME_CLEANUP_INTERVAL) == 0;
++}
++
++void CleanStaleSyntheticDownTimeEntries(int64_t currentTime)
++{
++    for (auto iter = syntheticDownTimeMap.begin(); iter != syntheticDownTimeMap.end();) {
++        if (currentTime - iter->second.lastAccessTime > STALE_SYNTHETIC_DOWN_TIME_TIMEOUT_US) {
++            LOGW("clean stale synthetic down time entry, pointerId=%{public}d", iter->first);
++            iter = syntheticDownTimeMap.erase(iter);
++            continue;
++        }
++        ++iter;
++    }
++}
++
++void CleanOldestSyntheticDownTimeEntry()
++{
++    if (syntheticDownTimeMap.empty()) {
++        return;
++    }
++
++    auto oldestIter = syntheticDownTimeMap.begin();
++    auto oldestAccessTime = oldestIter->second.lastAccessTime;
++    for (auto iter = std::next(syntheticDownTimeMap.begin()); iter != syntheticDownTimeMap.end(); ++iter) {
++        if (iter->second.lastAccessTime < oldestAccessTime) {
++            oldestIter = iter;
++            oldestAccessTime = iter->second.lastAccessTime;
++        }
++    }
++    LOGW("clean oldest synthetic down time entry due to capacity limit, pointerId=%{public}d", oldestIter->first);
++    syntheticDownTimeMap.erase(oldestIter);
++}
++} // namespace
++
++static std::unordered_map<int32_t, bool> actionPointMap;
++
++bool IsActionPoint(int32_t pointerId)
++{
++    std::lock_guard<std::mutex> lock(g_actionPointMapMutex);
++    auto iter = actionPointMap.find(pointerId);
++    return iter != actionPointMap.end() && iter->second;
++}
++
++void SetActionPoint(int32_t pointerId, bool actionPoint)
++{
++    std::lock_guard<std::mutex> lock(g_actionPointMapMutex);
++    actionPointMap[pointerId] = actionPoint;
++}
++
++int64_t ResolveSyntheticDownTime(const AcePointerData& pointerData)
++{
++    std::lock_guard<std::mutex> lock(g_syntheticDownTimeMapMutex);
++    const auto pointerId = static_cast<int32_t>(pointerData.pointer_id);
++    const auto action = pointerData.pointer_action;
++    const auto currentTime = pointerData.time_stamp;
++    auto iter = syntheticDownTimeMap.find(pointerId);
++    int64_t downTime = pointerData.time_stamp;
++
++    if (action == AcePointerData::PointerAction::kDowned) {
++        if (iter != syntheticDownTimeMap.end()) {
++            LOGW("duplicate synthetic DOWN, pointerId=%{public}d", pointerId);
++            iter->second.downTime = currentTime;
++            iter->second.lastAccessTime = currentTime;
++            return currentTime;
++        }
++        if (ShouldCleanStaleSyntheticDownTimeEntries()) {
++            CleanStaleSyntheticDownTimeEntries(currentTime);
++        }
++        if (iter == syntheticDownTimeMap.end()) {
++            while (syntheticDownTimeMap.size() >= MAX_SYNTHETIC_DOWN_TIME_MAP_SIZE) {
++                CleanOldestSyntheticDownTimeEntry();
++            }
++        }
++        syntheticDownTimeMap[pointerId] = { currentTime, currentTime };
++        return currentTime;
++    }
++
++    if (iter != syntheticDownTimeMap.end()) {
++        downTime = iter->second.downTime;
++        iter->second.lastAccessTime = currentTime;
++    }
++
++    if (action == AcePointerData::PointerAction::kUped || action == AcePointerData::PointerAction::kCanceled) {
++        syntheticDownTimeMap.erase(pointerId);
++    }
++    return downTime;
++}
++
++SourceTool GetSourceTool(int32_t orgToolType)
++{
++    switch (orgToolType) {
++        case MMI::PointerEvent::TOOL_TYPE_FINGER:
++            return SourceTool::FINGER;
++        case MMI::PointerEvent::TOOL_TYPE_PEN:
++            return SourceTool::PEN;
++        case MMI::PointerEvent::TOOL_TYPE_RUBBER:
++            return SourceTool::RUBBER;
++        case MMI::PointerEvent::TOOL_TYPE_BRUSH:
++            return SourceTool::BRUSH;
++        case MMI::PointerEvent::TOOL_TYPE_PENCIL:
++            return SourceTool::PENCIL;
++        case MMI::PointerEvent::TOOL_TYPE_AIRBRUSH:
++            return SourceTool::AIRBRUSH;
++        case MMI::PointerEvent::TOOL_TYPE_MOUSE:
++            return SourceTool::MOUSE;
++        case MMI::PointerEvent::TOOL_TYPE_LENS:
++            return SourceTool::LENS;
++        case MMI::PointerEvent::TOOL_TYPE_TOUCHPAD:
++            return SourceTool::TOUCHPAD;
++        default:
++            LOGW("unknown tool type");
++            return SourceTool::UNKNOWN;
++    }
++}
++
++void SetTouchEventType(int32_t orgAction, TouchEvent& event)
++{
++    switch (orgAction) {
++        case MMI::PointerEvent::POINTER_ACTION_CANCEL:
++            event.type = TouchType::CANCEL;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_DOWN:
++            event.type = TouchType::DOWN;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_MOVE:
++            event.type = TouchType::MOVE;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_UP:
++            event.type = TouchType::UP;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_PULL_DOWN:
++            event.type = TouchType::PULL_DOWN;
++            event.pullType = TouchType::PULL_DOWN;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_PULL_MOVE:
++            event.type = TouchType::PULL_MOVE;
++            event.pullType = TouchType::PULL_MOVE;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_PULL_UP:
++            event.type = TouchType::PULL_UP;
++            event.pullType = TouchType::PULL_UP;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_PULL_IN_WINDOW:
++            event.type = TouchType::PULL_IN_WINDOW;
++            event.pullType = TouchType::PULL_IN_WINDOW;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_PULL_OUT_WINDOW:
++            event.type = TouchType::PULL_OUT_WINDOW;
++            event.pullType = TouchType::PULL_OUT_WINDOW;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_HOVER_ENTER:
++            event.type = TouchType::HOVER_ENTER;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_HOVER_MOVE:
++            event.type = TouchType::HOVER_MOVE;
++            break;
++        case MMI::PointerEvent::POINTER_ACTION_HOVER_EXIT:
++            event.type = TouchType::HOVER_EXIT;
++            break;
++        default:
++            LOGW("unknown type");
++            break;
++    }
++}
++
++void FillDragPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, DragPointerEvent& event)
++{
++    event.rawPointerEvent = pointerEvent;
++    event.pointerId = pointerEvent->GetPointerId();
++    MMI::PointerEvent::PointerItem pointerItem;
++    pointerEvent->GetPointerItem(pointerEvent->GetPointerId(), pointerItem);
++    event.pressed = pointerItem.IsPressed();
++    event.windowX = pointerItem.GetWindowX();
++    event.windowY = pointerItem.GetWindowY();
++    event.displayX = pointerItem.GetDisplayX();
++    event.displayY = pointerItem.GetDisplayY();
++    event.size = std::max(pointerItem.GetWidth(), pointerItem.GetHeight()) / SIZE_DIVIDE;
++    event.force = static_cast<float>(pointerItem.GetPressure());
++    event.deviceId = pointerItem.GetDeviceId();
++    event.downTime = TimeStamp(std::chrono::microseconds(pointerItem.GetDownTime()));
++    event.time = TimeStamp(std::chrono::microseconds(pointerEvent->GetActionTime()));
++    event.sourceTool = GetSourceTool(pointerItem.GetToolType());
++    event.targetWindowId = pointerItem.GetTargetWindowId();
++}
++
++void ConvertPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, DragPointerEvent& event)
++{
++#ifdef ENABLE_DRAG_FRAMEWORK
++    Ace::DragState dragState;
++    auto interactionImpl = static_cast<Ace::InteractionImpl*>(Ace::InteractionInterface::GetInstance());
++    Ace::InteractionInterface::GetInstance()->GetDragState(dragState);
++    if (dragState == Ace::DragState::START &&
++        interactionImpl->GetPointerId() == pointerEvent->GetPointerId()) {
++        interactionImpl->UpdatePointAction(pointerEvent);
++    }
++#endif
++    FillDragPointerEvent(pointerEvent, event);
++}
++
++void ConvertSyntheticPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, DragPointerEvent& event)
++{
++#ifdef ENABLE_DRAG_FRAMEWORK
++    Ace::DragState dragState;
++    auto interactionImpl = static_cast<Ace::InteractionImpl*>(Ace::InteractionInterface::GetInstance());
++    Ace::InteractionInterface::GetInstance()->GetDragState(dragState);
++    if (dragState == Ace::DragState::START &&
++        interactionImpl->GetPointerId() == pointerEvent->GetPointerId()) {
++        interactionImpl->UpdateSyntheticPointAction(pointerEvent);
++    }
++#endif
++    FillDragPointerEvent(pointerEvent, event);
++}
++
++void UpdateTouchEvent(std::vector<TouchEvent>& events)
++{
++    if (events.empty()) {
++        return;
++    }
++    std::vector<TouchPoint> pointers;
++    for (auto& event : events) {
++        TouchPoint touchPoint;
++        touchPoint.size = event.size;
++        touchPoint.id = event.id;
++        touchPoint.force = event.force;
++        touchPoint.downTime = event.time;
++        touchPoint.x = event.x;
++        touchPoint.y = event.y;
++        touchPoint.screenX = event.screenX;
++        touchPoint.screenY = event.screenY;
++        touchPoint.isPressed = (event.type == TouchType::DOWN);
++        pointers.emplace_back(std::move(touchPoint));
++    }
++    for (auto& evt : events) {
++        std::copy(pointers.begin(), pointers.end(), std::back_inserter(evt.pointers));
++    } 
++}
++
++TouchPoint ConvertTouchPoint(const MMI::PointerEvent::PointerItem& pointerItem)
++{
++    TouchPoint touchPoint;
++    // just get the max of width and height
++    touchPoint.size = std::max(pointerItem.GetWidth(), pointerItem.GetHeight()) / SIZE_DIVIDE;
++    touchPoint.id = pointerItem.GetPointerId();
++    touchPoint.downTime = TimeStamp(std::chrono::microseconds(pointerItem.GetDownTime()));
++    touchPoint.x = pointerItem.GetWindowX();
++    touchPoint.y = pointerItem.GetWindowY();
++    touchPoint.screenX = pointerItem.GetDisplayX();
++    touchPoint.screenY = pointerItem.GetDisplayY();
++    touchPoint.isPressed = pointerItem.IsPressed();
++    touchPoint.force = static_cast<float>(pointerItem.GetPressure());
++    touchPoint.tiltX = pointerItem.GetTiltX();
++    touchPoint.tiltY = pointerItem.GetTiltY();
++    touchPoint.sourceTool = static_cast<SourceTool>(pointerItem.GetToolType());
++    return touchPoint;
++}
++
++void UpdateTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, TouchEvent& touchEvent)
++{
++    auto ids = pointerEvent->GetPointerIds();
++    for (auto&& id : ids) {
++        MMI::PointerEvent::PointerItem item;
++        bool ret = pointerEvent->GetPointerItem(id, item);
++        if (!ret) {
++            LOGE("get pointer item failed.");
++            continue;
++        }
++        auto touchPoint = ConvertTouchPoint(item);
++        touchEvent.pointers.emplace_back(std::move(touchPoint));
++    }
++    touchEvent.CovertId();
++}
++
++using namespace OHOS::Ace::Platform;
++void SetPointerEventAction(AcePointerData::PointerAction change, std::shared_ptr<MMI::PointerEvent>& pointerEvent){
++    switch (change) {
++        case AcePointerData::PointerAction::kCanceled:
++            pointerEvent->SetPointerAction(OHOS::MMI::PointerEvent::POINTER_ACTION_CANCEL);
++            break;
++        case AcePointerData::PointerAction::kAdded:
++        case AcePointerData::PointerAction::kRemoved:
++        case AcePointerData::PointerAction::kHovered:
++            break;
++        case AcePointerData::PointerAction::kDowned:
++                pointerEvent->SetPointerAction(OHOS::MMI::PointerEvent::POINTER_ACTION_DOWN);
++            break;
++        case AcePointerData::PointerAction::kMoved:
++                pointerEvent->SetPointerAction(OHOS::MMI::PointerEvent::POINTER_ACTION_MOVE);
++            break;
++        case AcePointerData::PointerAction::kUped:
++                pointerEvent->SetPointerAction(OHOS::MMI::PointerEvent::POINTER_ACTION_UP);
++            break;
++    }
++}
++
++static int32_t SourceTypeFromToolType(AcePointerData::ToolType tool_type) {
++    switch (tool_type) {
++        case AcePointerData::ToolType::Touch:
++            return OHOS::MMI::PointerEvent::TOOL_TYPE_FINGER;
++        case AcePointerData::ToolType::Mouse:
++            return OHOS::MMI::PointerEvent::TOOL_TYPE_MOUSE;
++        case AcePointerData::ToolType::Stylus:
++            return OHOS::MMI::PointerEvent::TOOL_TYPE_PEN;
++        default:
++        break;
++    }
++    return OHOS::MMI::PointerEvent::TOOL_TYPE_FINGER;
++}
++
++void SetPointerItemPressed(AcePointerData::PointerAction pointerAction, MMI::PointerEvent::PointerItem& pointerItem)
++{
++    switch (pointerAction) {
++        case AcePointerData::PointerAction::kCanceled:
++        case AcePointerData::PointerAction::kUped:
++            pointerItem.SetPressed(false);
++            break;
++        case AcePointerData::PointerAction::kAdded:
++        case AcePointerData::PointerAction::kRemoved:
++        case AcePointerData::PointerAction::kHovered:
++        case AcePointerData::PointerAction::kDowned:
++        case AcePointerData::PointerAction::kMoved:
++            pointerItem.SetPressed(true);
++            break;
++        default:
++            pointerItem.SetPressed(false);
++            break;
++    }
++}
++
++void ConvertTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, std::vector<TouchEvent>& events)
++{
++    auto ids = pointerEvent->GetPointerIds();
++    for (auto&& point_id : ids) {
++        MMI::PointerEvent::PointerItem item;
++        bool ret = pointerEvent->GetPointerItem(point_id, item);
++        if (!ret) {
++            LOGE("get pointer item failed.");
++            continue;
++        }
++        if (item.GetDeviceId() == -1) {
++            LOGE("get device Id: -1");
++            continue;
++        }
++        if (!IsActionPoint(item.GetPointerId())) {
++            LOGE("not action point");
++            continue;
++        }
++        TouchEvent event;
++        event.SetId(item.GetPointerId())
++            .SetX(item.GetWindowX())
++            .SetY(item.GetWindowY())
++            .SetScreenX(item.GetDisplayX())
++            .SetScreenY(item.GetDisplayY())
++            .SetType(TouchType::UNKNOWN)
++            .SetPullType(TouchType::UNKNOWN)
++            .SetTime(TimeStamp(std::chrono::microseconds(item.GetDownTime())))
++            .SetSize(pointerEvent->GetFingerCount())
++            .SetSourceType(SourceType::TOUCH);
++        event.pointerEvent = pointerEvent;
++        int32_t orgAction = pointerEvent->GetPointerAction();
++        SetTouchEventType(orgAction, event);
++        events.emplace_back(event);
++    }
++    UpdateTouchEvent(events);
++}
++
++void ConvertSyntheticTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, std::vector<TouchEvent>& events)
++{
++    auto ids = pointerEvent->GetPointerIds();
++    for (auto&& point_id : ids) {
++        MMI::PointerEvent::PointerItem item;
++        bool ret = pointerEvent->GetPointerItem(point_id, item);
++        if (!ret) {
++            LOGE("get pointer item failed.");
++            continue;
++        }
++        if (item.GetDeviceId() == -1) {
++            LOGE("get device Id: -1");
++            continue;
++        }
++        if (!IsActionPoint(item.GetPointerId())) {
++            LOGE("not action point");
++            continue;
++        }
++        TouchEvent event;
++        event.SetId(item.GetPointerId())
++            .SetX(item.GetWindowX())
++            .SetY(item.GetWindowY())
++            .SetScreenX(item.GetDisplayX())
++            .SetScreenY(item.GetDisplayY())
++            .SetType(TouchType::UNKNOWN)
++            .SetPullType(TouchType::UNKNOWN)
++            .SetTime(TimeStamp(std::chrono::microseconds(pointerEvent->GetActionTime())))
++            .SetSize(pointerEvent->GetFingerCount())
++            .SetSourceType(SourceType::TOUCH);
++        event.pointerEvent = pointerEvent;
++        int32_t orgAction = pointerEvent->GetPointerAction();
++        SetTouchEventType(orgAction, event);
++        events.emplace_back(event);
++    }
++    UpdateTouchEvent(events);
++}
++
++TouchEvent ConvertTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent)
++{
++    auto point_id = pointerEvent->GetPointerId();
++    MMI::PointerEvent::PointerItem item;
++    bool ret = pointerEvent->GetPointerItem(point_id, item);
++    if (!ret) {
++        LOGE("get pointer item failed.");
++        return TouchEvent();
++    }
++    if (item.GetDeviceId() == -1) {
++        LOGE("get device Id: -1");
++        return TouchEvent();
++    }
++    if (!IsActionPoint(item.GetPointerId())) {
++        LOGE("not action point");
++        return TouchEvent();
++    }
++    TouchEvent event;
++    event.SetId(item.GetPointerId())
++        .SetX(item.GetWindowX())
++        .SetY(item.GetWindowY())
++        .SetScreenX(item.GetDisplayX())
++        .SetScreenY(item.GetDisplayY())
++        .SetType(TouchType::UNKNOWN)
++        .SetPullType(TouchType::UNKNOWN)
++        .SetTime(TimeStamp(std::chrono::microseconds(item.GetDownTime())))
++        .SetSize(pointerEvent->GetFingerCount())
++        .SetSourceType(SourceType::TOUCH);
++    event.pointerEvent = pointerEvent;
++    int32_t orgAction = pointerEvent->GetPointerAction();
++    SetTouchEventType(orgAction, event);
++    UpdateTouchEvent(pointerEvent, event);
++    return event;
++}
++
++TouchEvent ConvertSyntheticTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent)
++{
++    auto point_id = pointerEvent->GetPointerId();
++    MMI::PointerEvent::PointerItem item;
++    bool ret = pointerEvent->GetPointerItem(point_id, item);
++    if (!ret) {
++        LOGE("get pointer item failed.");
++        return TouchEvent();
++    }
++    if (item.GetDeviceId() == -1) {
++        LOGE("get device Id: -1");
++        return TouchEvent();
++    }
++    if (!IsActionPoint(item.GetPointerId())) {
++        LOGE("not action point");
++        return TouchEvent();
++    }
++    TouchEvent event;
++    event.SetId(item.GetPointerId())
++        .SetX(item.GetWindowX())
++        .SetY(item.GetWindowY())
++        .SetScreenX(item.GetDisplayX())
++        .SetScreenY(item.GetDisplayY())
++        .SetType(TouchType::UNKNOWN)
++        .SetPullType(TouchType::UNKNOWN)
++        .SetTime(TimeStamp(std::chrono::microseconds(pointerEvent->GetActionTime())))
++        .SetSize(pointerEvent->GetFingerCount())
++        .SetSourceType(SourceType::TOUCH);
++    event.pointerEvent = pointerEvent;
++    int32_t orgAction = pointerEvent->GetPointerAction();
++    SetTouchEventType(orgAction, event);
++    UpdateTouchEvent(pointerEvent, event);
++    return event;
++}
++
++void LogPointInfo(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, int32_t instanceId)
++{
++    if (SystemProperties::GetDebugEnabled()) {
++        LOGI("point source: %{public}d", pointerEvent->GetSourceType());
++        auto actionId = pointerEvent->GetPointerId();
++        MMI::PointerEvent::PointerItem item;
++        if (pointerEvent->GetPointerItem(actionId, item)) {
++            LOGI("action point info: id: %{public}d, x: %{public}d, y: %{public}d, action: %{public}d, pressure: "
++                "%{public}f, tiltX: %{public}f, tiltY: %{public}f",
++                actionId, item.GetWindowX(), item.GetWindowY(), pointerEvent->GetPointerAction(), item.GetPressure(),
++                item.GetTiltX(), item.GetTiltY());
++        }
++        auto ids = pointerEvent->GetPointerIds();
++        for (auto&& id : ids) {
++            MMI::PointerEvent::PointerItem item;
++            if (pointerEvent->GetPointerItem(id, item)) {
++                LOGI("all point info: id: %{public}d, x: %{public}d, y: %{public}d, isPressed: %{public}d, pressure: "
++                     "%{public}f, tiltX: %{public}f, tiltY: %{public}f",
++                    actionId, item.GetWindowX(), item.GetWindowY(), item.IsPressed(), item.GetPressure(),
++                    item.GetTiltX(), item.GetTiltY());
++            }
++        }
++    }
++}
++
++void ConvertMmiPointerEvent(std::shared_ptr<MMI::PointerEvent>& pointerEvent, const std::vector<uint8_t>& data)
++{
++    const auto* origin = reinterpret_cast<const AcePointerData*>(data.data());
++    size_t size = data.size() / sizeof(AcePointerData);
++    auto current = const_cast<AcePointerData*>(origin);
++    auto end = current + size;
++    pointerEvent->SetPointerId(static_cast<int32_t>(current->pointer_id));
++    pointerEvent->SetDeviceId(static_cast<int32_t>(current->device_id));
++    pointerEvent->SetTargetDisplayId(0);
++    pointerEvent->SetActionTime(current->time_stamp);
++    pointerEvent->SetFingerCount(current->finger_count);
++    SetPointerEventAction(current->pointer_action, pointerEvent);
++    while (current < end)
++    {
++        OHOS::MMI::PointerEvent::PointerItem pointerItem;
++        pointerItem.SetPointerId(static_cast<int32_t>(current->pointer_id));
++        pointerItem.SetDeviceId(static_cast<int32_t>(current->device_id));
++        pointerItem.SetDownTime(current->time_stamp);
++        pointerItem.SetWindowX(static_cast<int32_t>(current->window_x));
++        pointerItem.SetWindowY(static_cast<int32_t>(current->window_y));
++        pointerItem.SetDisplayX(static_cast<int32_t>(current->display_x));
++        pointerItem.SetDisplayY(static_cast<int32_t>(current->display_y));
++        pointerItem.SetPressure(current->pressure);
++        pointerItem.SetTiltY(current->tilt);
++        pointerItem.SetToolType(static_cast<int32_t>(SourceTypeFromToolType(current->tool_type)));
++        pointerEvent->AddPointerItem(pointerItem);
++        SetActionPoint(current->pointer_id, current->actionPoint);
++        current++;
++    }
++}
++
++void ConvertMmiPointerEvent(
++    std::vector<std::shared_ptr<MMI::PointerEvent>>& pointerEvents, const std::vector<uint8_t>& data)
++{
++    const auto* current = reinterpret_cast<const AcePointerData*>(data.data());
++    size_t size = data.size() / sizeof(AcePointerData);
++    auto end = current + size;
++    auto deviceId = static_cast<int32_t>(current->device_id);
++    auto actionTime = current->time_stamp;
++    auto actionType = current->pointer_action;
++    std::vector<OHOS::MMI::PointerEvent::PointerItem> items;
++    while (current < end)
++    {
++        OHOS::MMI::PointerEvent::PointerItem pointerItem;
++        pointerItem.SetPointerId(static_cast<int32_t>(current->pointer_id));
++        pointerItem.SetDeviceId(static_cast<int32_t>(current->device_id));
++        pointerItem.SetDownTime(current->time_stamp);
++        pointerItem.SetWindowX(static_cast<int32_t>(current->window_x));
++        pointerItem.SetWindowY(static_cast<int32_t>(current->window_y));
++        pointerItem.SetDisplayX(static_cast<int32_t>(current->display_x));
++        pointerItem.SetDisplayY(static_cast<int32_t>(current->display_y));
++        pointerItem.SetPressure(current->pressure);
++        pointerItem.SetTiltY(current->tilt);
++        pointerItem.SetToolType(static_cast<int32_t>(SourceTypeFromToolType(current->tool_type)));
++        SetPointerItemPressed(actionType, pointerItem);
++        SetActionPoint(current->pointer_id, current->actionPoint);
++        current++;
++        items.emplace_back(pointerItem);
++    }
++    for (size_t i = 0; i < items.size(); i++) {
++        int32_t pointerId = items[i].GetPointerId();
++        if (!IsActionPoint(pointerId)) {
++            continue;
++        }
++        auto pointerEvent = OHOS::MMI::PointerEvent::Create();
++        pointerEvent->SetPointerId(pointerId);
++        pointerEvent->SetDeviceId(deviceId);
++        pointerEvent->SetTargetDisplayId(0);
++        pointerEvent->SetActionTime(actionTime);
++        SetPointerEventAction(actionType, pointerEvent);
++        for (auto& item : items) {
++            pointerEvent->AddPointerItem(item);
++        }
++        pointerEvents.emplace_back(pointerEvent);
++    }
++}
++
++void ConvertSyntheticMmiPointerEvent(
++    std::vector<std::shared_ptr<MMI::PointerEvent>>& pointerEvents, const std::vector<uint8_t>& data)
++{
++    const auto* current = reinterpret_cast<const AcePointerData*>(data.data());
++    size_t size = data.size() / sizeof(AcePointerData);
++    auto end = current + size;
++    auto deviceId = static_cast<int32_t>(current->device_id);
++    auto actionTime = current->time_stamp;
++    auto actionType = current->pointer_action;
++    std::vector<OHOS::MMI::PointerEvent::PointerItem> items;
++    while (current < end) {
++        OHOS::MMI::PointerEvent::PointerItem pointerItem;
++        const int64_t downTime = ResolveSyntheticDownTime(*current);
++        pointerItem.SetPointerId(static_cast<int32_t>(current->pointer_id));
++        pointerItem.SetDeviceId(static_cast<int32_t>(current->device_id));
++        pointerItem.SetDownTime(downTime);
++        pointerItem.SetWindowX(static_cast<int32_t>(current->window_x));
++        pointerItem.SetWindowY(static_cast<int32_t>(current->window_y));
++        pointerItem.SetDisplayX(static_cast<int32_t>(current->display_x));
++        pointerItem.SetDisplayY(static_cast<int32_t>(current->display_y));
++        pointerItem.SetPressure(current->pressure);
++        pointerItem.SetTiltY(current->tilt);
++        pointerItem.SetToolType(static_cast<int32_t>(SourceTypeFromToolType(current->tool_type)));
++        SetPointerItemPressed(actionType, pointerItem);
++        SetActionPoint(current->pointer_id, current->actionPoint);
++        current++;
++        items.emplace_back(pointerItem);
++    }
++    for (size_t i = 0; i < items.size(); i++) {
++        int32_t pointerId = items[i].GetPointerId();
++        if (!IsActionPoint(pointerId)) {
++            continue;
++        }
++        auto pointerEvent = OHOS::MMI::PointerEvent::Create();
++        pointerEvent->SetPointerId(pointerId);
++        pointerEvent->SetDeviceId(deviceId);
++        pointerEvent->SetTargetDisplayId(0);
++        pointerEvent->SetActionTime(actionTime);
++        SetPointerEventAction(actionType, pointerEvent);
++        for (auto& item : items) {
++            pointerEvent->AddPointerItem(item);
++        }
++        pointerEvents.emplace_back(pointerEvent);
++    }
++}
++} // namespace OHOS::Ace::Platform
++
++namespace OHOS::Ace {
++int64_t GetPointerDownTimeDiffMs(
++    const std::shared_ptr<MMI::PointerEvent>& pointerEvent, int32_t fingerId0, int32_t fingerId1)
++{
++    return -1;
++}
++} // namespace OHOS::Ace
 diff --git a/adapter/macos/entrance/touch_event.cpp b/adapter/macos/entrance/touch_event.cpp
 new file mode 100644
 index 00000000000..be8b575a89d
@@ -1809,6 +3980,180 @@ index 00000000000..96542e76985
 +    return MouseAction::NONE;
 +}
 +}
+\ No newline at end of file
+diff --git a/adapter/macos/entrance/ui_session/ui_session_json_util.cpp b/adapter/macos/entrance/ui_session/ui_session_json_util.cpp
+new file mode 100644
+index 00000000000..0baaec7b8f1
+--- /dev/null
++++ b/adapter/macos/entrance/ui_session/ui_session_json_util.cpp
+@@ -0,0 +1,167 @@
++/*
++ * Copyright (c) 2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "interfaces/inner_api/ui_session/ui_session_json_util.h"
++
++namespace OHOS::Ace {
++
++InspectorJsonValue::InspectorJsonValue(JsonObject* object) : object_(object) {}
++
++InspectorJsonValue::InspectorJsonValue(JsonObject* object, bool isRoot) : object_(object), isRoot_(isRoot) {}
++
++InspectorJsonValue::~InspectorJsonValue()
++{
++    if (object_ && isRoot_) {
++    }
++}
++
++bool InspectorJsonValue::Contains(const std::string& key) const
++{
++    return false;
++}
++
++bool InspectorJsonValue::IsObject() const
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(double value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(const char* key, const char* value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(const char* key, const std::unique_ptr<InspectorJsonValue>& value)
++{
++    return false;
++}
++
++// add item to array
++bool InspectorJsonValue::Put(const std::unique_ptr<InspectorJsonValue>& value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(const char* key, size_t value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(const char* key, int32_t value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(const char* key, int64_t value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(const char* key, double value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Put(const char* key, bool value)
++{
++    return false;
++}
++
++bool InspectorJsonValue::Replace(const char* key, const char* value)
++{
++    return false;
++}
++
++const JsonObject* InspectorJsonValue::GetJsonObject() const
++{
++    return nullptr;
++}
++
++std::string InspectorJsonValue::ToString()
++{
++    return "";
++}
++
++std::string InspectorJsonValue::GetString() const
++{
++    return "";
++}
++
++std::string InspectorJsonValue::GetString(const std::string& key, const std::string& defaultVal) const
++{
++    return "";
++}
++
++std::unique_ptr<InspectorJsonValue> InspectorJsonValue::GetValue(const std::string& key) const
++{
++    return nullptr;
++}
++
++int32_t InspectorJsonValue::GetInt() const
++{
++    return 0;
++}
++
++int32_t InspectorJsonValue::GetInt(const std::string& key, int32_t defaultVal) const
++{
++    return 0;
++}
++
++bool InspectorJsonValue::IsNull() const
++{
++    return false;
++}
++
++bool InspectorJsonValue::IsString() const
++{
++    return false;
++}
++
++bool InspectorJsonValue::IsNumber() const
++{
++    return false;
++}
++
++std::shared_ptr<InspectorJsonValue> InspectorJsonUtil::Create(bool isRoot)
++{
++    return nullptr;
++}
++
++std::unique_ptr<InspectorJsonValue> InspectorJsonUtil::CreateArray(bool isRoot)
++{
++    return nullptr;
++}
++
++std::unique_ptr<InspectorJsonValue> InspectorJsonUtil::CreateObject(bool isRoot)
++{
++    return nullptr;
++}
++
++std::unique_ptr<InspectorJsonValue> InspectorJsonUtil::ParseJsonData(const char* data, const char** parseEnd)
++{
++    return nullptr;
++}
++
++std::unique_ptr<InspectorJsonValue> InspectorJsonUtil::ParseJsonString(
++    const std::string& content, const char** parseEnd)
++{
++    return nullptr;
++}
++
++} // namespace OHOS::Ace
 \ No newline at end of file
 diff --git a/adapter/macos/entrance/utils.cpp b/adapter/macos/entrance/utils.cpp
 new file mode 100644
@@ -9759,10 +12104,10 @@ index 00000000000..9e3bf065d0e
 +} // namespace OHOS::Ace
 diff --git a/adapter/macos/osal/log_wrapper.cpp b/adapter/macos/osal/log_wrapper.cpp
 new file mode 100755
-index 00000000000..ca9182aa549
+index 00000000000..ccb8e4150ea
 --- /dev/null
 +++ b/adapter/macos/osal/log_wrapper.cpp
-@@ -0,0 +1,161 @@
+@@ -0,0 +1,174 @@
 +/*
 + * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -9861,6 +12206,19 @@ index 00000000000..ca9182aa549
 +constexpr os_log_type_t LOG_TYPE[] = { OS_LOG_TYPE_DEBUG, OS_LOG_TYPE_INFO, OS_LOG_TYPE_DEFAULT, OS_LOG_TYPE_ERROR,
 +    OS_LOG_TYPE_FAULT };
 +    
++// Phase 0 path X: with USE_HILOG defined (true for is_mac in ace_config.gni), the
++// shared frameworks/base/log/log_wrapper.cpp drops the variadic PrintLog overload
++// (#if !defined(USE_HILOG)). The macOS osal only implements the va_list overload,
++// so the variadic symbol everyone calls (ACE_LOG macros) goes undefined at link.
++// Provide it here, forwarding to the va_list version.
++void LogWrapper::PrintLog(LogDomain domain, LogLevel level, AceLogTag tag, const char* fmt, ...)
++{
++    va_list args;
++    va_start(args, fmt);
++    PrintLog(domain, level, tag, fmt, args);
++    va_end(args);
++}
++
 +void LogWrapper::PrintLog(LogDomain domain, LogLevel level, AceLogTag tag, const char* fmt, va_list args)
 +{
 +    if (!OHOS::Ace::LogWrapper::JudgeLevel(level)) {
@@ -21067,7 +23425,7 @@ index 00000000000..4d728b67208
 +}
 diff --git a/adapter/macos/stage/uicontent/ace_container_sg.cpp b/adapter/macos/stage/uicontent/ace_container_sg.cpp
 new file mode 100644
-index 00000000000..3e5a93d7685
+index 00000000000..5e435aa0687
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_container_sg.cpp
 @@ -0,0 +1,1497 @@
@@ -21091,7 +23449,7 @@ index 00000000000..3e5a93d7685
 +#include <numeric>
 +
 +#include "adapter/ios/entrance/ace_application_info_impl.h"
-+#include "adapter/ios/entrance/ace_platform_plugin.h"
++#include "adapter/macos/entrance/ace_platform_plugin.h"
 +#include "adapter/macos/osal/file_asset_provider.h"
 +#include "adapter/macos/osal/high_contrast_observer.h"
 +#include "adapter/macos/stage/uicontent/ace_view_sg.h"
@@ -23035,7 +25393,7 @@ index 00000000000..a799d307ab4
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_STAGE_ACE_CONTAINER_SG_H
 diff --git a/adapter/macos/stage/uicontent/ace_view_sg.cpp b/adapter/macos/stage/uicontent/ace_view_sg.cpp
 new file mode 100644
-index 00000000000..8a30f59e54e
+index 00000000000..633096ce689
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_view_sg.cpp
 @@ -0,0 +1,506 @@
@@ -23056,7 +25414,7 @@ index 00000000000..8a30f59e54e
 +
 +#include "adapter/macos/stage/uicontent/ace_view_sg.h"
 +
-+#include "adapter/ios/entrance/ace_platform_plugin.h"
++#include "adapter/macos/entrance/ace_platform_plugin.h"
 +#include "adapter/ios/entrance/ace_resource_register.h"
 +#include "adapter/macos/stage/uicontent/ace_container_sg.h"
 +#include "base/log/dump_log.h"
