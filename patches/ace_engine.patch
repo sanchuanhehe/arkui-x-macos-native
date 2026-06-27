@@ -464,10 +464,10 @@ index 00000000000..cbb5011c9f2
 +#endif  // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_WINDOW_VIEW_H
 diff --git a/adapter/macos/entrance/WindowView.mm b/adapter/macos/entrance/WindowView.mm
 new file mode 100644
-index 00000000000..7abb0b8b7bc
+index 00000000000..fbdb3c9c4c5
 --- /dev/null
 +++ b/adapter/macos/entrance/WindowView.mm
-@@ -0,0 +1,763 @@
+@@ -0,0 +1,792 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -551,6 +551,9 @@ index 00000000000..7abb0b8b7bc
 +    GLuint _testTex;
 +    GLint _testW;
 +    GLint _testH;
++    // M1 格-c2: a local FBO (this context's namespace) used to wrap render_context's shared
++    // color renderbuffer for the blit, since the FBO id itself is not shareable across contexts.
++    GLuint _blitFbo;
 +}
 +
 +- (instancetype)init
@@ -568,6 +571,29 @@ index 00000000000..7abb0b8b7bc
 +    return self;
 +}
 +
++// M1 格-c2: the layer's CGL context must use the SAME GL profile (Core 3.2) as
++// render_context's NSOpenGLContext, otherwise CGLCreateContext(.., shareCgl, ..) fails with
++// a pixel-format mismatch (err 10009) and falls back to an UNSHARED context -> render_context's
++// colorbuffer is invisible here and the window stays blank. Force a Core 3.2 pixel format.
++- (CGLPixelFormatObj)copyCGLPixelFormatForDisplayMask:(uint32_t)mask
++{
++    CGLPixelFormatAttribute attrs[] = {
++        kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)kCGLOGLPVersion_3_2_Core,
++        kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
++        kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
++        kCGLPFADoubleBuffer,
++        kCGLPFAAccelerated,
++        (CGLPixelFormatAttribute)0,
++    };
++    CGLPixelFormatObj pf = nullptr;
++    GLint npix = 0;
++    CGLChoosePixelFormat(attrs, &pf, &npix);
++    if (pf != nullptr) {
++        return pf;
++    }
++    return [super copyCGLPixelFormatForDisplayMask:mask];
++}
++
 +// Phase 0 path X (M1 格-c1): make the layer's CGL context part of render_context's
 +// share group, so an FBO rendered in render_context's NSOpenGLContext (which also
 +// shares with the resource context) is readable here for the blit.
@@ -580,7 +606,9 @@ index 00000000000..7abb0b8b7bc
 +        shareCgl = [nsShare CGLContextObj];
 +    }
 +    CGLContextObj ctx = nullptr;
-+    if (shareCgl != nullptr && CGLCreateContext(pixelFormat, shareCgl, &ctx) == kCGLNoError) {
++    CGLError cerr = (shareCgl != nullptr) ? CGLCreateContext(pixelFormat, shareCgl, &ctx) : kCGLBadContext;
++    fprintf(stderr, "[DBG share] resCtx=%p shareCgl=%p CGLCreateContext err=%d ctx=%p\n", resCtx, (void*)shareCgl, (int)cerr, (void*)ctx);
++    if (shareCgl != nullptr && cerr == kCGLNoError) {
 +        return ctx;
 +    }
 +    // Fall back to the default (unshared) context if the share group is not ready.
@@ -650,23 +678,24 @@ index 00000000000..7abb0b8b7bc
 +    GLint drawFbo = 0;
 +    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFbo);
 +
-+    // Source FBO: the real render_context offscreen framebuffer that RS renders the
-+    // page into (M1 格-c2). The c1 test pattern has served its purpose (it proved the
-+    // cross-context FBO -> blit -> screen path) and is now retired; if RS has not yet
-+    // produced a frame we just clear the drawable to white instead.
-+    GLuint readFbo = OHOS::Rosen::RenderContextGL::GetCurrentFramebuffer();
-+    if (readFbo == 0) {
-+        readFbo = self.sourceFramebuffer;
-+    }
-+    { static int n=0; if(n++<4) fprintf(stderr, "[DBG draw] readFbo=%u dst=%dx%d\n", readFbo, dstW, dstH); }
++    // M1 格-c2: RS renders the page into render_context's offscreen FBO (framebuffer_ +
++    // colorbuffer_). The FBO id is NOT shareable across GL contexts, but the renderbuffer color
++    // attachment IS (same share group). So we wrap render_context's shared colorbuffer in OUR
++    // OWN FBO (_blitFbo, valid in this context) and blit from that. (Using framebuffer_ directly
++    // read as an empty/white surface, which was the cause of the blank window.)
++    GLuint colorRb = OHOS::Rosen::RenderContextGL::GetCurrentColorbuffer();
 +
-+    if (readFbo != 0 && dstW > 0 && dstH > 0) {
-+        glBindFramebuffer(GL_READ_FRAMEBUFFER, readFbo);
++    if (colorRb != 0 && dstW > 0 && dstH > 0) {
++        if (_blitFbo == 0) {
++            glGenFramebuffers(1, &_blitFbo);
++        }
++        glBindFramebuffer(GL_READ_FRAMEBUFFER, _blitFbo);
++        glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorRb);
 +        { static int n=0; if(n++<3) {
-+            unsigned char px[4]={9,9,9,9}, pc[4]={9,9,9,9};
++            unsigned char px[4]={9,9,9,9};
++            GLenum st = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
 +            glReadPixels(dstW/2, dstH/2, 1,1, GL_RGBA, GL_UNSIGNED_BYTE, px);
-+            glReadPixels(dstW/2, dstH-20, 1,1, GL_RGBA, GL_UNSIGNED_BYTE, pc);
-+            fprintf(stderr, "[DBG px] center=%d,%d,%d,%d top=%d,%d,%d,%d\n", px[0],px[1],px[2],px[3], pc[0],pc[1],pc[2],pc[3]); } }
++            fprintf(stderr, "[DBG px] colorRb=%u status=0x%x center=%d,%d,%d,%d\n", colorRb, st, px[0],px[1],px[2],px[3]); } }
 +        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +        // Flip Y: read bottom-to-top of source into top-to-bottom of dest.
 +        glBlitFramebuffer(0, 0, dstW, dstH, 0, dstH, dstW, 0,
@@ -5184,10 +5213,10 @@ index 00000000000..902cfe5dd3a
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_VIRTUAL_RS_WINDOW_H
 diff --git a/adapter/macos/entrance/virtual_rs_window.mm b/adapter/macos/entrance/virtual_rs_window.mm
 new file mode 100644
-index 00000000000..30206edc4a5
+index 00000000000..f782d3c69c0
 --- /dev/null
 +++ b/adapter/macos/entrance/virtual_rs_window.mm
-@@ -0,0 +1,1664 @@
+@@ -0,0 +1,1696 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -5227,6 +5256,11 @@ index 00000000000..30206edc4a5
 +#include "transaction/rs_interfaces.h"
 +#include "render_service_client/core/ui/rs_ui_director.h"
 +#include "render_service_client/core/ui/rs_ui_context.h"
++#if defined(MAC_PLATFORM)
++#include "render_service_client/core/pipeline/rs_render_thread.h"
++#include "transaction/rs_irender_client.h"
++#include "transaction/rs_transaction_proxy.h"
++#endif
 +#include "virtual_rs_window.h"
 +#include "StageViewController.h"
 +#include "StageApplication.h"
@@ -6040,6 +6074,33 @@ index 00000000000..30206edc4a5
 +    struct OHOS::Rosen::RSSurfaceNodeConfig rsSurfaceNodeConfig = { .SurfaceNodeName = "arkui-x_surface",
 +        .additionalData = layer };
 +    surfaceNode_ = Rosen::RSSurfaceNode::Create(rsSurfaceNodeConfig, true, rsUidriect_->GetRSUIContext());
++#if defined(MAC_PLATFORM)
++    // ArkUI-X macOS (M1 格-c2): the private RSUIDirector::Init() (which iOS reaches via a
++    // different surface-timing path) never ran here, so the implicit transaction had no
++    // renderThreadClient_ and every committed page tree was silently dropped
++    // (rs_transaction_handler.cpp:164 only commits when renderThreadClient_!=null), the render
++    // thread was never Start()'d, and the window never went foreground. Replicate Init()'s
++    // three steps via public APIs so RS actually receives and renders the page tree.
++    {
++        auto renderThreadClient = Rosen::RSIRenderClient::CreateRenderThreadClient();
++        auto rsUIContext = rsUidriect_->GetRSUIContext();
++        if (rsUIContext != nullptr) {
++            auto transaction = rsUIContext->GetRSTransaction();
++            if (transaction != nullptr) {
++                transaction->SetRenderThreadClient(renderThreadClient);
++            }
++        } else {
++            auto* transactionProxy = Rosen::RSTransactionProxy::GetInstance();
++            if (transactionProxy != nullptr) {
++                transactionProxy->SetRenderThreadClient(renderThreadClient);
++            }
++        }
++        Rosen::RSRenderThread::Instance().Start();
++        rsUidriect_->GoForeground();
++        fprintf(stderr, "[DBG rsinit] renderThreadClient set + RSRenderThread::Start + GoForeground (ctx=%p)\n",
++            (void*)rsUIContext.get());
++    }
++#endif
 +
 +    if (!uiContent_) {
 +        LOGW("Window Notify uiContent_ Surface Created, uiContent_ is nullptr, delay notify.");
@@ -27109,10 +27170,10 @@ index 00000000000..f7536e2d5ed
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_STAGE_PLATFORM_EVENT_CALLBACK_H
 diff --git a/adapter/macos/stage/uicontent/ui_content_impl.cpp b/adapter/macos/stage/uicontent/ui_content_impl.cpp
 new file mode 100644
-index 00000000000..956131a9951
+index 00000000000..c6a2099b977
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ui_content_impl.cpp
-@@ -0,0 +1,1050 @@
+@@ -0,0 +1,1063 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28121,6 +28182,19 @@ index 00000000000..956131a9951
 +    auto* window = pipeline->GetWindow();
 +    CHECK_NULL_VOID(window);
 +    window->InitArkUI_X();
++    // ArkUI-X macOS (M1 格-c2): the RS surfaceNode is created asynchronously (AppKit CALayer
++    // callback) AFTER SetupRootElement already ran SetRootFrameNode on a director that had no
++    // surface yet, so AttachSurface bailed and the root RSNode never attached to the RS render
++    // thread's global root -> RS rendered an empty tree. Now the surface is bound, so re-send
++    // the root and flush, getting AttachRSSurfaceNode to RS before the next frame.
++    auto ngPipeline = AceType::DynamicCast<NG::PipelineContext>(pipeline);
++    if (ngPipeline) {
++        auto rootNode = ngPipeline->GetRootElement();
++        if (rootNode) {
++            window->SetRootFrameNode(rootNode);
++        }
++    }
++    pipeline->FlushMessages();
 +    window->RequestFrame();
 +}
 +
@@ -28967,11 +29041,43 @@ index 29686e11b15..51f7dfc1536 100644
      const needBuild: boolean = PUV2ViewBase.prebuildPhase_ === PrebuildPhase.BuildPrebuildCmd;
      return needBuild;
    }
+diff --git a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp b/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
+index f50650ecfb1..66f62d29723 100644
+--- a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
++++ b/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
+@@ -270,6 +270,14 @@ bool StageManager::PushPage(const RefPtr<FrameNode>& node, bool needHideLast, bo
+     // flush layout task.
+     if (!stageNode_->GetGeometryNode()->GetMarginFrameSize().IsPositive()) {
+         // in first load case, wait for window size.
++#if defined(MAC_PLATFORM)
++        // ArkUI-X macOS (M1 格-c2): the window's real size arrives asynchronously after
++        // PushPage, so the stage is still 0x0 here. Mark the page subtree dirty for measure
++        // anyway, so when SetRootRect later applies the real size the page is re-measured
++        // (otherwise its geometry stays 0 and RS paints nothing).
++        stageNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
++        node->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
++#endif
+         return true;
+     }
+     stageNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
 diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.cpp b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
-index 086a3e22416..6f79547d4dc 100644
+index 086a3e22416..2d9b6c10567 100644
 --- a/frameworks/core/components_ng/render/adapter/rosen_window.cpp
 +++ b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
-@@ -64,6 +64,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
+@@ -25,6 +25,12 @@
+ #include "core/pipeline_ng/pipeline_context.h"
+ #include "render_service_client/core/ui/rs_root_node.h"
+ #include "render_service_client/core/ui/rs_surface_node.h"
++#if defined(MAC_PLATFORM)
++#include "render_service_client/core/pipeline/rs_render_thread.h"
++#include "render_service_client/core/ui/rs_ui_context.h"
++#include "transaction/rs_irender_client.h"
++#include "transaction/rs_transaction_proxy.h"
++#endif
+ 
+ namespace {
+ constexpr int32_t IDLE_TASK_DELAY_MILLISECOND = 51;
+@@ -64,6 +70,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
      vsyncCallback_->onCallback = [weakTask = taskExecutor_, id = id_](uint64_t timeStampNanos, uint64_t frameCount) {
          auto taskExecutor = weakTask.Upgrade();
          auto onVsync = [id, timeStampNanos, frameCount] {
@@ -28979,7 +29085,7 @@ index 086a3e22416..6f79547d4dc 100644
              int64_t ts = GetSysTimestamp();
              ArkUIPerfMonitor::GetInstance().StartPerf();
              if (FrameReport::GetInstance().GetEnable()) {
-@@ -98,6 +99,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
+@@ -98,6 +105,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
              window->SetLastVsyncEndTimestamp(GetSysTimestamp());
          };
          auto uiTaskRunner = SingleTaskExecutor::Make(taskExecutor, TaskExecutor::TaskType::UI);
@@ -28987,6 +29093,45 @@ index 086a3e22416..6f79547d4dc 100644
          if (uiTaskRunner.IsRunOnCurrentThread()) {
              onVsync();
              return;
+@@ -129,6 +137,30 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
+             rsUIcontext->AttachFromUI();
+             hasTaskRunner = rsUIcontext->HasTaskRunner();
+     }
++#if defined(MAC_PLATFORM)
++    // ArkUI-X macOS (M1 格-c2): this is the director that actually renders the page tree
++    // (mac's Window::CreateSurfaceNode runs asynchronously after this ctor, so window->
++    // GetRSUIDirector() was null above and we created our own director). The private
++    // RSUIDirector::Init() never ran for it, so its transaction had no renderThreadClient_
++    // and every committed page tree was dropped. Wire the render-thread client + start the
++    // render thread on THIS director's context so RS receives and renders the page.
++    {
++        auto rtClient = OHOS::Rosen::RSIRenderClient::CreateRenderThreadClient();
++        if (rsUIcontext) {
++            auto transaction = rsUIcontext->GetRSTransaction();
++            if (transaction) {
++                transaction->SetRenderThreadClient(rtClient);
++            }
++        } else {
++            auto* proxy = OHOS::Rosen::RSTransactionProxy::GetInstance();
++            if (proxy) {
++                proxy->SetRenderThreadClient(rtClient);
++            }
++        }
++        OHOS::Rosen::RSRenderThread::Instance().Start();
++        fprintf(stderr, "[DBG rwinit] RosenWindow director renderThreadClient set (ctx=%p)\n", (void*)rsUIcontext.get());
++    }
++#endif
+     if (!hasTaskRunner) {
+         rsUIDirector_->SetUITaskRunner(
+                 [taskExecutor, id](const std::function<void()>& task, uint32_t delay) {
+@@ -290,6 +322,7 @@ void RosenWindow::RequestFrame()
+ 
+ void RosenWindow::OnShow()
+ {
++    fprintf(stderr, "[DBG rw] RosenWindow::OnShow -> GoForeground\n");
+     Window::OnShow();
+     CHECK_NULL_VOID(rsUIDirector_);
+     rsUIDirector_->GoForeground();
 diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.h b/frameworks/core/components_ng/render/adapter/rosen_window.h
 index ae41531d1dd..09ed7274703 100644
 --- a/frameworks/core/components_ng/render/adapter/rosen_window.h
@@ -29004,7 +29149,7 @@ index ae41531d1dd..09ed7274703 100644
  #else
  #include "adapter/android/entrance/java/jni/virtual_rs_window.h"
 diff --git a/frameworks/core/pipeline_ng/pipeline_context.cpp b/frameworks/core/pipeline_ng/pipeline_context.cpp
-index c9066a89552..b403354545e 100755
+index c9066a89552..08767f03646 100755
 --- a/frameworks/core/pipeline_ng/pipeline_context.cpp
 +++ b/frameworks/core/pipeline_ng/pipeline_context.cpp
 @@ -1148,6 +1148,7 @@ void PipelineContext::ReloadNodesResource()
@@ -29015,6 +29160,41 @@ index c9066a89552..b403354545e 100755
      CHECK_RUN_ON(UI);
      if (IsDestroyed()) {
          LOGW("Cannot flush vsync as the pipeline context is destroyed.");
+@@ -2763,6 +2764,7 @@ void PipelineContext::MaximizeInImplictAnimation(int32_t width, int32_t height,
+ 
+ void PipelineContext::SetRootRect(double width, double height, double offset)
+ {
++    fprintf(stderr, "[DBG srr] SetRootRect %fx%f\n", width, height);
+     CHECK_RUN_ON(UI);
+     UpdateRootSizeAndScale(width, height);
+     CHECK_NULL_VOID(rootNode_);
+@@ -2805,6 +2807,26 @@ void PipelineContext::SetRootRect(double width, double height, double offset)
+         window_->FlushTasks();
+         FlushVsync(GetTimeFromExternalTimer(), 0);
+     }
++#endif
++#if defined(MAC_PLATFORM)
++    {
++        static int dbgn = 0;
++        if (dbgn++ < 3 && rootNode_) {
++            auto sz = rootNode_->GetGeometryNode()->GetFrameSize();
++            fprintf(stderr, "[DBG geo] root tag=%s %fx%f childCnt=%d\n",
++                rootNode_->GetTag().c_str(), sz.Width(), sz.Height(), (int)rootNode_->GetChildren().size());
++            RefPtr<NG::UINode> cur = rootNode_;
++            for (int d = 0; d < 6; d++) {
++                auto kids = cur->GetChildren();
++                if (kids.empty()) break;
++                auto fn = AceType::DynamicCast<NG::FrameNode>(kids.front());
++                if (!fn) { cur = kids.front(); continue; }
++                auto csz = fn->GetGeometryNode()->GetFrameSize();
++                fprintf(stderr, "[DBG geo]  d%d tag=%s %fx%f\n", d, fn->GetTag().c_str(), csz.Width(), csz.Height());
++                cur = fn;
++            }
++        }
++    }
+ #endif
+     FireLpxUpdateCallbacks();
+     MarkLpxDirtyNodes();
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 index e58f8e0b0a1..0a812c0f2a1 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn

@@ -1,8 +1,12 @@
-# ArkUI-X 原生 macOS 移植 · 整框架已编通(逼近开窗渲染)
+# ArkUI-X 原生 macOS 移植 · M1 完成(ArkUI 页面在 macOS 原生渲染)
 
 把 **完整标准 ArkUI**(声明式 ArkUI + 方舟 ets_runtime + skia + RenderService + napi + mmi)移植到 **macOS(Apple Silicon)原生桌面**,目标是不依赖 iOS 模拟器、直接以 AppKit 跑起 `.ets` 页面。
 
-> 现状:**整个 ArkUI 框架已用真 GN/ninja 在 macOS 上编译链接通过**(`libace_static_mac` = 7224 个 .o / 23 个静态库 / 184.5MB,含 skia/napi/graphic_2d/ets_runtime/mmi/image_framework 全部传递依赖)。**最后一步——链 `ace_macos` 可执行 → 开 AppKit 窗 → 渲染第一帧——进行中。**
+> **M1 完成 ✅**:用官方 `ace build bundle`(DevEco hvigor + OpenHarmony SDK)编出的标准 stage app,在原生 AppKit 窗口里**真实渲染出 ArkUI 页面**(声明式 `@Entry @Component` → 方舟运行时 → RenderService → NSOpenGLContext/CAOpenGLLayer)。截图见 `screenshots/M1_arkui_rendered.png`。
+>
+> 渲染管线打通的关键修复链:① mac 从不 Init RSUIDirector → 补 renderThreadClient + 启 RS 渲染线程;② RS 渲染线程一次性 vsync → 改持续渲染;③ 双 director,client 设在渲染页面那个;④ stage 首帧 0×0 早退 → 页面子树标脏测量;⑤ **真因**:CAOpenGLLayer pixel format ≠ render_context Core 3.2 → GL share group 失败 → colorbuffer 不可见 → 强制 Core 3.2 + 经本地 FBO blit 共享 renderbuffer。
+>
+> 旧现状:**整个 ArkUI 框架已用真 GN/ninja 在 macOS 上编译链接通过**(`libace_static_mac` = 7224 个 .o / 23 个静态库 / 184.5MB,含 skia/napi/graphic_2d/ets_runtime/mmi/image_framework 全部传递依赖)。**最后一步——链 `ace_macos` 可执行 → 开 AppKit 窗 → 渲染第一帧——进行中。**
 
 ---
 

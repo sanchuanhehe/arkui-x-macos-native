@@ -503,10 +503,10 @@ index 0000000..75b0e3f
 +}
 diff --git a/graphic_2d/macos/render_context.mm b/graphic_2d/macos/render_context.mm
 new file mode 100644
-index 0000000..d3d0b22
+index 0000000..77c5cd4
 --- /dev/null
 +++ b/graphic_2d/macos/render_context.mm
-@@ -0,0 +1,425 @@
+@@ -0,0 +1,432 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -555,9 +555,14 @@ index 0000000..d3d0b22
 +namespace Rosen {
 +std::mutex RenderContextGL::resourceContextMutex;
 +uint32_t RenderContextGL::currentFramebuffer_ = 0;
++uint32_t RenderContextGL::currentColorbuffer_ = 0;
 +uint32_t RenderContextGL::GetCurrentFramebuffer()
 +{
 +    return currentFramebuffer_;
++}
++uint32_t RenderContextGL::GetCurrentColorbuffer()
++{
++    return currentColorbuffer_;
 +}
 +
 +EGLContext RenderContextGL::resourceContext = nullptr;
@@ -653,6 +658,7 @@ index 0000000..d3d0b22
 +    currentFramebuffer_ = framebuffer_;
 +    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
 +    glGenRenderbuffers(1, &colorbuffer_);
++    currentColorbuffer_ = colorbuffer_;
 +    glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer_);
 +    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorbuffer_);
 +    valid_ = true;
@@ -682,6 +688,7 @@ index 0000000..d3d0b22
 +    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, size_width, size_height);
 +    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorbuffer_);
 +    currentFramebuffer_ = framebuffer_;
++    currentColorbuffer_ = colorbuffer_;
 +
 +    storage_width_ = size_width;
 +    storage_height_ = size_height;
