@@ -1,8 +1,45 @@
 diff --git a/base/BUILD.gn b/base/BUILD.gn
-index d4a6a5a..03c1c27 100644
+index d4a6a5a..490fdfc 100644
 --- a/base/BUILD.gn
 +++ b/base/BUILD.gn
-@@ -303,12 +303,18 @@ declare_args() {
+@@ -171,7 +171,11 @@ ohos_static_library("utilsbase") {
+     sources = sources_utils
+     configs = [ ":utils_coverage_config" ]
+     public_configs = [ ":utils_config" ]
+-    if (current_os != "android" && current_os != "ios" && !is_host_product) {
++    # [linux-port] arkui-x linux cross build has no hilog_base/log_base.h on the
++    # include path; like android/ios/mac, build full c_utils without CONFIG_HILOG
++    # so utils_log.h takes the no-op logging path.
++    if (current_os != "android" && current_os != "ios" &&
++        current_os != "linux" && !is_host_product) {
+       defines = [ "CONFIG_HILOG" ]
+     }
+     if (c_utils_debug_log_enabled) {
+@@ -188,7 +192,9 @@ ohos_static_library("utilsbase_rtti") {
+   visibility = [ "//foundation/multimedia/media_foundation/engine/plugin/plugins/source/video_capture:std_video_capture" ]
+   sources = sources_utils
+   public_configs = [ ":utils_config" ]
+-  if (current_os != "android" && current_os != "ios" && !is_host_product) {
++  # [linux-port] no hilog_base/log_base.h on include path; match android/ios/mac.
++  if (current_os != "android" && current_os != "ios" &&
++      current_os != "linux" && !is_host_product) {
+     defines = [ "CONFIG_HILOG" ]
+   }
+ 
+@@ -246,7 +252,11 @@ ohos_shared_library("utils") {
+       configs += [ ":parcel_object_check" ]
+     }
+     public_configs = [ ":utils_config" ]
+-    if (current_os != "android" && current_os != "ios" && !is_host_product) {
++    # [linux-port] arkui-x linux cross build has no hilog_base/log_base.h on the
++    # include path; like android/ios/mac, build full c_utils without CONFIG_HILOG
++    # so utils_log.h takes the no-op logging path.
++    if (current_os != "android" && current_os != "ios" &&
++        current_os != "linux" && !is_host_product) {
+       defines = [ "CONFIG_HILOG" ]
+     }
+     if (c_utils_debug_log_enabled) {
+@@ -303,12 +313,18 @@ declare_args() {
  if (host_os == "linux" && host_cpu != "arm64" && !is_arkui_x &&
      current_os != "mac" && utils_rust_enable) {
    import("//build/templates/rust/rust_cxx.gni")  # used for templates rust_cxx()
@@ -27,7 +64,7 @@ index d4a6a5a..03c1c27 100644
    }
  
    ohos_static_library("utils_static_cxx_rust") {
-@@ -335,35 +341,41 @@ if (host_os == "linux" && host_cpu != "arm64" && !is_arkui_x &&
+@@ -335,35 +351,41 @@ if (host_os == "linux" && host_cpu != "arm64" && !is_arkui_x &&
  }
  
  if (!is_arkui_x && !(host_os == "linux" && host_cpu == "arm64") && current_os != "mac" && utils_rust_enable) {
@@ -98,6 +135,39 @@ index d4a6a5a..03c1c27 100644
      }
    }
  } else {
+diff --git a/base/include/ashmem.h b/base/include/ashmem.h
+index 78d9304..4d392dc 100644
+--- a/base/include/ashmem.h
++++ b/base/include/ashmem.h
+@@ -24,7 +24,28 @@
+ #define UTILS_BASE_ASHMEM_H
+ 
+ #include <cstddef>
++#if defined(__has_include)
++#if __has_include(<linux/ashmem.h>)
+ #include <linux/ashmem.h>
++#define UTILS_HAS_KERNEL_ASHMEM
++#endif
++#endif
++#ifndef UTILS_HAS_KERNEL_ASHMEM
++// [linux-port] glibc desktop (and mac) lack the Android/bionic UAPI
++// <linux/ashmem.h>. Provide the ashmem ioctl ABI so c_utils ashmem.cpp and its
++// image_framework consumers still build. No-op on OHOS where the header exists.
++#include <sys/ioctl.h>
++#ifndef ASHMEM_NAME_LEN
++#define ASHMEM_NAME_LEN 256
++#define __ASHMEMIOC 0x77
++#define ASHMEM_SET_NAME _IOW(__ASHMEMIOC, 1, char[ASHMEM_NAME_LEN])
++#define ASHMEM_GET_NAME _IOR(__ASHMEMIOC, 2, char[ASHMEM_NAME_LEN])
++#define ASHMEM_SET_SIZE _IOW(__ASHMEMIOC, 3, size_t)
++#define ASHMEM_GET_SIZE _IO(__ASHMEMIOC, 4)
++#define ASHMEM_SET_PROT_MASK _IOW(__ASHMEMIOC, 5, unsigned long)
++#define ASHMEM_GET_PROT_MASK _IO(__ASHMEMIOC, 6)
++#endif
++#endif
+ #ifdef UTILS_CXX_RUST
+ #include <memory>
+ #endif
 diff --git a/base/test/unittest/rust/BUILD.gn b/base/test/unittest/rust/BUILD.gn
 index 8865d0f..f9417c0 100644
 --- a/base/test/unittest/rust/BUILD.gn

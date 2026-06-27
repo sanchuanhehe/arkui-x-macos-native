@@ -159,6 +159,104 @@ index a9ff3c0d..58f91e75 100644
        deps += [ ":gen_obj_src_js_mock_system_plugin" ]
      } else {
        if (defined(config.plugin_components_support) &&
+diff --git a/frameworks/bridge/declarative_frontend/ark_node/package-lock.json b/frameworks/bridge/declarative_frontend/ark_node/package-lock.json
+index 2dda58bf..fd687453 100644
+--- a/frameworks/bridge/declarative_frontend/ark_node/package-lock.json
++++ b/frameworks/bridge/declarative_frontend/ark_node/package-lock.json
+@@ -1,38 +1,20 @@
+ {
+   "name": "ark_xnode",
+   "version": "0.0.1",
+-  "lockfileVersion": 3,
++  "lockfileVersion": 1,
+   "requires": true,
+-  "packages": {
+-    "": {
+-      "name": "ark_xnode",
+-      "version": "0.0.1",
+-      "license": "Apache-2.0",
+-      "devDependencies": {
+-        "@types/node": "^15.0.1",
+-        "typescript": "^4.2.4"
+-      }
+-    },
+-    "node_modules/@types/node": {
++  "dependencies": {
++    "@types/node": {
+       "version": "15.14.9",
+       "resolved": "https://repo.huaweicloud.com/repository/npm/@types/node/-/node-15.14.9.tgz",
+       "integrity": "sha512-qjd88DrCxupx/kJD5yQgZdcYKZKSIGBVDIBE1/LTGcNm3d2Np/jxojkdePDdfnBHJc5W7vSMpbJ1aB7p/Py69A==",
+-      "dev": true,
+-      "license": "MIT"
++      "dev": true
+     },
+-    "node_modules/typescript": {
++    "typescript": {
+       "version": "4.9.5",
+       "resolved": "https://repo.huaweicloud.com/repository/npm/typescript/-/typescript-4.9.5.tgz",
+       "integrity": "sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==",
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "bin": {
+-        "tsc": "bin/tsc",
+-        "tsserver": "bin/tsserver"
+-      },
+-      "engines": {
+-        "node": ">=4.2.0"
+-      }
++      "dev": true
+     }
+   }
+ }
+diff --git a/frameworks/bridge/declarative_frontend/ark_theme/theme_manager/package-lock.json b/frameworks/bridge/declarative_frontend/ark_theme/theme_manager/package-lock.json
+index 11da427d..61bbedd0 100644
+--- a/frameworks/bridge/declarative_frontend/ark_theme/theme_manager/package-lock.json
++++ b/frameworks/bridge/declarative_frontend/ark_theme/theme_manager/package-lock.json
+@@ -1,38 +1,20 @@
+ {
+   "name": "ark_theme",
+   "version": "0.0.1",
+-  "lockfileVersion": 3,
++  "lockfileVersion": 1,
+   "requires": true,
+-  "packages": {
+-    "": {
+-      "name": "ark_theme",
+-      "version": "0.0.1",
+-      "license": "Apache-2.0",
+-      "devDependencies": {
+-        "@types/node": "^15.0.1",
+-        "typescript": "^4.2.4"
+-      }
+-    },
+-    "node_modules/@types/node": {
++  "dependencies": {
++    "@types/node": {
+       "version": "15.14.9",
+       "resolved": "https://repo.huaweicloud.com/repository/npm/@types/node/-/node-15.14.9.tgz",
+       "integrity": "sha512-qjd88DrCxupx/kJD5yQgZdcYKZKSIGBVDIBE1/LTGcNm3d2Np/jxojkdePDdfnBHJc5W7vSMpbJ1aB7p/Py69A==",
+-      "dev": true,
+-      "license": "MIT"
++      "dev": true
+     },
+-    "node_modules/typescript": {
++    "typescript": {
+       "version": "4.9.5",
+       "resolved": "https://repo.huaweicloud.com/repository/npm/typescript/-/typescript-4.9.5.tgz",
+       "integrity": "sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==",
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "bin": {
+-        "tsc": "bin/tsc",
+-        "tsserver": "bin/tsserver"
+-      },
+-      "engines": {
+-        "node": ">=4.2.0"
+-      }
++      "dev": true
+     }
+   }
+ }
 diff --git a/frameworks/core/components/text_overlay/BUILD.gn b/frameworks/core/components/text_overlay/BUILD.gn
 index b5e9bccc..95f36b44 100755
 --- a/frameworks/core/components/text_overlay/BUILD.gn
@@ -176,7 +274,7 @@ index b5e9bccc..95f36b44 100755
    ]
  }
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
-index e58f8e0b..43c454fe 100644
+index e58f8e0b..160636e6 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
 +++ b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 @@ -14,6 +14,10 @@
@@ -190,7 +288,7 @@ index e58f8e0b..43c454fe 100644
  config("drawable_config") {
    visibility = [ ":*" ]
    include_dirs = [
-@@ -64,6 +68,12 @@ if (is_arkui_x) {
+@@ -64,6 +68,19 @@ if (is_arkui_x) {
      if (use_clang_ios) {
        defines = image_decode_ios_defines
      }
@@ -199,6 +297,13 @@ index e58f8e0b..43c454fe 100644
 +      # so the subsequent `defines +=` (ace_enable_gpu / upgrade_skia) hit an
 +      # undefined identifier on the desktop client. Initialize it here.
 +      defines = []
++      # No foundation/communication/ipc repo on linux: pixel_map.h ->
++      # pixel_map_parcel.h -> "message_parcel.h" is unresolved. Add the
++      # cross-platform mock. Appended after drawable_native_include (which lists
++      # c_utils) so the real parcel.h wins; only message_parcel.h is from the mock.
++      include_dirs += [
++        "//foundation/multimedia/image_framework/mock/native/include",
++      ]
 +    }
      if (ace_enable_gpu) {
        defines += [ "RS_ENABLE_GPU" ]

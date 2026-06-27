@@ -111,10 +111,26 @@ index 9ad6361..fac4ff3 100644
  
    configs = [ "$rosen_text_root:rosen_text_config" ]
 diff --git a/graphic_config.gni b/graphic_config.gni
-index 18125c6..b0406f2 100644
+index 18125c6..f739f5f 100644
 --- a/graphic_config.gni
 +++ b/graphic_config.gni
-@@ -198,11 +198,11 @@ if (graphic_2d_feature_tv_metadata_enable) {
+@@ -85,6 +85,15 @@ if (graphic_2d_feature_product == "phone" ||
+   graphic_2d_feature_enable_stack_culling = true
+ }
+ 
++# Linux/Wayland native port: the arkui-x desktop client renders via EGL/GLES
++# (Android ROSEN_ARKUI_X client-side style), not Vulkan. arkui-x.json sets
++# graphic_2d_feature_enable_vulkan=true for all products, but the headless linux
++# host has no vulkan/*.h — force the RS Vulkan backend off for linux so rosen/RS
++# sources stop pulling vulkan headers. mac/device builds are unchanged.
++if (target_os == "linux") {
++  graphic_2d_feature_enable_vulkan = false
++}
++
+ if (graphic_2d_feature_product == "phone" ||
+     graphic_2d_feature_product == "pc" ||
+     graphic_2d_feature_product == "tablet" ||
+@@ -198,11 +207,11 @@ if (graphic_2d_feature_tv_metadata_enable) {
    gpu_defines += [ "RS_ENABLE_TV_PQ_METADATA" ]
  }
  
@@ -128,7 +144,7 @@ index 18125c6..b0406f2 100644
    ddgr_ext_configs = {
      import("//foundation/graphic/graphic_2d_ext/ddgr/config.gni")
    }
-@@ -217,7 +217,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/ddgr/config.gni")) {
+@@ -217,7 +226,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/ddgr/config.gni")) {
  
  graphic_2d_delegator_configs = {
  }
@@ -137,7 +153,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_delegator_configs = {
      import("//foundation/graphic/graphic_2d_ext/delegator/config.gni")
    }
-@@ -225,7 +225,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/delegator/config.gni")) {
+@@ -225,7 +234,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/delegator/config.gni")) {
  
  graphic_2d_broker_configs = {
  }
@@ -146,7 +162,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_broker_configs = {
      import("//foundation/graphic/graphic_2d_ext/ohcore/build/broker_config.gni")
    }
-@@ -233,7 +233,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/ohcore/build/broker_config.
+@@ -233,7 +242,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/ohcore/build/broker_config.
  
  graphic_2d_hgm_configs = {
  }
@@ -155,7 +171,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_hgm_configs = {
      import(
          "//foundation/graphic/graphic_2d_ext/hgm_manager/build/hgm_config.gni")
-@@ -242,7 +242,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/hgm_manager/build/hgm_confi
+@@ -242,7 +251,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/hgm_manager/build/hgm_confi
  
  graphic_2d_math_tools_configs = {
  }
@@ -164,7 +180,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_math_tools_configs = {
      import(
          "//foundation/graphic/graphic_2d_ext/math_tools/build/math_tools_config.gni")
-@@ -251,7 +251,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/math_tools/build/math_tools
+@@ -251,7 +260,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/math_tools/build/math_tools
  
  graphic_2d_frame_stability_configs = {
  }
@@ -173,7 +189,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_frame_stability_configs = {
      import(
          "//foundation/graphic/graphic_2d_ext/frame_stability/build/frame_stability_config.gni")
-@@ -264,7 +264,7 @@ check_platform_ext_file_args = [
+@@ -264,7 +273,7 @@ check_platform_ext_file_args = [
  ]
  graphic_2d_platform_configs = {
  }
@@ -182,7 +198,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_platform_configs = {
      import("//foundation/graphic/graphic_2d_ext/platform/config.gni")
    }
-@@ -272,7 +272,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/platform/config.gni")) {
+@@ -272,7 +281,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/platform/config.gni")) {
  
  graphic_2d_modifiers_draw_configs = {
  }
@@ -191,7 +207,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_modifiers_draw_configs = {
      import(
          "//foundation/graphic/graphic_2d_ext/modifiers_draw/build/modifiers_draw_config.gni")
-@@ -281,7 +281,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/modifiers_draw/build/modifi
+@@ -281,7 +290,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/modifiers_draw/build/modifi
  
  graphic_2d_subtree_config = {}
  
@@ -200,7 +216,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_subtree_config = {
      import(
        "//foundation/graphic/graphic_2d_ext/subtree/build/subtree_config/gni")
-@@ -290,7 +290,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/subtree/build/subtree_confi
+@@ -290,7 +299,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/subtree/build/subtree_confi
  
  graphic_2d_hetero_hdr_configs = {}
  
@@ -209,7 +225,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_hetero_hdr_configs = {
      import(
        "//foundation/graphic/graphic_2d_ext/hetero_hdr/build/hetero_hdr_config.gni")
-@@ -300,7 +300,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/hetero_hdr/build/hetero_hdr
+@@ -300,7 +309,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/hetero_hdr/build/hetero_hdr
  
  graphic_2d_mhc_configs = {}
  
@@ -218,7 +234,7 @@ index 18125c6..b0406f2 100644
    graphic_2d_mhc_configs = {
      import(
        "//foundation/graphic/graphic_2d_ext/mhc/build/mhc_config.gni")
-@@ -308,7 +308,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/mhc/build/mhc_config.gni"))
+@@ -308,7 +317,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/mhc/build/mhc_config.gni"))
  }
  
  graphic_2d_car_features_configs = {}
@@ -1262,10 +1278,26 @@ index 73e61cb..0d6e258 100644
      "c_utils:utils",
    ]
 diff --git a/rosen/modules/render_service_base/src/platform/windows/BUILD.gn b/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
-index 867c084..4f3f285 100644
+index 867c084..1e61424 100644
 --- a/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
 +++ b/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
-@@ -62,7 +62,7 @@ ohos_source_set("windows") {
+@@ -38,7 +38,14 @@ ohos_source_set("windows") {
+     "rs_vsync_client_windows.cpp",
+   ]
+ 
+-  include_dirs = [ "$rosen_root/modules/render_service_base/include" ]
++  include_dirs = [
++    "$rosen_root/modules/render_service_base/include",
++
++    # Linux/Wayland port: surface_type.h (pulled via rs_surface.h) lives in the
++    # graphic_surface headers; graphic_surface:surface_headers is auto-gated off
++    # for arkui-x, so add the header dir explicitly.
++    "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++  ]
+ 
+   defines += [ "MODULE_RSB" ]
+   if (enable_glfw_window) {
+@@ -62,7 +69,7 @@ ohos_source_set("windows") {
  
    external_deps = [
      "egl:libEGL",
@@ -1274,7 +1306,7 @@ index 867c084..4f3f285 100644
      "hilog:libhilog",
    ]
  
-@@ -70,7 +70,13 @@ ohos_source_set("windows") {
+@@ -70,7 +77,13 @@ ohos_source_set("windows") {
      defines += [ "USE_ROSEN_DRAWING" ]
      public_deps += [ "$rosen_root/modules/2d_graphics:2d_graphics" ]
  
@@ -1290,10 +1322,47 @@ index 867c084..4f3f285 100644
  
    part_name = "graphic_2d"
 diff --git a/rosen/modules/render_service_client/BUILD.gn b/rosen/modules/render_service_client/BUILD.gn
-index 74df8bc..0db8a42 100644
+index 74df8bc..d64a94d 100644
 --- a/rosen/modules/render_service_client/BUILD.gn
 +++ b/rosen/modules/render_service_client/BUILD.gn
-@@ -372,10 +372,10 @@ template("render_service_client_source_set") {
+@@ -80,6 +80,17 @@ template("render_service_client_source_set") {
+         "//foundation/multimedia/image_framework/interfaces/innerkits/include",
+         "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
+       ]
++      if (current_os == "linux") {
++        # [linux-port] this source_set pulls no skia dep, so it lacked skia's
++        # public config: USE_M133_SKIA selects src/core/SkChecksum.h over the
++        # removed src/core/SkOpts.h in rs_render_effect_template.h, and the skia
++        # m133 root resolves it. (Whole tree is m133; graphic_2d feature is on.)
++        defines += [ "USE_M133_SKIA" ]
++        include_dirs += [
++          "//third_party/skia/m133",
++          "//third_party/skia/m133/include",
++        ]
++      }
+     }
+ 
+     sources = [
+@@ -318,6 +329,18 @@ template("render_service_client_source_set") {
+     if (is_arkui_x) {
+       defines += [ "ARKUI_X_ENABLE" ]
+       deps += [ "//third_party/jsoncpp:jsoncpp_static" ]
++
++      # Linux/Wayland native port (Route A): render_service_client_src
++      # transitively includes 2d_graphics' effect/color_space.h, which pulls the
++      # skia-root-relative "include/core/SkColorSpace.h". On OHOS the 2d_graphics
++      # shared_library re-exports skia (public_external_deps); the arkui-x
++      # 2d_graphics source_set only exports export_config (no skia), and unlike
++      # render_service_base_src this target has no skia-bearing dep. Depend on
++      # skia directly (same label graphics_effect_src uses) so skia_config's
++      # include root + SK_* defines are applied.
++      if (target_os == "linux") {
++        deps += [ "//third_party/skia:skia_$target_os" ]
++      }
+     }
+ 
+     if (rosen_is_ohos) {
+@@ -372,10 +395,10 @@ template("render_service_client_source_set") {
        external_deps += [ "jsoncpp:jsoncpp" ]
      }
  
@@ -1306,7 +1375,7 @@ index 74df8bc..0db8a42 100644
      }
  
      if (rosen_cross_platform) {
-@@ -399,7 +399,7 @@ template("render_service_client_source_set") {
+@@ -399,7 +422,7 @@ template("render_service_client_source_set") {
            graphic_2d_broker_configs.librender_service_client_ext_broker_sources
        sources -= graphic_2d_broker_configs.librender_service_client_ext_broker_sources_del
        external_deps += [ "ipc:ipc_core" ]
@@ -1315,7 +1384,7 @@ index 74df8bc..0db8a42 100644
      }
  
      if (tp_feature_enable) {
-@@ -507,11 +507,11 @@ ohos_shared_library("librender_service_client") {
+@@ -507,11 +530,11 @@ ohos_shared_library("librender_service_client") {
      public_external_deps += [
        "c_utils:utils",
        "eventhandler:libeventhandler",
@@ -1329,7 +1398,7 @@ index 74df8bc..0db8a42 100644
    }
  
    if (rosen_is_win || current_os == "linux" || rosen_is_mac) {
-@@ -534,9 +534,9 @@ ohos_source_set("librender_service_client_static") {
+@@ -534,9 +557,9 @@ ohos_source_set("librender_service_client_static") {
  
    public_external_deps = []
    if (rosen_is_ohos) {

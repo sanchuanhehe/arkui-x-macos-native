@@ -1,0 +1,68 @@
+diff --git a/window_manager/dm/BUILD.gn b/window_manager/dm/BUILD.gn
+index 4166d1b..d0b25e9 100644
+--- a/window_manager/dm/BUILD.gn
++++ b/window_manager/dm/BUILD.gn
+@@ -84,6 +84,12 @@ template("display_manager") {
+         "//foundation/arkui/ace_engine/adapter/macos/entrance",
+         "//foundation/arkui/ace_engine/adapter/ios/entrance",
+       ]
++    } else if (current_os == "linux") {
++      # Linux/Wayland port: the linux ace_engine entrance adapter provides
++      # display_info.h and display_manager_agent.h (self-contained, no jni).
++      include_dirs += [
++        "//foundation/arkui/ace_engine/adapter/linux/entrance",
++      ]
+     }
+   }
+ }
+diff --git a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn b/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
+index 11b4dac..f02eee4 100644
+--- a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
++++ b/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
+@@ -65,6 +65,9 @@ template("display_manager_napi") {
+         "MAC_PLATFORM",
+       ]
+       include_dirs += [ "//foundation/arkui/ace_engine/adapter/macos/entrance" ]
++    } else if (current_os == "linux") {
++      # Linux/Wayland port: display_info.h lives next to the linux entrance.
++      include_dirs += [ "//foundation/arkui/ace_engine/adapter/linux/entrance" ]
+     }
+ 
+     sources = [
+diff --git a/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn b/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
+index 19b5862..ffd949b 100644
+--- a/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
++++ b/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
+@@ -74,6 +74,11 @@ template("window_manager_napi") {
+         "MAC_PLATFORM",
+       ]
+       include_dirs += [ "//foundation/arkui/ace_engine/adapter/macos/entrance" ]
++    } else if (current_os == "linux") {
++      # Linux/Wayland port: reuse the iOS window shim code path (IOS_PLATFORM);
++      # entrance headers (virtual_rs_window.h) come from the linux adapter.
++      defines += [ "IOS_PLATFORM" ]
++      include_dirs += [ "//foundation/arkui/ace_engine/adapter/linux/entrance" ]
+     }
+ 
+     sources = [
+diff --git a/window_manager/wm/BUILD.gn b/window_manager/wm/BUILD.gn
+index 201eb54..52e9e8e 100644
+--- a/window_manager/wm/BUILD.gn
++++ b/window_manager/wm/BUILD.gn
+@@ -85,6 +85,16 @@ template("window_manager") {
+       deps += [
+         "//foundation/arkui/ace_engine/adapter/macos/entrance:ace_macos_entrance",
+       ]
++    } else if (current_os == "linux") {
++      # Linux/Wayland port: reuse the iOS window shim code path. IOS_PLATFORM
++      # selects the windowView Init() in window_stage.{h,cpp} (avoids the
++      # Android jni.h/jobject path); entrance code/headers come from the
++      # linux adapter (ace_linux_entrance).
++      defines += [ "IOS_PLATFORM" ]
++      include_dirs += [ "//foundation/arkui/ace_engine/adapter/linux/entrance" ]
++      deps += [
++        "//foundation/arkui/ace_engine/adapter/linux/entrance:ace_linux_entrance",
++      ]
+     }
+ 
+     deps += [

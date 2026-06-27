@@ -377,7 +377,7 @@ index 2ab5b13..918771f 100644
      "image_framework:pixelmap",
      "napi:ace_napi",
 diff --git a/frameworks/proxy/BUILD.gn b/frameworks/proxy/BUILD.gn
-index 4926332..7b3090f 100644
+index 4926332..c5896e6 100644
 --- a/frameworks/proxy/BUILD.gn
 +++ b/frameworks/proxy/BUILD.gn
 @@ -77,11 +77,11 @@ ohos_source_set("libmmi-common") {
@@ -395,7 +395,23 @@ index 4926332..7b3090f 100644
    ]
  
    part_name = "input"
-@@ -174,20 +174,20 @@ ohos_shared_library("libmmi-client") {
+@@ -98,6 +98,15 @@ if (is_arkui_x) {
+       "${c_utils_root}/base/include",
+       "${mmi_path}/frameworks/proxy/events/include",
+     ]
++    if (target_os == "linux") {
++      # Linux/Wayland native port: no foundation/communication/ipc repo, so
++      # pixel_map.h -> pixel_map_parcel.h -> "message_parcel.h" (reached via
++      # pointer_style.cpp) is unresolved. Add the cross-platform mock; c_utils
++      # above is searched first so the real parcel.h still wins.
++      include_dirs += [
++        "//foundation/multimedia/image_framework/mock/native/include",
++      ]
++    }
+ 
+     if (input_feature_upgrade_skia) {
+       defines += [ "USE_M133_SKIA" ]
+@@ -174,20 +183,20 @@ ohos_shared_library("libmmi-client") {
    external_deps = [
      "cJSON:cjson",
      "c_utils:utils",
@@ -423,7 +439,7 @@ index 4926332..7b3090f 100644
    }
  
    if (is_ohos && is_clang && target_cpu == "arm64" && defined(build_ext_path)) {
-@@ -199,7 +199,7 @@ ohos_shared_library("libmmi-client") {
+@@ -199,7 +208,7 @@ ohos_shared_library("libmmi-client") {
    }
  
    if (hitrace_enabled) {
@@ -432,7 +448,7 @@ index 4926332..7b3090f 100644
    }
  }
  
-@@ -225,11 +225,11 @@ ohos_unittest("ut-mmi-proxy-out") {
+@@ -225,11 +234,11 @@ ohos_unittest("ut-mmi-proxy-out") {
    ]
    external_deps = [
      "c_utils:utils",
@@ -446,7 +462,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -259,18 +259,18 @@ ohos_unittest("KeyEventTest") {
+@@ -259,18 +268,18 @@ ohos_unittest("KeyEventTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -473,7 +489,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -308,37 +308,37 @@ ohos_unittest("InputHandlerManagerTest") {
+@@ -308,37 +317,37 @@ ohos_unittest("InputHandlerManagerTest") {
    ]
  
    external_deps = [
@@ -530,7 +546,7 @@ index 4926332..7b3090f 100644
    }
  
    if (call_manager_service_enabled) {
-@@ -395,22 +395,22 @@ ohos_unittest("SwitchEventInputSubscribeManagerTest") {
+@@ -395,22 +404,22 @@ ohos_unittest("SwitchEventInputSubscribeManagerTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -564,7 +580,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -470,19 +470,19 @@ ohos_unittest("InputMonitorManagerTest") {
+@@ -470,19 +479,19 @@ ohos_unittest("InputMonitorManagerTest") {
    ]
  
    external_deps = [
@@ -594,7 +610,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -544,24 +544,24 @@ ohos_unittest("InputManagerImplTest") {
+@@ -544,24 +553,24 @@ ohos_unittest("InputManagerImplTest") {
    ]
  
    external_deps = [
@@ -629,7 +645,7 @@ index 4926332..7b3090f 100644
    }
  }
  
-@@ -609,22 +609,22 @@ ohos_unittest("InputManagerTest") {
+@@ -609,22 +618,22 @@ ohos_unittest("InputManagerTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -662,7 +678,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -653,9 +653,9 @@ ohos_unittest("LongPressEventSubscribeManagerTest") {
+@@ -653,9 +662,9 @@ ohos_unittest("LongPressEventSubscribeManagerTest") {
    ]
  
    external_deps = [
@@ -674,7 +690,7 @@ index 4926332..7b3090f 100644
      "hilog:libhilog",
    ]
  }
-@@ -686,8 +686,8 @@ ohos_unittest("InputDeviceImplTest") {
+@@ -686,8 +695,8 @@ ohos_unittest("InputDeviceImplTest") {
    ]
  
    external_deps = [
@@ -685,7 +701,7 @@ index 4926332..7b3090f 100644
      "hilog:libhilog",
    ]
  }
-@@ -717,19 +717,19 @@ ohos_unittest("PointerEventTest") {
+@@ -717,19 +726,19 @@ ohos_unittest("PointerEventTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -713,7 +729,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -756,19 +756,19 @@ ohos_unittest("PointerEventExTest") {
+@@ -756,19 +765,19 @@ ohos_unittest("PointerEventExTest") {
    ]
  
    external_deps = [
@@ -741,7 +757,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -796,19 +796,19 @@ ohos_unittest("PointerStyleTest") {
+@@ -796,19 +805,19 @@ ohos_unittest("PointerStyleTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -769,7 +785,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -873,21 +873,21 @@ ohos_unittest("KeyEventHookHandlerTest") {
+@@ -873,21 +882,21 @@ ohos_unittest("KeyEventHookHandlerTest") {
    ]
  
    external_deps = [
@@ -801,7 +817,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -935,16 +935,16 @@ ohos_unittest("PointerEventNdkTest") {
+@@ -935,16 +944,16 @@ ohos_unittest("PointerEventNdkTest") {
    ]
  
    external_deps = [
@@ -824,7 +840,7 @@ index 4926332..7b3090f 100644
      "image_framework:image_native",
      "image_framework:pixelmap",
      "napi:ace_napi",
-@@ -988,20 +988,20 @@ ohos_unittest("InputManagerInjectTest") {
+@@ -988,20 +997,20 @@ ohos_unittest("InputManagerInjectTest") {
    ]
  
    external_deps = [
@@ -854,7 +870,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -1020,15 +1020,15 @@ ohos_unittest("InputManagerManualTest") {
+@@ -1020,15 +1029,15 @@ ohos_unittest("InputManagerManualTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -875,7 +891,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -1047,15 +1047,15 @@ ohos_unittest("InputManagerFilterManualTest") {
+@@ -1047,15 +1056,15 @@ ohos_unittest("InputManagerFilterManualTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -896,7 +912,7 @@ index 4926332..7b3090f 100644
    ]
  }
  
-@@ -1085,9 +1085,9 @@ ohos_unittest("KeyEventInputSubscribeManagerTest") {
+@@ -1085,9 +1094,9 @@ ohos_unittest("KeyEventInputSubscribeManagerTest") {
    ]
  
    external_deps = [

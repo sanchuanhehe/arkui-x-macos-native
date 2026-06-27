@@ -1,8 +1,30 @@
 diff --git a/frameworks/innerkitsimpl/accessor/BUILD.gn b/frameworks/innerkitsimpl/accessor/BUILD.gn
-index 8094083..a1054f4 100644
+index 8094083..b006e81 100644
 --- a/frameworks/innerkitsimpl/accessor/BUILD.gn
 +++ b/frameworks/innerkitsimpl/accessor/BUILD.gn
-@@ -104,9 +104,9 @@ ohos_shared_library("image_accessor") {
+@@ -75,6 +75,21 @@ ohos_shared_library("image_accessor") {
+       "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmp_metadata_accessor_factory.cpp",
+       "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmpsdk_xmp_metadata_accessor.cpp",
+   ]
++
++  if (current_os == "linux") {
++    # [linux-port] xmp_toolkit_sdk headers (XMP_Environment.h / XMP_Const.h /
++    # public/include/XMP.hpp) are unavailable and the xmp_toolkit_sdk:xmpsdk dep
++    # was gated out; drop the matching XMP accessor sources.
++    sources -= [
++      "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmp_buffer_io.cpp",
++      "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmp_fd_io.cpp",
++      "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmp_helper.cpp",
++      "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmp_metadata.cpp",
++      "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmp_metadata_accessor.cpp",
++      "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmp_metadata_accessor_factory.cpp",
++      "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/xmp/xmpsdk_xmp_metadata_accessor.cpp",
++    ]
++  }
+   
+   cflags = [
+     "-DIMAGE_COLORSPACE_FLAG",
+@@ -104,9 +119,9 @@ ohos_shared_library("image_accessor") {
      "libexif:libexif",
      "zlib:libz",
      "skia:dng_sdk",
@@ -15,7 +37,7 @@ index 8094083..a1054f4 100644
  
    if (has_libtiff) {
 diff --git a/frameworks/innerkitsimpl/egl_image/BUILD.gn b/frameworks/innerkitsimpl/egl_image/BUILD.gn
-index 1298e9f..80f8a0d 100644
+index 1298e9f..336d10c 100644
 --- a/frameworks/innerkitsimpl/egl_image/BUILD.gn
 +++ b/frameworks/innerkitsimpl/egl_image/BUILD.gn
 @@ -51,11 +51,11 @@ ohos_shared_library("egl_image") {
@@ -34,7 +56,25 @@ index 1298e9f..80f8a0d 100644
      "skia:skia_canvaskit",
      "egl:libEGL",
      "opengles:libGLES",
-@@ -92,15 +92,15 @@ if (!use_clang_ios && !use_clang_android) {
+@@ -80,7 +80,17 @@ if (!use_clang_ios && !use_clang_android) {
+       "../../../interfaces/innerkits/include",
+       "../../../interfaces/utils/include",
+       "../utils/include",
++      # [linux-port] lean mock hitrace_meter.h for image_trace.cpp after the real
++      # hitrace:hitrace_meter dep was gated out.
++      "//foundation/multimedia/image_framework/mock/native/include/log",
+     ]
++    if (current_os == "linux") {
++      # Linux/Wayland port: surface_buffer.h from graphic_surface headers
++      # (graphic_surface:surface external_dep auto-gated off for arkui-x).
++      include_dirs += [
++        "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++      ]
++    }
+     sources = [
+       "../utils/src/image_trace.cpp",
+       "src/pixel_map_gl_context.cpp",
+@@ -92,15 +102,15 @@ if (!use_clang_ios && !use_clang_android) {
        defines = [ "USE_M133_SKIA" ]
      }
      external_deps = [
@@ -68,10 +108,18 @@ index f1181a4..7e046be 100644
          "hilog:libhilog",
          "skia:skia_canvaskit",
 diff --git a/frameworks/innerkitsimpl/utils/BUILD.gn b/frameworks/innerkitsimpl/utils/BUILD.gn
-index 71a4a0a..877d597 100644
+index 71a4a0a..9353415 100644
 --- a/frameworks/innerkitsimpl/utils/BUILD.gn
 +++ b/frameworks/innerkitsimpl/utils/BUILD.gn
-@@ -48,7 +48,7 @@ if (use_clang_ios) {
+@@ -21,7 +21,6 @@ if (use_clang_ios) {
+       "//foundation/multimedia/utils/include",
+       "//foundation/multimedia/image_framework/plugins/manager/include",
+       "//foundation/multimedia/image_framework/interfaces/innerkits/include",
+-      "//commonlibrary/c_utils/base/include",
+       "//foundation/multimedia/media_utils_lite/interfaces/kits",
+       "//foundation/communication/ipc/utils/include",
+       "${image_subsystem}/frameworks/innerkitsimpl/common/include",
+@@ -48,7 +47,7 @@ if (use_clang_ios) {
        "//foundation/multimedia/image_framework/mock/native:log_mock_static",
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
      ]
@@ -80,7 +128,7 @@ index 71a4a0a..877d597 100644
      if (defined(global_parts_info) &&
          defined(global_parts_info.open_source_libyuv)) {
        defines += [ "EXT_PIXEL" ]
-@@ -91,7 +91,7 @@ if (use_clang_ios) {
+@@ -91,7 +90,7 @@ if (use_clang_ios) {
      ]
  
      external_deps = [ 
@@ -89,7 +137,7 @@ index 71a4a0a..877d597 100644
      ]
      if (use_mingw_win) {
        defines = image_decode_windows_defines
-@@ -103,7 +103,7 @@ if (use_clang_ios) {
+@@ -103,7 +102,7 @@ if (use_clang_ios) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        ]
@@ -98,7 +146,7 @@ index 71a4a0a..877d597 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        include_dirs += [ "//third_party/ffmpeg" ]
-@@ -117,7 +117,7 @@ if (use_clang_ios) {
+@@ -117,7 +116,7 @@ if (use_clang_ios) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_static",
        ]
@@ -107,7 +155,7 @@ index 71a4a0a..877d597 100644
      } else if (use_clang_android) {
        defines = image_decode_android_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -132,7 +132,7 @@ if (use_clang_ios) {
+@@ -132,10 +131,28 @@ if (use_clang_ios) {
        ]
        sources += [ "src/image_dfx.cpp" ]
        sources += [ "src/image_data_statistics.cpp" ]
@@ -116,7 +164,28 @@ index 71a4a0a..877d597 100644
      } else {
        defines = [ "DUAL_ADAPTER" ]
  
-@@ -148,22 +148,22 @@ if (use_clang_ios) {
++      # Linux/Wayland native port: this OHOS-shared else-branch also catches the
++      # linux client, which has no foundation/communication/ipc repo, so
++      # pixel_map.h -> pixel_map_parcel.h -> "message_parcel.h" (pulled by
++      # hispeed_image_manager.cpp) is unresolved. Add the cross-platform mock.
++      # c_utils is listed first so the real parcel.h wins over the mock's parcel.h.
++      if (target_os == "linux") {
++        # CROSS_PLATFORM mirrors the android/ios/mac branches so the HDI
++        # v1_0/cm_color_space + surface gates in color_utils.h / vpe_utils.h are
++        # compiled out (no arkui-x linux equivalent). The mock log dir supplies the
++        # lean hitrace_meter.h (real hitrace:hitrace_meter dep gated out for linux).
++        defines += [ "CROSS_PLATFORM" ]
++        include_dirs += [
++          "//foundation/multimedia/image_framework/mock/native/include",
++          "//foundation/multimedia/image_framework/mock/native/include/log",
++          "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++        ]
++      }
++
+       deps = [
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
+       ]
+@@ -148,22 +165,22 @@ if (use_clang_ios) {
          "src/hispeed_image_manager.cpp",
        ]
        external_deps += [
@@ -151,7 +220,7 @@ index 71a4a0a..877d597 100644
          "json:nlohmann_json_static",
        ]
        if (defined(global_parts_info) &&
-@@ -175,7 +175,7 @@ if (use_clang_ios) {
+@@ -175,7 +192,7 @@ if (use_clang_ios) {
        }
  
        if (is_standard_system) {
@@ -160,7 +229,7 @@ index 71a4a0a..877d597 100644
        } else {
          external_deps += [ "startup:syspara" ]
        }
-@@ -235,7 +235,7 @@ ohos_static_library("image_utils_static") {
+@@ -235,7 +252,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/mock/native:log_mock_static",
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
      ]
@@ -169,7 +238,7 @@ index 71a4a0a..877d597 100644
    } else if (use_clang_mac) {
      defines = image_decode_mac_defines
      include_dirs += [ "//third_party/ffmpeg" ]
-@@ -248,7 +248,7 @@ ohos_static_library("image_utils_static") {
+@@ -248,7 +265,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        "//third_party/bounds_checking_function:libsec_static",
      ]
@@ -178,7 +247,7 @@ index 71a4a0a..877d597 100644
    } else if (use_clang_ios) {
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -270,7 +270,7 @@ ohos_static_library("image_utils_static") {
+@@ -270,7 +287,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -187,7 +256,7 @@ index 71a4a0a..877d597 100644
    } else if (use_clang_android) {
      defines = image_decode_android_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -292,7 +292,7 @@ ohos_static_library("image_utils_static") {
+@@ -292,7 +309,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -196,7 +265,7 @@ index 71a4a0a..877d597 100644
    } else {
      sources += [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
      sources += [
-@@ -308,18 +308,18 @@ ohos_static_library("image_utils_static") {
+@@ -308,18 +325,18 @@ ohos_static_library("image_utils_static") {
  
      external_deps = [
        "c_utils:utils",
@@ -221,6 +290,396 @@ index 71a4a0a..877d597 100644
      } else {
        external_deps += [ "startup:syspara" ]
      }
+diff --git a/frameworks/innerkitsimpl/utils/include/color_utils.h b/frameworks/innerkitsimpl/utils/include/color_utils.h
+index e7efb34..e445945 100644
+--- a/frameworks/innerkitsimpl/utils/include/color_utils.h
++++ b/frameworks/innerkitsimpl/utils/include/color_utils.h
+@@ -1,57 +1,57 @@
+-/*
+- * Copyright (C) 2024 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#ifndef FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_COLOR_UTILS_H
+-#define FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_COLOR_UTILS_H
+-
+-#include <cstdlib>
+-#include <cstdio>
+-#include <string>
+-#include "image_type.h"
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
+-#include "v1_0/cm_color_space.h"
+-#endif
+-
+-namespace OHOS {
+-namespace Media {
+-
+-class ColorUtils {
+-public:
+-    template <typename T>
+-    static ColorManager::ColorSpaceName CicpToColorSpace(T primaries, T transfer,
+-        T matrix, uint8_t range);
+-    template <typename T>
+-    static void ColorSpaceGetCicp(ColorManager::ColorSpaceName name, T& primaries, T& transfer,
+-        T& matrix, uint8_t& range);
+-    static uint16_t GetPrimaries(ColorManager::ColorSpaceName name);
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
+-    static HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType ConvertToCMColor(ColorManager::ColorSpaceName name);
+-    static std::map<ColorManager::ColorSpaceName,
+-        OHOS::HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceInfo> COLORSPACE_NAME_TO_COLORINFO_MAP;
+-    static HDI::Display::Graphic::Common::V1_0::CM_ColorPrimaries ConvertCicpToCMColor(uint16_t name);
+-    static uint16_t ConvertCMColorToCicp(uint16_t name);
+-
+-    static bool GetColorSpaceName(const skcms_ICCProfile* profile, OHOS::ColorManager::ColorSpaceName &name);
+-    static bool MatchColorSpaceName(const uint8_t* buf, uint32_t size, OHOS::ColorManager::ColorSpaceName &name);
+-    static OHOS::ColorManager::ColorSpaceName GetSrcColorSpace(const skcms_ICCProfile* profile);
+-    static bool MatchColorSpaceByPrimariesAndGamma(const skcms_ICCProfile* profile,
+-        OHOS::ColorManager::ColorSpaceName &name);
+-
+-
+-#endif
+-};
+-} // namespace Media
+-} // namespace OHOS
++/*
++ * Copyright (C) 2024 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_COLOR_UTILS_H
++#define FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_COLOR_UTILS_H
++
++#include <cstdlib>
++#include <cstdio>
++#include <string>
++#include "image_type.h"
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
++#include "v1_0/cm_color_space.h"
++#endif
++
++namespace OHOS {
++namespace Media {
++
++class ColorUtils {
++public:
++    template <typename T>
++    static ColorManager::ColorSpaceName CicpToColorSpace(T primaries, T transfer,
++        T matrix, uint8_t range);
++    template <typename T>
++    static void ColorSpaceGetCicp(ColorManager::ColorSpaceName name, T& primaries, T& transfer,
++        T& matrix, uint8_t& range);
++    static uint16_t GetPrimaries(ColorManager::ColorSpaceName name);
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
++    static HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType ConvertToCMColor(ColorManager::ColorSpaceName name);
++    static std::map<ColorManager::ColorSpaceName,
++        OHOS::HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceInfo> COLORSPACE_NAME_TO_COLORINFO_MAP;
++    static HDI::Display::Graphic::Common::V1_0::CM_ColorPrimaries ConvertCicpToCMColor(uint16_t name);
++    static uint16_t ConvertCMColorToCicp(uint16_t name);
++
++    static bool GetColorSpaceName(const skcms_ICCProfile* profile, OHOS::ColorManager::ColorSpaceName &name);
++    static bool MatchColorSpaceName(const uint8_t* buf, uint32_t size, OHOS::ColorManager::ColorSpaceName &name);
++    static OHOS::ColorManager::ColorSpaceName GetSrcColorSpace(const skcms_ICCProfile* profile);
++    static bool MatchColorSpaceByPrimariesAndGamma(const skcms_ICCProfile* profile,
++        OHOS::ColorManager::ColorSpaceName &name);
++
++
++#endif
++};
++} // namespace Media
++} // namespace OHOS
+ #endif // FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_COLOR_UTILS_H
+\ No newline at end of file
+diff --git a/frameworks/innerkitsimpl/utils/include/vpe_utils.h b/frameworks/innerkitsimpl/utils/include/vpe_utils.h
+index 28904e3..07444b3 100644
+--- a/frameworks/innerkitsimpl/utils/include/vpe_utils.h
++++ b/frameworks/innerkitsimpl/utils/include/vpe_utils.h
+@@ -1,133 +1,133 @@
+-/*
+- * Copyright (C) 2024 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#ifndef FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_VPE_UTILS_H
+-#define FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_VPE_UTILS_H
+-
+-#include <mutex>
+-#include <string>
+-#include <sstream>
+-#include <dlfcn.h>
+-
+-#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
+-#include "v1_0/cm_color_space.h"
+-#include "v1_0/hdr_static_metadata.h"
+-#include "surface_buffer.h"
+-#endif
+-
+-#include "hdr_type.h"
+-
+-namespace OHOS {
+-namespace Media {
+-constexpr int32_t VPE_ERROR_FAILED = -1;
+-constexpr int32_t VPE_ERROR_OK = 0;
+-
+-#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
+-struct VpeSurfaceBuffers {
+-    sptr<SurfaceBuffer> sdr;
+-    sptr<SurfaceBuffer> gainmap;
+-    sptr<SurfaceBuffer> hdr;
+-};
+-#endif
+-
+-struct SurfaceBufferInfo {
+-    int32_t width = 0;
+-    int32_t height = 0;
+-    int32_t stride = 0;
+-    uint8_t *buffer = nullptr;
+-    uint32_t bufferSize = 0;
+-    // set param if buffer is yuv format
+-    uint32_t yStride = 0;
+-    uint32_t uvStride = 0;
+-    uint32_t yOffset = 0;
+-    uint32_t uvOffset = 0;
+-
+-    std::string ToString() const
+-    {
+-        std::stringstream message;
+-        message << " width: " << width << ", height: " << height << ", stride: " << stride <<
+-        ", bufferSize: " << bufferSize << ", yStride: " << yStride << ", uvStride: " << uvStride <<
+-        ", yOffset: " << yOffset << ", uvOffset: " << uvOffset;
+-        return message.str();
+-    }
+-};
+-
+-class VpeSoHelper {
+-public:
+-    VpeSoHelper()
+-    {
+-        handle_ = dlopen("libvideoprocessingengine.z.so", RTLD_LAZY);
+-    }
+-
+-    ~VpeSoHelper()
+-    {
+-        if (handle_ != nullptr) {
+-            dlclose(handle_);
+-            handle_ = nullptr;
+-        }
+-    }
+-
+-    void* GetSoHandle()
+-    {
+-        return handle_;
+-    }
+-private:
+-    void* handle_;
+-};
+-
+-class VpeUtils {
+-public:
+-    VpeUtils();
+-    ~VpeUtils();
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
+-    int32_t ColorSpaceConverterComposeImage(VpeSurfaceBuffers& sb, bool legacy);
+-    int32_t ColorSpaceConverterDecomposeImage(VpeSurfaceBuffers& sb);
+-    int32_t ColorSpaceCalGainmap(VpeSurfaceBuffers& sb);
+-    int32_t ColorSpaceConverterImageProcess(sptr<SurfaceBuffer>& input, sptr<SurfaceBuffer>& output);
+-    int32_t DetailEnhancerImageProcess(sptr<SurfaceBuffer>& input, sptr<SurfaceBuffer>& output, int32_t level);
+-    int32_t TruncateBuffer(VpeSurfaceBuffers& sb, bool shouldCalDiff = false);
+-    static bool GetColorSpaceInfo(const sptr<SurfaceBuffer>& buffer,
+-        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceInfo& colorSpaceInfo);
+-    static bool SetSbColorSpaceType(sptr<SurfaceBuffer>& buffer,
+-        const HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType& colorSpaceType);
+-    static bool GetSbColorSpaceType(const sptr<SurfaceBuffer>& buffer,
+-        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType& colorSpaceType);
+-    static bool SetSbMetadataType(sptr<SurfaceBuffer>& buffer,
+-        const HDI::Display::Graphic::Common::V1_0::CM_HDR_Metadata_Type& metadataType);
+-    static bool GetSbMetadataType(const sptr<SurfaceBuffer>& buffer,
+-        HDI::Display::Graphic::Common::V1_0::CM_HDR_Metadata_Type& metadataType);
+-    static bool SetSbDynamicMetadata(sptr<SurfaceBuffer>& buffer, const std::vector<uint8_t>& dynamicMetadata);
+-    static bool GetSbDynamicMetadata(const sptr<SurfaceBuffer>& buffer, std::vector<uint8_t>& dynamicMetadata);
+-    static bool SetSbStaticMetadata(sptr<SurfaceBuffer>& buffer, const std::vector<uint8_t>& staticMetadata);
+-    static bool GetSbStaticMetadata(const sptr<SurfaceBuffer>& buffer, std::vector<uint8_t>& staticMetadata);
+-    static void SetSurfaceBufferInfo(sptr<SurfaceBuffer>& buffer, bool isGainmap, ImageHdrType type,
+-        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType color, HdrMetadata& metadata);
+-    static void SetSurfaceBufferInfo(sptr<SurfaceBuffer>& buffer,
+-        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType color);
+-    static bool SetSbColorSpaceDefault(sptr<SurfaceBuffer>& buffer);
+-    static void CopySurfaceBufferInfo(sptr<SurfaceBuffer>& source, sptr<SurfaceBuffer>& dst);
+-#endif
+-private:
+-    int32_t ColorSpaceConverterCreate(void* handle, int32_t* instanceId);
+-    int32_t ColorSpaceConverterDestory(void* handle, int32_t* instanceId);
+-    int32_t DetailEnhancerCreate(void* handle, int32_t* instanceId);
+-    int32_t DetailEnhancerDestory(void* handle, int32_t* instanceId);
+-    std::mutex vpeMtx_;
+-    static std::unique_ptr<VpeSoHelper> dlHandler_;
+-};
+-} // namespace Media
+-} // namespace OHOS
+-
++/*
++ * Copyright (C) 2024 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_VPE_UTILS_H
++#define FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_VPE_UTILS_H
++
++#include <mutex>
++#include <string>
++#include <sstream>
++#include <dlfcn.h>
++
++#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
++#include "v1_0/cm_color_space.h"
++#include "v1_0/hdr_static_metadata.h"
++#include "surface_buffer.h"
++#endif
++
++#include "hdr_type.h"
++
++namespace OHOS {
++namespace Media {
++constexpr int32_t VPE_ERROR_FAILED = -1;
++constexpr int32_t VPE_ERROR_OK = 0;
++
++#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
++struct VpeSurfaceBuffers {
++    sptr<SurfaceBuffer> sdr;
++    sptr<SurfaceBuffer> gainmap;
++    sptr<SurfaceBuffer> hdr;
++};
++#endif
++
++struct SurfaceBufferInfo {
++    int32_t width = 0;
++    int32_t height = 0;
++    int32_t stride = 0;
++    uint8_t *buffer = nullptr;
++    uint32_t bufferSize = 0;
++    // set param if buffer is yuv format
++    uint32_t yStride = 0;
++    uint32_t uvStride = 0;
++    uint32_t yOffset = 0;
++    uint32_t uvOffset = 0;
++
++    std::string ToString() const
++    {
++        std::stringstream message;
++        message << " width: " << width << ", height: " << height << ", stride: " << stride <<
++        ", bufferSize: " << bufferSize << ", yStride: " << yStride << ", uvStride: " << uvStride <<
++        ", yOffset: " << yOffset << ", uvOffset: " << uvOffset;
++        return message.str();
++    }
++};
++
++class VpeSoHelper {
++public:
++    VpeSoHelper()
++    {
++        handle_ = dlopen("libvideoprocessingengine.z.so", RTLD_LAZY);
++    }
++
++    ~VpeSoHelper()
++    {
++        if (handle_ != nullptr) {
++            dlclose(handle_);
++            handle_ = nullptr;
++        }
++    }
++
++    void* GetSoHandle()
++    {
++        return handle_;
++    }
++private:
++    void* handle_;
++};
++
++class VpeUtils {
++public:
++    VpeUtils();
++    ~VpeUtils();
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
++    int32_t ColorSpaceConverterComposeImage(VpeSurfaceBuffers& sb, bool legacy);
++    int32_t ColorSpaceConverterDecomposeImage(VpeSurfaceBuffers& sb);
++    int32_t ColorSpaceCalGainmap(VpeSurfaceBuffers& sb);
++    int32_t ColorSpaceConverterImageProcess(sptr<SurfaceBuffer>& input, sptr<SurfaceBuffer>& output);
++    int32_t DetailEnhancerImageProcess(sptr<SurfaceBuffer>& input, sptr<SurfaceBuffer>& output, int32_t level);
++    int32_t TruncateBuffer(VpeSurfaceBuffers& sb, bool shouldCalDiff = false);
++    static bool GetColorSpaceInfo(const sptr<SurfaceBuffer>& buffer,
++        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceInfo& colorSpaceInfo);
++    static bool SetSbColorSpaceType(sptr<SurfaceBuffer>& buffer,
++        const HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType& colorSpaceType);
++    static bool GetSbColorSpaceType(const sptr<SurfaceBuffer>& buffer,
++        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType& colorSpaceType);
++    static bool SetSbMetadataType(sptr<SurfaceBuffer>& buffer,
++        const HDI::Display::Graphic::Common::V1_0::CM_HDR_Metadata_Type& metadataType);
++    static bool GetSbMetadataType(const sptr<SurfaceBuffer>& buffer,
++        HDI::Display::Graphic::Common::V1_0::CM_HDR_Metadata_Type& metadataType);
++    static bool SetSbDynamicMetadata(sptr<SurfaceBuffer>& buffer, const std::vector<uint8_t>& dynamicMetadata);
++    static bool GetSbDynamicMetadata(const sptr<SurfaceBuffer>& buffer, std::vector<uint8_t>& dynamicMetadata);
++    static bool SetSbStaticMetadata(sptr<SurfaceBuffer>& buffer, const std::vector<uint8_t>& staticMetadata);
++    static bool GetSbStaticMetadata(const sptr<SurfaceBuffer>& buffer, std::vector<uint8_t>& staticMetadata);
++    static void SetSurfaceBufferInfo(sptr<SurfaceBuffer>& buffer, bool isGainmap, ImageHdrType type,
++        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType color, HdrMetadata& metadata);
++    static void SetSurfaceBufferInfo(sptr<SurfaceBuffer>& buffer,
++        HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType color);
++    static bool SetSbColorSpaceDefault(sptr<SurfaceBuffer>& buffer);
++    static void CopySurfaceBufferInfo(sptr<SurfaceBuffer>& source, sptr<SurfaceBuffer>& dst);
++#endif
++private:
++    int32_t ColorSpaceConverterCreate(void* handle, int32_t* instanceId);
++    int32_t ColorSpaceConverterDestory(void* handle, int32_t* instanceId);
++    int32_t DetailEnhancerCreate(void* handle, int32_t* instanceId);
++    int32_t DetailEnhancerDestory(void* handle, int32_t* instanceId);
++    std::mutex vpeMtx_;
++    static std::unique_ptr<VpeSoHelper> dlHandler_;
++};
++} // namespace Media
++} // namespace OHOS
++
+ #endif // FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_VPE_UTILS_H
+\ No newline at end of file
 diff --git a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn b/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
 index 47c0ecc..e092124 100644
 --- a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
@@ -287,10 +746,53 @@ index 7ee671c..3bb9de9 100644
      "runtime_core:ani_helpers",
      "egl:libEGL",
 diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
-index b6ee377..d775053 100644
+index b6ee377..a266ffa 100644
 --- a/interfaces/innerkits/BUILD.gn
 +++ b/interfaces/innerkits/BUILD.gn
-@@ -108,7 +108,7 @@ if (use_clang_android) {
+@@ -55,7 +55,6 @@ config("image_external_config") {
+   if (is_arkui_x) {
+     include_dirs += [
+       "//foundation/graphic/graphic_2d/utils/color_manager/export",
+-      "//commonlibrary/c_utils/base/include",
+       "$third_party_skia_root",
+     ]
+     if (image_use_new_skia) {
+@@ -63,6 +62,14 @@ config("image_external_config") {
+     }
+   }
+ 
++  if (current_os == "linux") {
++    # Linux/Wayland port: surface_buffer.h from graphic_surface headers
++    # (graphic_surface:surface external_dep auto-gated off for arkui-x).
++    include_dirs += [
++      "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++    ]
++  }
++
+   if (use_mingw_win) {
+     include_dirs +=
+         [ "//foundation/multimedia/image_framework/mock/native/include" ]
+@@ -70,7 +77,18 @@ config("image_external_config") {
+     include_dirs += [
+       "//foundation/multimedia/image_framework/mock/native/include",
+       "//third_party/bounds_checking_function/include",
+-      "//commonlibrary/c_utils/base/include",
++      "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
++    ]
++  } else if (target_os == "linux") {
++    # Linux/Wayland native port: there is no foundation/communication/ipc repo
++    # (which supplies message_parcel.h to iOS/mac via image_native_ios_include_dirs).
++    # pixel_map.h -> pixel_map_parcel.h -> "message_parcel.h" then fails to resolve.
++    # Mirror the use_clang_mac branch and add the cross-platform mock include. The
++    # is_arkui_x block above already adds the real c_utils first, so "parcel.h"
++    # resolves to c_utils and only message_parcel.h is taken from the mock dir.
++    include_dirs += [
++      "//foundation/multimedia/image_framework/mock/native/include",
++      "//third_party/bounds_checking_function/include",
+       "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
+     ]
+   }
+@@ -108,7 +126,7 @@ if (use_clang_android) {
      sources = image_native_android_sources
      include_dirs = image_native_android_include_dirs
      deps = image_native_android_deps
@@ -299,7 +801,7 @@ index b6ee377..d775053 100644
      subsystem_name = "multimedia"
      part_name = "image_framework"
    }
-@@ -128,7 +128,7 @@ if (use_clang_android) {
+@@ -128,7 +146,7 @@ if (use_clang_android) {
      include_dirs = image_native_ios_include_dirs
      sources = image_native_ios_sources
      deps = image_native_ios_deps
@@ -308,7 +810,7 @@ index b6ee377..d775053 100644
      external_deps = image_native_ios_external_deps
      subsystem_name = "multimedia"
      part_name = "image_framework"
-@@ -216,9 +216,9 @@ if (use_clang_android) {
+@@ -216,9 +234,9 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils:image_utils_static",
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
@@ -320,7 +822,7 @@ index b6ee377..d775053 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -235,9 +235,9 @@ if (use_clang_android) {
+@@ -235,9 +253,9 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_statics",
@@ -332,7 +834,7 @@ index b6ee377..d775053 100644
      } else {
        defines = [ "DUAL_ADAPTER" ]
        DUAL_ADAPTER = true
-@@ -255,30 +255,30 @@ if (use_clang_android) {
+@@ -255,30 +273,30 @@ if (use_clang_android) {
          deps += [ "//third_party/libpng:libpng" ]
        }
        external_deps = [
@@ -374,7 +876,7 @@ index b6ee377..d775053 100644
          "skia:skia_canvaskit",
        ]
        if (enable_libexif) {
-@@ -434,7 +434,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -434,7 +452,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        ]
@@ -383,7 +885,7 @@ index b6ee377..d775053 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -453,8 +453,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -453,8 +471,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_static",
        ]
@@ -394,7 +896,7 @@ index b6ee377..d775053 100644
      } else if (use_clang_ios) {
        defines = image_decode_ios_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -510,11 +510,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -510,11 +528,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
        }
        external_deps = [
          "c_utils:utils",
@@ -510,6 +1012,92 @@ index af8196e..a28197c 100644
          "opengles:libGLES",
        ]
  
+diff --git a/mock/native/include/log/hitrace_meter.h b/mock/native/include/log/hitrace_meter.h
+index 02b08e5..4282c10 100644
+--- a/mock/native/include/log/hitrace_meter.h
++++ b/mock/native/include/log/hitrace_meter.h
+@@ -1,40 +1,41 @@
+-/*
+- * Copyright (C) 2022 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#ifndef MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
+-#define MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
+-
+-#include <string>
+-
+-namespace OHOS {
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#define HITRACE_TAG_ZIMAGE (-1)
+-/**
+- * Track the beginning of a context.
+- */
+-void StartTrace(uint64_t label, const std::string& value, float limit = -1);
+-
+-/**
+- * Track the end of a context.
+- */
+-void FinishTrace(uint64_t label);
+-
+-#ifdef __cplusplus
+-}
+-#endif
+-#endif // MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
++/*
++ * Copyright (C) 2022 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
++#define MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
++
++#include <cstdint>
++#include <string>
++
++namespace OHOS {
++#ifdef __cplusplus
++extern "C" {
++#endif
++#define HITRACE_TAG_ZIMAGE (-1)
++/**
++ * Track the beginning of a context.
++ */
++void StartTrace(uint64_t label, const std::string& value, float limit = -1);
++
++/**
++ * Track the end of a context.
++ */
++void FinishTrace(uint64_t label);
++
++#ifdef __cplusplus
++}
++#endif
++#endif // MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
+ }
+\ No newline at end of file
 diff --git a/plugins/common/libs/image/libextplugin/BUILD.gn b/plugins/common/libs/image/libextplugin/BUILD.gn
 index 89376c5..89b8abe 100644
 --- a/plugins/common/libs/image/libextplugin/BUILD.gn

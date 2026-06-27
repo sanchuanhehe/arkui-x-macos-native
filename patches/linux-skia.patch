@@ -1,0 +1,24 @@
+diff --git a/m133/gn/skia.gni b/m133/gn/skia.gni
+index 2f1df1bc..f1b484c8 100644
+--- a/m133/gn/skia.gni
++++ b/m133/gn/skia.gni
+@@ -150,9 +150,16 @@ declare_args() {
+     skia_use_vulkan = true
+   } else {
+     skia_use_vulkan = false
+-    if (skia_feature_product == "phone" || skia_feature_product == "pc" ||
+-        skia_feature_product == "tablet" ||
+-        skia_feature_product == "wearable" || skia_feature_use_vulkan) {
++
++    # Linux/Wayland native port: the arkui-x desktop client renders via EGL/GLES
++    # (Android ROSEN_ARKUI_X client-side style), not Vulkan — the headless build has
++    # no vulkan_core.h and SK_VK_PARTIALRENDER also trips a missing <vector> include
++    # under the OHOS linux-aarch64 clang libc++. Keep skia's Vulkan backend off for
++    # linux only (mac/device unchanged).
++    if ((skia_feature_product == "phone" || skia_feature_product == "pc" ||
++         skia_feature_product == "tablet" ||
++         skia_feature_product == "wearable" || skia_feature_use_vulkan) &&
++        target_os != "linux") {
+       skia_use_vulkan = true
+       skia_vk_enable_partialrender = true
+     }

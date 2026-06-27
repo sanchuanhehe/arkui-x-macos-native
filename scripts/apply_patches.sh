@@ -57,7 +57,9 @@ case "$TARGET" in
       "commonlibrary/c_utils:c_utils"
       "foundation/distributeddatamgr/preferences:preferences"
       "foundation/filemanagement/file_api:file_api"
+      "foundation/appframework:appframework"
       "third_party/ffmpeg:ffmpeg"
+      "third_party/skia:skia"
     )
     ;;
   *)
