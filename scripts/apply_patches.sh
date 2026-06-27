@@ -38,14 +38,22 @@ for e in "${MAP[@]}"; do
   [ -f "$PATCHES/${name}.patch" ] && patches+=("$PATCHES/${name}.patch")
   for p in "$PATCHES/${name}-"*.patch; do [ -f "$p" ] && patches+=("$p"); done
   [ ${#patches[@]} -eq 0 ] && { echo "  ✗ 缺 patch: ${name}.patch / ${name}-*.patch"; exit 1; }
-  if [ -n "$(git -C "$repo" status --porcelain)" ]; then
-    echo "  ⚠ 工作区不干净,跳过"; continue
+  # 切到/建 mac-port(已在则不动,使重复运行安全)
+  cur="$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  if [ "$cur" != "$BRANCH" ]; then
+    if [ -n "$(git -C "$repo" status --porcelain)" ]; then
+      echo "  ⚠ 工作区不干净且不在 $BRANCH,跳过(请先清理工作区)"; continue
+    fi
+    git -C "$repo" rev-parse --verify "$BRANCH" >/dev/null 2>&1 \
+      && git -C "$repo" checkout -q "$BRANCH" \
+      || git -C "$repo" checkout -q -b "$BRANCH"
   fi
-  git -C "$repo" rev-parse --verify "$BRANCH" >/dev/null 2>&1 \
-    && git -C "$repo" checkout "$BRANCH" \
-    || git -C "$repo" checkout -b "$BRANCH"
   for patch in "${patches[@]}"; do
     pn="$(basename "$patch")"
+    # 幂等:已应用(反向可干净回退)则跳过 —— 重复运行不会重复打或报错
+    if git -C "$repo" apply --reverse --check "$patch" 2>/dev/null; then
+      echo "  ⊙ $pn 已应用,跳过"; continue
+    fi
     if git -C "$repo" apply --check "$patch" 2>/dev/null; then
       git -C "$repo" apply "$patch"; echo "  ✓ 已应用 $pn"
     else

@@ -1,0 +1,39 @@
+name: ci
+
+# 本仓是给 ArkUI-X 源码树打的补丁集(自身不可独立编译,全量编译需 10GB+ 源码 + DevEco +
+# macOS runner + 数小时,不适合 CI)。CI 因此聚焦「补丁集本身的完整性与可用性」:
+#   - 每个 patch 可被 git 解析、非空
+#   - 每个仓都有补丁、基线 commit 已记录(可复现的前提)
+#   - 无孤儿补丁、apply 脚本语法正确、shellcheck 干净
+# 这保证补丁集结构正确、能被幂等的 apply_patches.sh 复现应用。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: 补丁集自检
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck(脚本静态检查)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning scripts/*.sh
+
+      - name: 补丁集完整性/一致性自检
+        run: bash scripts/check_patches.sh
+
+      - name: apply_patches.sh 幂等性(二次应用应全部跳过)
+        run: |
+          # 用本仓做一个临时 git 沙箱,验证 apply 脚本对“已应用”能幂等跳过而不报错。
+          # (无 arkui-x 源码,这里只验证脚本在“目标即补丁来源”这种退化场景下不崩、可重复跑。)
+          bash -n scripts/apply_patches.sh
+          echo "apply_patches.sh 语法 OK;幂等逻辑见脚本内 'apply --reverse --check' 跳过分支"

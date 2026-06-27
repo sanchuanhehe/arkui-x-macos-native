@@ -1,5 +1,7 @@
 # ArkUI-X 原生 macOS 移植 · M1 达成
 
+[![ci](https://github.com/sanchuanhehe/arkui-x-macos-native/actions/workflows/ci.yml/badge.svg)](https://github.com/sanchuanhehe/arkui-x-macos-native/actions/workflows/ci.yml)
+
 把**完整标准 ArkUI**(声明式 ArkUI + 方舟 `ets_runtime` + skia + RenderService + napi + mmi)移植到 **macOS(Apple Silicon)原生桌面**——不依赖 iOS 模拟器、不依赖 DevEco 运行时,直接以 **AppKit** 跑起 `.ets` 页面。
 
 > **M1 ✅:用官方 `ace build bundle`(DevEco hvigor + OpenHarmony SDK)编出的标准 stage app,在原生 AppKit 窗口里真实渲染出 ArkUI 页面。**
@@ -37,10 +39,13 @@
 
 ### 1. 应用补丁
 ```bash
+scripts/check_patches.sh            # (可选)先自检补丁集完整性,不需源码
 scripts/apply_patches.sh /path/to/arkui-x
 ```
 各仓基线 commit 见 `patches/BASE_COMMITS.txt`;脚本在 **15 个仓**建 `mac-port` 分支并 `git apply`。
 每个仓应用 `<name>.patch`(单补丁),或 `<name>-*.patch`(拆分补丁集,按名排序)。**ace_engine 体量大,已拆为补丁集**:`ace_engine-1-adapter-macos`(174 文件,macOS 窗口层)、`ace_engine-2-framework`(13 文件,渲染管线 + gate)、`ace_engine-3-build`(5 文件,BUILD.gn/config)。
+
+> **幂等可复现**:`apply_patches.sh` 对每个补丁先 `git apply --reverse --check`,已应用则跳过——重复运行安全、不会重复打或报错。复现的三个锚点:① `patches/BASE_COMMITS.txt` 钉死每仓基线 commit;② 上面 `--gn-args` 钉死构建开关;③ CI(`.github/workflows/ci.yml`)每次提交校验补丁集可解析、每仓有补丁与基线、无孤儿补丁、脚本 shellcheck 干净。本地等价校验:`scripts/check_patches.sh`。
 
 ### 2. 编整框架 + 可执行
 ```bash
