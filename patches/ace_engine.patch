@@ -299,10 +299,10 @@ index 00000000000..2087ccc09db
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_MAC_APP_DELEGATE_H
 diff --git a/adapter/macos/entrance/MacAppDelegate.mm b/adapter/macos/entrance/MacAppDelegate.mm
 new file mode 100644
-index 00000000000..9d5d9d55c12
+index 00000000000..cc6a877f2c6
 --- /dev/null
 +++ b/adapter/macos/entrance/MacAppDelegate.mm
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,71 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -328,19 +328,22 @@ index 00000000000..9d5d9d55c12
 +#import "StageViewController.h"
 +
 +#define BUNDLE_DIRECTORY @"arkui-x"
-+// Phase 0 path X (M1 格-c2): the prebuilt sample asset bundle copied next to the
-+// executable (out/.../arkui-x/dynamicHap) ships these names in its module.json.
-+#define BUNDLE_NAME @"com.example.enjoyarkuix"
-+#define MODULE_NAME @"dynamicHap"
-+#define ABILITY_NAME @"DynamicHapAbility"
++// M1 格-c2: a standard (non dynamic-render) HelloWorld stage app built with
++// `ace build bundle` and copied to out/.../arkui-x/entry. A plain EntryAbility +
++// @Entry page runs in the main runtime, avoiding the dynamic-render realm issues.
++#define BUNDLE_NAME @"com.example.helloworld"
++#define MODULE_NAME @"entry"
++#define ABILITY_NAME @"EntryAbility"
 +
 +@implementation MacAppDelegate
 +
 +- (void)applicationDidFinishLaunching:(NSNotification*)notification
 +{
 +    // 1. Configure the .abc / module bundle and start AbilityRuntime.
++    fprintf(stderr, "[DBG App] step1 launchApplication begin\n");
 +    [StageApplication configModuleWithBundleDirectory:BUNDLE_DIRECTORY];
 +    [StageApplication launchApplication];
++    fprintf(stderr, "[DBG App] step1 launchApplication done\n");
 +
 +    // 2. Build the stage view controller for the sample ability.
 +    NSString* instanceName =
@@ -356,10 +359,13 @@ index 00000000000..9d5d9d55c12
 +                                             styleMask:style
 +                                               backing:NSBackingStoreBuffered
 +                                                 defer:NO];
++    fprintf(stderr, "[DBG App] step3 set contentVC + show window\n");
 +    [self.window setContentViewController:rootVC];
 +    [self.window setTitle:@"ArkUI-X (macOS)"];
 +    [self.window center];
 +    [self.window makeKeyAndOrderFront:nil];
++    [rootVC loadViewIfNeeded];
++    fprintf(stderr, "[DBG App] step3 window shown, forced loadViewIfNeeded\n");
 +}
 +
 +- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender
@@ -458,10 +464,10 @@ index 00000000000..cbb5011c9f2
 +#endif  // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_WINDOW_VIEW_H
 diff --git a/adapter/macos/entrance/WindowView.mm b/adapter/macos/entrance/WindowView.mm
 new file mode 100644
-index 00000000000..7969a97292f
+index 00000000000..7abb0b8b7bc
 --- /dev/null
 +++ b/adapter/macos/entrance/WindowView.mm
-@@ -0,0 +1,755 @@
+@@ -0,0 +1,763 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -644,15 +650,23 @@ index 00000000000..7969a97292f
 +    GLint drawFbo = 0;
 +    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFbo);
 +
-+    // Source FBO: the real render_context framebuffer once published; otherwise a
-+    // self-contained c1 test FBO (proves cross-context FBO -> blit -> screen).
-+    GLuint readFbo = self.sourceFramebuffer;
++    // Source FBO: the real render_context offscreen framebuffer that RS renders the
++    // page into (M1 格-c2). The c1 test pattern has served its purpose (it proved the
++    // cross-context FBO -> blit -> screen path) and is now retired; if RS has not yet
++    // produced a frame we just clear the drawable to white instead.
++    GLuint readFbo = OHOS::Rosen::RenderContextGL::GetCurrentFramebuffer();
 +    if (readFbo == 0) {
-+        readFbo = [self ensureTestFramebufferWidth:dstW height:dstH];
++        readFbo = self.sourceFramebuffer;
 +    }
++    { static int n=0; if(n++<4) fprintf(stderr, "[DBG draw] readFbo=%u dst=%dx%d\n", readFbo, dstW, dstH); }
 +
 +    if (readFbo != 0 && dstW > 0 && dstH > 0) {
 +        glBindFramebuffer(GL_READ_FRAMEBUFFER, readFbo);
++        { static int n=0; if(n++<3) {
++            unsigned char px[4]={9,9,9,9}, pc[4]={9,9,9,9};
++            glReadPixels(dstW/2, dstH/2, 1,1, GL_RGBA, GL_UNSIGNED_BYTE, px);
++            glReadPixels(dstW/2, dstH-20, 1,1, GL_RGBA, GL_UNSIGNED_BYTE, pc);
++            fprintf(stderr, "[DBG px] center=%d,%d,%d,%d top=%d,%d,%d,%d\n", px[0],px[1],px[2],px[3], pc[0],pc[1],pc[2],pc[3]); } }
 +        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +        // Flip Y: read bottom-to-top of source into top-to-bottom of dest.
 +        glBlitFramebuffer(0, 0, dstW, dstH, 0, dstH, dstW, 0,
@@ -661,7 +675,7 @@ index 00000000000..7969a97292f
 +        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +    } else {
 +        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
-+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
++        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 +        glClear(GL_COLOR_BUFFER_BIT);
 +    }
 +
@@ -5170,10 +5184,10 @@ index 00000000000..902cfe5dd3a
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_VIRTUAL_RS_WINDOW_H
 diff --git a/adapter/macos/entrance/virtual_rs_window.mm b/adapter/macos/entrance/virtual_rs_window.mm
 new file mode 100644
-index 00000000000..53f090376ce
+index 00000000000..30206edc4a5
 --- /dev/null
 +++ b/adapter/macos/entrance/virtual_rs_window.mm
-@@ -0,0 +1,1658 @@
+@@ -0,0 +1,1664 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -5974,9 +5988,12 @@ index 00000000000..53f090376ce
 +
 +void Window::RequestVsync(const std::shared_ptr<VsyncCallback>& vsyncCallback)
 +{
++    static int n=0; if(n++<5) fprintf(stderr, "[DBG vsync] RequestVsync called, receiver_=%p\n", (void*)receiver_.get());
 +    // stage model
 +    if (receiver_) {
++        if(n<=5) fprintf(stderr, "[DBG vsync] -> RequestNextVSync issued\n");
 +        auto callback = [vsyncCallback](int64_t timestamp, void*) {
++            static int m=0; if(m++<3) fprintf(stderr, "[DBG vsync] vsync FIRED ts=%lld\n", (long long)timestamp);
 +            vsyncCallback->onCallback(timestamp, 0);
 +        };
 +        OHOS::Rosen::VSyncReceiver::FrameCallback fcb = {
@@ -5993,8 +6010,10 @@ index 00000000000..53f090376ce
 +    if (receiver_) {
 +        return true;
 +    }
++    fprintf(stderr, "[DBG vsync] CreateVSyncReceiver called\n");
 +    auto& rsClient = Rosen::RSInterfaces::GetInstance();
 +    receiver_ = rsClient.CreateVSyncReceiver("Window_IOS", handler);
++    fprintf(stderr, "[DBG vsync] receiver created=%p\n", (void*)receiver_.get());
 +    VsyncError ret = receiver_->Init();
 +    if (ret) {
 +        LOGE("Window_IOS: vsync receiver init failed: %{public}d", ret);
@@ -6325,6 +6344,7 @@ index 00000000000..53f090376ce
 +    AbilityRuntime::Platform::Ability* ability, bool loadContentByName)
 +{
 +    LOGI("Window::SetUIContent : Start");
++    fprintf(stderr, "[DBG win] SetUIContent ENTER contentInfo=%s\n", contentInfo.c_str());
 +    using namespace OHOS::Ace::Platform;
 +    (void)ability;
 +    if (uiContent_) {
@@ -22335,10 +22355,10 @@ index 00000000000..d2431609c26
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_STAGE_ABILITY_STAGEVIEWCONTROLLER_H
 diff --git a/adapter/macos/stage/ability/StageViewController.mm b/adapter/macos/stage/ability/StageViewController.mm
 new file mode 100644
-index 00000000000..c5ef1115b96
+index 00000000000..82a2e402311
 --- /dev/null
 +++ b/adapter/macos/stage/ability/StageViewController.mm
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,224 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22465,6 +22485,7 @@ index 00000000000..c5ef1115b96
 +    [_windowView createSurfaceNode];
 +
 +    std::string paramsString = [self getCPPString:self.params.length ? self.params : @""];
++    fprintf(stderr, "[DBG VC] viewDidLoad DispatchOnCreate+Foreground instanceName='%s'\n", _cInstanceName.c_str());
 +    AppMain::GetInstance()->DispatchOnCreate(_cInstanceName, paramsString);
 +    AppMain::GetInstance()->DispatchOnForeground(_cInstanceName);
 +}
@@ -24379,10 +24400,10 @@ index 00000000000..4d728b67208
 +}
 diff --git a/adapter/macos/stage/uicontent/ace_container_sg.cpp b/adapter/macos/stage/uicontent/ace_container_sg.cpp
 new file mode 100644
-index 00000000000..5e435aa0687
+index 00000000000..f272bb1e22e
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_container_sg.cpp
-@@ -0,0 +1,1497 @@
+@@ -0,0 +1,1498 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25627,6 +25648,7 @@ index 00000000000..5e435aa0687
 +    auto front = container->GetFrontend();
 +    CHECK_NULL_RETURN(front, false);
 +    LOGI("RunPage content=[%{private}s]", content.c_str());
++    fprintf(stderr, "[DBG csg] RunPage content=%s front=%p\n", content.c_str(), (void*)front.GetRawPtr());
 +    if (isNamedRouter) {
 +        front->RunPageByNamedRouter(content, params);
 +    } else {
@@ -27087,10 +27109,10 @@ index 00000000000..f7536e2d5ed
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_STAGE_PLATFORM_EVENT_CALLBACK_H
 diff --git a/adapter/macos/stage/uicontent/ui_content_impl.cpp b/adapter/macos/stage/uicontent/ui_content_impl.cpp
 new file mode 100644
-index 00000000000..3298d005dc0
+index 00000000000..956131a9951
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ui_content_impl.cpp
-@@ -0,0 +1,1048 @@
+@@ -0,0 +1,1050 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27322,6 +27344,7 @@ index 00000000000..3298d005dc0
 +
 +void UIContentImpl::InitializeInner(OHOS::Rosen::Window* window, const std::string& url, napi_value storage, bool isNamedRouter)
 +{
++    fprintf(stderr, "[DBG uic] InitializeInner ENTER url=%s\n", url.c_str());
 +    if (window) {
 +        CommonInitialize(window, url, storage);
 +    }
@@ -27329,6 +27352,7 @@ index 00000000000..3298d005dc0
 +
 +    Platform::AceContainerSG::RunPage(
 +        instanceId_, Platform::AceContainerSG::GetContainer(instanceId_)->GeneratePageId(), startUrl_, "", isNamedRouter);
++    fprintf(stderr, "[DBG uic] InitializeInner RunPage done\n");
 +    LOGI("InitializeInner RunPage UIContentImpl done.");
 +}
 +
@@ -28768,10 +28792,18 @@ index 85895498d4e..c94abc792bd 100644
  template<typename C>
  void JsiClass<C>::Declare(const char* name)
 diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-index 93b946c130b..14349fab0a8 100644
+index 93b946c130b..f98095fe284 100644
 --- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
 +++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-@@ -2145,6 +2145,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+@@ -2138,6 +2138,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+     std::string& urlName, const std::function<void(const std::string&, int32_t)>& errorCallback)
+ {
+     ACE_SCOPED_TRACE("JsiDeclarativeEngine::LoadJsWithModule Execute Page code : %s", urlName.c_str());
++    fprintf(stderr, "[DBG page] LoadJsWithModule ENTER urlName=%s\n", urlName.c_str());
+     auto container = Container::Current();
+     CHECK_NULL_VOID(container);
+     auto runtime = std::static_pointer_cast<ArkJSRuntime>(engineInstance_->GetJsRuntime());
+@@ -2145,6 +2146,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
      const std::string assetPath = ASSET_PATH_PREFIX + moduleName + "/" + FORM_ES_MODULE_PATH;
      runtime->SetAssetPath(assetPath);
      runtime->SetModuleName(moduleName);
@@ -28784,6 +28816,55 @@ index 93b946c130b..14349fab0a8 100644
      if (urlName.substr(0, strlen(BUNDLE_TAG)) != BUNDLE_TAG) {
  #ifdef CROSS_PLATFORM
          std::string moduleNamePath = (moduleName.find_last_of('.') != std::string::npos)
+@@ -2155,7 +2162,9 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+         urlName = container->GetModuleName() + "/ets/" + urlName;
+ #endif
+     }
+-    runtime->ExecuteJsBin(urlName, errorCallback);
++    fprintf(stderr, "[DBG page] before ExecuteJsBin urlName=%s\n", urlName.c_str());
++    bool r = runtime->ExecuteJsBin(urlName, errorCallback);
++    fprintf(stderr, "[DBG page] ExecuteJsBin returned %d\n", r);
+ }
+ #endif
+ // Load the app.js file of the FA model in NG structure.
+@@ -2174,6 +2183,7 @@ bool JsiDeclarativeEngine::LoadPageSource(
+     const std::string& url, const std::function<void(const std::string&, int32_t)>& errorCallback)
+ {
+     ACE_SCOPED_TRACE("JsiDeclarativeEngine::LoadPageSource");
++    fprintf(stderr, "[DBG page] LoadPageSource ENTER url=%s\n", url.c_str());
+     ACE_DCHECK(engineInstance_);
+     // get js bundle content
+     const char jsExt[] = ".js";
+diff --git a/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp b/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
+index a40c3c217e2..4c40f61e0b8 100644
+--- a/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
++++ b/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
+@@ -2173,6 +2173,7 @@ void PageRouterManager::PopPageToIndex(int32_t index, const std::string& params,
+ bool PageRouterManager::OnPageReady(const RefPtr<FrameNode>& pageNode, bool needHideLast, bool needTransition,
+     bool isCardRouter, int64_t cardId)
+ {
++    fprintf(stderr, "[DBG ready] OnPageReady ENTER\n");
+     Recorder::NodeDataCache::Get().OnPageReady();
+     auto container = Container::Current();
+     CHECK_NULL_RETURN(container, false);
+@@ -2667,11 +2668,15 @@ bool PageRouterManager::GenerateRouterPageInner(const RouterPageInfo& target)
+         auto intentInfo = target.intentInfo;
+         return generateIntentPageCallback_(intentInfo.bundleName, intentInfo.moduleName, intentInfo.pagePath);
+     }
+-    if (loadNamedRouter_(target.url, target.isNamedRouterMode)) {
++    bool lnr = loadNamedRouter_(target.url, target.isNamedRouterMode);
++    fprintf(stderr, "[DBG router] GenerateRouterPageInner url=%s isNamed=%d loadNamedRouter=%d\n", target.url.c_str(), target.isNamedRouterMode, lnr);
++    if (lnr) {
+         return true;
+     }
+     if (!target.isNamedRouterMode) {
+-        return updateRootComponent_();
++        bool urc = updateRootComponent_();
++        fprintf(stderr, "[DBG router] updateRootComponent=%d\n", urc);
++        return urc;
+     }
+     if (target.errorCallback) {
+         target.errorCallback("The named route is not exist.", ERROR_CODE_NAMED_ROUTE_ERROR);
 diff --git a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json b/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
 index 303990672eb..241e87f0aa6 100644
 --- a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
@@ -28866,6 +28947,46 @@ index 303990672eb..241e87f0aa6 100644
      }
    }
  }
+diff --git a/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts b/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts
+index 29686e11b15..51f7dfc1536 100644
+--- a/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts
++++ b/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts
+@@ -1334,6 +1334,15 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
+   }
+ 
+   public static isNeedBuildPrebuildCmd(): boolean {
++    // ArkUI-X macOS: in the dynamic-render shared-runtime scenario the stateMgmt
++    // script-global `PrebuildPhase` enum may be absent from the page execution
++    // context (PUV2ViewBase is registered via JsRegisterViews but the top-level
++    // var is not on this realm's global). Prebuild is disabled on macOS anyway
++    // (system_properties prebuildInMultiFrameEnabled_=false), so guard the lookup
++    // to keep observeComponentCreation2 from throwing and aborting the first frame.
++    if (typeof PrebuildPhase === 'undefined') {
++      return false;
++    }
+     const needBuild: boolean = PUV2ViewBase.prebuildPhase_ === PrebuildPhase.BuildPrebuildCmd;
+     return needBuild;
+   }
+diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.cpp b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
+index 086a3e22416..6f79547d4dc 100644
+--- a/frameworks/core/components_ng/render/adapter/rosen_window.cpp
++++ b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
+@@ -64,6 +64,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
+     vsyncCallback_->onCallback = [weakTask = taskExecutor_, id = id_](uint64_t timeStampNanos, uint64_t frameCount) {
+         auto taskExecutor = weakTask.Upgrade();
+         auto onVsync = [id, timeStampNanos, frameCount] {
++            fprintf(stderr, "[DBG rvsync] onVsync TASK RUNNING\n");
+             int64_t ts = GetSysTimestamp();
+             ArkUIPerfMonitor::GetInstance().StartPerf();
+             if (FrameReport::GetInstance().GetEnable()) {
+@@ -98,6 +99,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
+             window->SetLastVsyncEndTimestamp(GetSysTimestamp());
+         };
+         auto uiTaskRunner = SingleTaskExecutor::Make(taskExecutor, TaskExecutor::TaskType::UI);
++        fprintf(stderr, "[DBG rvsync] onCallback dispatch, onUIthread=%d\n", uiTaskRunner.IsRunOnCurrentThread());
+         if (uiTaskRunner.IsRunOnCurrentThread()) {
+             onVsync();
+             return;
 diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.h b/frameworks/core/components_ng/render/adapter/rosen_window.h
 index ae41531d1dd..09ed7274703 100644
 --- a/frameworks/core/components_ng/render/adapter/rosen_window.h
@@ -28882,6 +29003,18 @@ index ae41531d1dd..09ed7274703 100644
  #include "adapter/ios/entrance/virtual_rs_window.h"
  #else
  #include "adapter/android/entrance/java/jni/virtual_rs_window.h"
+diff --git a/frameworks/core/pipeline_ng/pipeline_context.cpp b/frameworks/core/pipeline_ng/pipeline_context.cpp
+index c9066a89552..b403354545e 100755
+--- a/frameworks/core/pipeline_ng/pipeline_context.cpp
++++ b/frameworks/core/pipeline_ng/pipeline_context.cpp
+@@ -1148,6 +1148,7 @@ void PipelineContext::ReloadNodesResource()
+ 
+ void PipelineContext::FlushVsync(uint64_t nanoTimestamp, uint64_t frameCount)
+ {
++    { static int n=0; if(n++<3) fprintf(stderr, "[DBG pipe] FlushVsync ENTER dirtyNodes\n"); }
+     CHECK_RUN_ON(UI);
+     if (IsDestroyed()) {
+         LOGW("Cannot flush vsync as the pipeline context is destroyed.");
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 index e58f8e0b0a1..0a812c0f2a1 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
