@@ -12813,10 +12813,10 @@ index 00000000000..c2b6296c661
 +} // namespace OHOS::Ace
 diff --git a/adapter/macos/osal/mac_link_stubs.cpp b/adapter/macos/osal/mac_link_stubs.cpp
 new file mode 100644
-index 00000000000..4165e8f0604
+index 00000000000..d577f06314b
 --- /dev/null
 +++ b/adapter/macos/osal/mac_link_stubs.cpp
-@@ -0,0 +1,350 @@
+@@ -0,0 +1,358 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13106,9 +13106,17 @@ index 00000000000..4165e8f0604
 +}
 +} // namespace NG
 +
++namespace {
++// Minimal concrete UiSessionManager so callers (e.g. StageManager::PushPage ->
++// OnRouterChange) get a valid instance instead of dereferencing nullptr. All of the
++// base-class hooks are no-op virtuals, so the default subclass is inert.
++class MacStubUiSessionManager final : public UiSessionManager {};
++} // namespace
++
 +UiSessionManager* UiSessionManager::GetInstance()
 +{
-+    return nullptr;
++    static MacStubUiSessionManager instance;
++    return &instance;
 +}
 +} // namespace OHOS::Ace
 +
@@ -28759,6 +28767,23 @@ index 85895498d4e..c94abc792bd 100644
  
  template<typename C>
  void JsiClass<C>::Declare(const char* name)
+diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
+index 93b946c130b..14349fab0a8 100644
+--- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
++++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
+@@ -2145,6 +2145,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+     const std::string assetPath = ASSET_PATH_PREFIX + moduleName + "/" + FORM_ES_MODULE_PATH;
+     runtime->SetAssetPath(assetPath);
+     runtime->SetModuleName(moduleName);
++#ifdef CROSS_PLATFORM
++    // The page is an esmodule loaded from the in-memory modules.abc. The shared VM may
++    // still be in bundle-pack mode (default), which would make JSNApi::Execute treat the
++    // page url as a script file path and fail. Force esmodule resolution for the page.
++    runtime->SetBundle(false);
++#endif
+     if (urlName.substr(0, strlen(BUNDLE_TAG)) != BUNDLE_TAG) {
+ #ifdef CROSS_PLATFORM
+         std::string moduleNamePath = (moduleName.find_last_of('.') != std::string::npos)
 diff --git a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json b/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
 index 303990672eb..241e87f0aa6 100644
 --- a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
