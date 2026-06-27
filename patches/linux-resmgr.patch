@@ -1,3 +1,104 @@
+diff --git a/frameworks/resmgr/BUILD.gn b/frameworks/resmgr/BUILD.gn
+index 0b7d88c..06adadf 100644
+--- a/frameworks/resmgr/BUILD.gn
++++ b/frameworks/resmgr/BUILD.gn
+@@ -92,14 +92,14 @@ ohos_shared_library("global_resmgr") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:extractortool",
++    # [linux-port auto-gate] "ability_base:extractortool",
+     "bounds_checking_function:libsec_shared",
+-    "bundle_framework:appexecfwk_core_headers",
++    # [linux-port auto-gate] "bundle_framework:appexecfwk_core_headers",
+     "cJSON:cjson",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "hitrace:hitrace_meter",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "init:libbegetutil",
+     "zlib:shared_libz",
+   ]
+ 
+@@ -156,7 +156,7 @@ ohos_shared_library("global_resmgr_win") {
+ 
+     external_deps = [
+       "bounds_checking_function:libsec_shared",
+-      "bundle_framework:appexecfwk_core_headers",
++      # [linux-port auto-gate] "bundle_framework:appexecfwk_core_headers",
+       "cJSON:cjson_static",
+       "icu:static_icui18n",
+       "zlib:libz",
+@@ -192,7 +192,7 @@ ohos_shared_library("global_resmgr_mac") {
+     if (host_os == "mac") {
+       external_deps = [
+         "bounds_checking_function:libsec_static",
+-        "bundle_framework:appexecfwk_core_headers",
++        # [linux-port auto-gate] "bundle_framework:appexecfwk_core_headers",
+         "cJSON:cjson_static",
+         "icu:static_icui18n",
+         "zlib:libz",
+@@ -229,7 +229,7 @@ ohos_shared_library("global_resmgr_linux") {
+ 
+     external_deps = [
+       "bounds_checking_function:libsec_shared",
+-      "bundle_framework:appexecfwk_core_headers",
++      # [linux-port auto-gate] "bundle_framework:appexecfwk_core_headers",
+       "cJSON:cjson_static",
+       "icu:shared_icui18n",
+       "zlib:shared_libz",
+@@ -267,15 +267,15 @@ ohos_shared_library("librawfile") {
+   deps = [ ":global_resmgr" ]
+ 
+   external_deps = [
+-    "ability_base:configuration",
+-    "ability_runtime:app_context",
+-    "bundle_framework:appexecfwk_base",
+-    "bundle_framework:appexecfwk_core_headers",
++    # [linux-port auto-gate] "ability_base:configuration",
++    # [linux-port auto-gate] "ability_runtime:app_context",
++    # [linux-port auto-gate] "bundle_framework:appexecfwk_base",
++    # [linux-port auto-gate] "bundle_framework:appexecfwk_core_headers",
+     "cJSON:cjson_static",
+-    "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+   ]
+ 
+@@ -316,16 +316,24 @@ ohos_shared_library("ohresmgr") {
+   deps = [ ":global_resmgr" ]
+ 
+   external_deps = [
+-    "ability_base:configuration",
++    # [linux-port auto-gate] "ability_base:configuration",
+     "ace_engine:ace_ndk",
+-    "ace_engine:drawable_descriptor",
+-    "bundle_framework:appexecfwk_base",
++    # [linux-port auto-gate] "bundle_framework:appexecfwk_base",
+     "cJSON:cjson_static",
+     "c_utils:utils",
+     "hilog:libhilog",
+     "napi:ace_napi",
+   ]
+ 
++  # Linux/Wayland native port: for arkui-x the drawable descriptor is the
++  # native_drawabledescriptor_static source_set, not the drawable_descriptor shared
++  # lib (only built for non-arkui_x). Depend on it directly.
++  if (is_arkui_x) {
++    deps += [ "//foundation/arkui/ace_engine/interfaces/inner_api/drawable_descriptor:native_drawabledescriptor_static" ]
++  } else {
++    external_deps += [ "ace_engine:drawable_descriptor" ]
++  }
++
+   if (resource_management_api_metrics) {
+     defines += [ "SUPPORT_API_METRICS" ]
+     include_dirs += [ "../../dfx/api_metrics" ]
 diff --git a/resmgr.gni b/resmgr.gni
 index 2268214..5b79d9b 100644
 --- a/resmgr.gni

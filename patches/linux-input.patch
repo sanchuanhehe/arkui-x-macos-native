@@ -1,3 +1,1087 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 8462501..a6f0bba 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -65,7 +65,7 @@ ohos_executable("uinput_inject") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "drivers_interface_input:libinput_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_input:libinput_proxy_1.0",
+     "hilog:libhilog",
+   ]
+ 
+@@ -119,9 +119,9 @@ group("multimodalinput_mmi_service") {
+ 
+ group("input-third-mmi") {
+   external_deps = [
+-    "libevdev:libevdev",
+-    "libinput:libinput-third-mmi",
+-    "mtdev:libmtdev-third-mmi",
++    # [linux-port auto-gate] "libevdev:libevdev",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "mtdev:libmtdev-third-mmi",
+   ]
+ }
+ 
+diff --git a/common/anco/comm/BUILD.gn b/common/anco/comm/BUILD.gn
+index 14c0861..36115ec 100644
+--- a/common/anco/comm/BUILD.gn
++++ b/common/anco/comm/BUILD.gn
+@@ -66,7 +66,7 @@ ohos_source_set("mmi_anco_channel_proxy") {
+ 
+   external_deps = [
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "c_utils:utils",
+   ]
+ 
+@@ -105,7 +105,7 @@ ohos_source_set("mmi_anco_channel_stub") {
+ 
+   external_deps = [
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "c_utils:utils",
+   ]
+ 
+diff --git a/common/property_name_mapper/BUILD.gn b/common/property_name_mapper/BUILD.gn
+index 0ab9c01..2222fd9 100644
+--- a/common/property_name_mapper/BUILD.gn
++++ b/common/property_name_mapper/BUILD.gn
+@@ -52,7 +52,7 @@ ohos_shared_library("mmi_property_name_mapper") {
+     "c_utils:utils",
+     "cJSON:cjson",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+   ]
+ 
+@@ -94,7 +94,7 @@ ohos_source_set("property_name_mapper") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+   ]
+ 
+diff --git a/examples/input_device_display_bind/BUILD.gn b/examples/input_device_display_bind/BUILD.gn
+index 51ce3ad..3645547 100644
+--- a/examples/input_device_display_bind/BUILD.gn
++++ b/examples/input_device_display_bind/BUILD.gn
+@@ -30,8 +30,8 @@ ohos_executable("input_device_display_bind") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ 
+   subsystem_name = "multimodalinput"
+diff --git a/frameworks/ets/infrared_emitter/BUILD.gn b/frameworks/ets/infrared_emitter/BUILD.gn
+index 2fd3bfd..f8867f7 100644
+--- a/frameworks/ets/infrared_emitter/BUILD.gn
++++ b/frameworks/ets/infrared_emitter/BUILD.gn
+@@ -47,7 +47,7 @@ taihe_shared_library("InfraredEmitter") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+   if (input_feature_api_metrics_histogram) {
+     external_deps += [ "api_metrics:histogrammanager" ]
+diff --git a/frameworks/ets/input_device/BUILD.gn b/frameworks/ets/input_device/BUILD.gn
+index fba22c5..ba874f4 100644
+--- a/frameworks/ets/input_device/BUILD.gn
++++ b/frameworks/ets/input_device/BUILD.gn
+@@ -66,11 +66,11 @@ taihe_shared_library("InputDevice") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+   if (input_feature_api_metrics_histogram) {
+     external_deps += [ "api_metrics:histogrammanager" ]
+diff --git a/frameworks/ets/input_monitor/BUILD.gn b/frameworks/ets/input_monitor/BUILD.gn
+index e1d1af7..2aa9e8f 100644
+--- a/frameworks/ets/input_monitor/BUILD.gn
++++ b/frameworks/ets/input_monitor/BUILD.gn
+@@ -78,11 +78,11 @@ taihe_shared_library("InputMonitor") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "libuv:uv",
+   ]
+   if (input_feature_api_metrics_histogram) {
+diff --git a/frameworks/ets/pointer/BUILD.gn b/frameworks/ets/pointer/BUILD.gn
+index 78567e1..91e9d80 100644
+--- a/frameworks/ets/pointer/BUILD.gn
++++ b/frameworks/ets/pointer/BUILD.gn
+@@ -53,13 +53,13 @@ taihe_shared_library("Pointer") {
+     ":pointer_config",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
+     "c_utils:utils",
+     "hilog:libhilog",
+     "image_framework:image_native",
+     "image_framework:image_taihe",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+   if (input_feature_api_metrics_histogram) {
+     external_deps += [ "api_metrics:histogrammanager" ]
+diff --git a/frameworks/ets/short_key/BUILD.gn b/frameworks/ets/short_key/BUILD.gn
+index 9b653b3..678020d 100644
+--- a/frameworks/ets/short_key/BUILD.gn
++++ b/frameworks/ets/short_key/BUILD.gn
+@@ -69,7 +69,7 @@ taihe_shared_library("short_key_ani") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+   if (input_feature_api_metrics_histogram) {
+     external_deps += [ "api_metrics:histogrammanager" ]
+diff --git a/frameworks/napi/infrared_emitter/BUILD.gn b/frameworks/napi/infrared_emitter/BUILD.gn
+index 638c936..782d9d1 100644
+--- a/frameworks/napi/infrared_emitter/BUILD.gn
++++ b/frameworks/napi/infrared_emitter/BUILD.gn
+@@ -52,9 +52,9 @@ ohos_shared_library("infraredemitter") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+   ]
+ 
+diff --git a/frameworks/napi/input_device/BUILD.gn b/frameworks/napi/input_device/BUILD.gn
+index 4b77f1b..f77b035 100644
+--- a/frameworks/napi/input_device/BUILD.gn
++++ b/frameworks/napi/input_device/BUILD.gn
+@@ -55,9 +55,9 @@ ohos_shared_library("inputdevice") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+   ]
+ 
+diff --git a/frameworks/napi/input_monitor/BUILD.gn b/frameworks/napi/input_monitor/BUILD.gn
+index 97aedf7..a159793 100644
+--- a/frameworks/napi/input_monitor/BUILD.gn
++++ b/frameworks/napi/input_monitor/BUILD.gn
+@@ -60,11 +60,11 @@ ohos_shared_library("inputmonitor") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+   ]
+ 
+diff --git a/frameworks/napi/pointer/BUILD.gn b/frameworks/napi/pointer/BUILD.gn
+index 86244b2..1664ed3 100644
+--- a/frameworks/napi/pointer/BUILD.gn
++++ b/frameworks/napi/pointer/BUILD.gn
+@@ -57,11 +57,11 @@ ohos_shared_library("pointer") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+     "image_framework:image",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+   ]
+ 
+diff --git a/frameworks/napi/short_key/BUILD.gn b/frameworks/napi/short_key/BUILD.gn
+index 488ddc9..4cfb1ed 100644
+--- a/frameworks/napi/short_key/BUILD.gn
++++ b/frameworks/napi/short_key/BUILD.gn
+@@ -51,9 +51,9 @@ ohos_shared_library("shortkey") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+   ]
+ 
+diff --git a/frameworks/native/input/BUILD.gn b/frameworks/native/input/BUILD.gn
+index 2ab5b13..918771f 100644
+--- a/frameworks/native/input/BUILD.gn
++++ b/frameworks/native/input/BUILD.gn
+@@ -77,20 +77,20 @@ ohos_shared_library("oh_input_manager") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
+-    "access_token:libprivacy_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libprivacy_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "init:libbegetutil",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+   ]
+ 
+   if (enable_player_framework) {
+     external_deps += [
+-      "ipc:ipc_single",
++      # [linux-port auto-gate] "ipc:ipc_single",
+       "player_framework:media_client",
+     ]
+   }
+@@ -151,16 +151,16 @@ ohos_unittest("OHInputManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
+-    "access_token:libprivacy_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libprivacy_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+     "napi:ace_napi",
+@@ -209,16 +209,16 @@ ohos_unittest("OHInputManagerEXTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
+-    "access_token:libprivacy_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libprivacy_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+     "napi:ace_napi",
+@@ -276,16 +276,16 @@ ohos_unittest("GetPointerLocationTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
+-    "access_token:libprivacy_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libprivacy_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+     "napi:ace_napi",
+@@ -339,16 +339,16 @@ ohos_unittest("SetDisplayBindTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
+-    "access_token:libprivacy_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libprivacy_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+     "napi:ace_napi",
+diff --git a/frameworks/proxy/BUILD.gn b/frameworks/proxy/BUILD.gn
+index 4926332..7b3090f 100644
+--- a/frameworks/proxy/BUILD.gn
++++ b/frameworks/proxy/BUILD.gn
+@@ -77,11 +77,11 @@ ohos_source_set("libmmi-common") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ 
+   part_name = "input"
+@@ -174,20 +174,20 @@ ohos_shared_library("libmmi-client") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "eventhandler:libeventhandler",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "qos_manager:qos",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ 
+   if (!is_arkui_x) {
+-    public_external_deps = [ "eventhandler:libeventhandler" ]
++    # [linux-port auto-gate] public_external_deps = [ "eventhandler:libeventhandler" ]
+   }
+ 
+   if (is_ohos && is_clang && target_cpu == "arm64" && defined(build_ext_path)) {
+@@ -199,7 +199,7 @@ ohos_shared_library("libmmi-client") {
+   }
+ 
+   if (hitrace_enabled) {
+-    external_deps += [ "hitrace:hitrace_meter" ]
++    # [linux-port auto-gate] external_deps += [ "hitrace:hitrace_meter" ]
+   }
+ }
+ 
+@@ -225,11 +225,11 @@ ohos_unittest("ut-mmi-proxy-out") {
+   ]
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -259,18 +259,18 @@ ohos_unittest("KeyEventTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -308,37 +308,37 @@ ohos_unittest("InputHandlerManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
+-    "faultloggerd:libbacktrace_local",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "faultloggerd:libbacktrace_local",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:libcomposer",
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+-    "hdf_core:libhdi",
+-    "hicollie:libhicollie",
++    # [linux-port auto-gate] "hdf_core:libhdi",
++    # [linux-port auto-gate] "hicollie:libhicollie",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm_lite",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm_lite",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ 
+   if (hitrace_enabled) {
+-    external_deps += [ "hitrace:hitrace_meter" ]
++    # [linux-port auto-gate] external_deps += [ "hitrace:hitrace_meter" ]
+   }
+ 
+   if (call_manager_service_enabled) {
+@@ -395,22 +395,22 @@ ohos_unittest("SwitchEventInputSubscribeManagerTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -470,19 +470,19 @@ ohos_unittest("InputMonitorManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "eventhandler:libeventhandler",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -544,24 +544,24 @@ ohos_unittest("InputManagerImplTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "eventhandler:libeventhandler",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ 
+   if (hitrace_enabled) {
+-    external_deps += [ "hitrace:hitrace_meter" ]
++    # [linux-port auto-gate] external_deps += [ "hitrace:hitrace_meter" ]
+   }
+ }
+ 
+@@ -609,22 +609,22 @@ ohos_unittest("InputManagerTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -653,9 +653,9 @@ ohos_unittest("LongPressEventSubscribeManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+   ]
+ }
+@@ -686,8 +686,8 @@ ohos_unittest("InputDeviceImplTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+   ]
+ }
+@@ -717,19 +717,19 @@ ohos_unittest("PointerEventTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -756,19 +756,19 @@ ohos_unittest("PointerEventExTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -796,19 +796,19 @@ ohos_unittest("PointerStyleTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -873,21 +873,21 @@ ohos_unittest("KeyEventHookHandlerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "eventhandler:libeventhandler",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -935,16 +935,16 @@ ohos_unittest("PointerEventNdkTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
+-    "access_token:libprivacy_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libprivacy_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+     "napi:ace_napi",
+@@ -988,20 +988,20 @@ ohos_unittest("InputManagerInjectTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1020,15 +1020,15 @@ ohos_unittest("InputManagerManualTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -1047,15 +1047,15 @@ ohos_unittest("InputManagerFilterManualTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -1085,9 +1085,9 @@ ohos_unittest("KeyEventInputSubscribeManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+   ]
+ }
+diff --git a/frameworks/proxy/event_handler/test/BUILD.gn b/frameworks/proxy/event_handler/test/BUILD.gn
+index 4e8b850..ac0db84 100644
+--- a/frameworks/proxy/event_handler/test/BUILD.gn
++++ b/frameworks/proxy/event_handler/test/BUILD.gn
+@@ -47,17 +47,17 @@ ohos_unittest("InputActiveSubscribeManagerTest") {
+     "${mmi_path}/util:libmmi-util",
+   ]
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+ 
+@@ -110,14 +110,14 @@ ohos_unittest("MultimodalEventHandlerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+ 
+@@ -161,16 +161,16 @@ ohos_unittest("InputEventHookHandlerTest") {
+     "cJSON:cjson",
+     "c_utils:utils",
+     "c_utils:utilsbase",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+ 
+@@ -210,6 +210,6 @@ ohos_unittest("InputEventStagerTest") {
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+diff --git a/frameworks/proxy/events/test/BUILD.gn b/frameworks/proxy/events/test/BUILD.gn
+index 7b46528..3ff5934 100644
+--- a/frameworks/proxy/events/test/BUILD.gn
++++ b/frameworks/proxy/events/test/BUILD.gn
+@@ -39,17 +39,17 @@ ohos_unittest("InputManagerAncoTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -71,7 +71,7 @@ ohos_unittest("InputManagerInterceptorTest") {
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -89,14 +89,14 @@ ohos_unittest("InputManagerDeviceControlTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken_shared",
+-    "access_token:libtokensetproc_shared",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken_shared",
++    # [linux-port auto-gate] "access_token:libtokensetproc_shared",
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+diff --git a/intention/prototype/BUILD.gn b/intention/prototype/BUILD.gn
+index 8d4bbb4..aa50d31 100755
+--- a/intention/prototype/BUILD.gn
++++ b/intention/prototype/BUILD.gn
+@@ -52,7 +52,7 @@ ohos_source_set("input_service_prototype") {
+ 
+   deps = []
+ 
+-  external_deps = [ "libinput:libinput-third-mmi" ]
++  # [linux-port auto-gate] external_deps = [ "libinput:libinput-third-mmi" ]
+ 
+   part_name = "${mmi_part_name}"
+   subsystem_name = "${mmi_subsystem_name}"
+diff --git a/libudev/BUILD.gn b/libudev/BUILD.gn
+index 16d2d0b..789061a 100644
+--- a/libudev/BUILD.gn
++++ b/libudev/BUILD.gn
+@@ -72,7 +72,7 @@ ohos_unittest("libudev-test") {
+   external_deps = [
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "libevdev:libevdev",
++    # [linux-port auto-gate] "libevdev:libevdev",
+   ]
+ 
+   defines += [ "MMI_DISABLE_LOG_TRACE" ]
+@@ -87,9 +87,9 @@ ohos_unittest("e2e-libudev-test") {
+ 
+   external_deps = [
+     "c_utils:utilsbase",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
+-    "libevdev:libevdev",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libevdev:libevdev",
+   ]
+ }
 diff --git a/multimodalinput_mini.gni b/multimodalinput_mini.gni
 index 0ae2c92..1c83c02 100644
 --- a/multimodalinput_mini.gni
@@ -17,3 +1101,3488 @@ index 0ae2c92..1c83c02 100644
    enable_player_framework = true
    input_default_defines += [ "PLAYER_FRAMEWORK_EXISTS" ]
  } else {
+diff --git a/service/BUILD.gn b/service/BUILD.gn
+index b0337c6..56d6482 100644
+--- a/service/BUILD.gn
++++ b/service/BUILD.gn
+@@ -147,20 +147,32 @@ config("libmmi_server_config") {
+   }
+ }
+ 
+-ohos_rust_shared_ffi("mmi_rust") {
+-  sources = [ "rust/src/lib.rs" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("mmi_rust") {
++  }
++} else {
++  ohos_rust_shared_ffi("mmi_rust") {
++    sources = [ "rust/src/lib.rs" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
+ }
+ 
+-ohos_rust_unittest("rust_mmi_test") {
+-  module_out_path = module_output_path
+-  sources = [ "rust/test/lib_test.rs" ]
+-  deps = [ ":mmi_rust" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("rust_mmi_test") {
++  }
++} else {
++  ohos_rust_unittest("rust_mmi_test") {
++    module_out_path = module_output_path
++    sources = [ "rust/test/lib_test.rs" ]
++    deps = [ ":mmi_rust" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
+ }
+ 
+ ohos_shared_library("libcursor_drawing_adapter") {
+@@ -230,33 +242,33 @@ ohos_shared_library("libcursor_drawing_adapter") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+-    "graphic_surface:surface",
+-    "hisysevent:libhisysevent",
+-    "hicollie:libhicollie",
++    # [linux-port auto-gate] "graphic_surface:surface",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hicollie:libhicollie",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwsutils",
+-    "ability_runtime:dataobs_manager",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwsutils",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+   ]
+ 
+   if (input_feature_pointer_drawing) {
+-    external_deps += [ "window_manager:libwm_lite" ]
++    # [linux-port auto-gate] external_deps += [ "window_manager:libwm_lite" ]
+   }
+ 
+   if (input_ext_feature_magiccursor) {
+-    external_deps += [ "eventhandler:libeventhandler" ]
++    # [linux-port auto-gate] external_deps += [ "eventhandler:libeventhandler" ]
+   }
+ 
+   if (input_feature_product != "watch") {
+@@ -266,18 +278,18 @@ ohos_shared_library("libcursor_drawing_adapter") {
+       "graphic_2d:librender_service_base",
+       "hilog:libhilog",
+       "image_framework:image_native",
+-      "init:libbegetutil",
+-      "ipc:ipc_single",
+-      "safwk:system_ability_fwk",
+-      "window_manager:libwm_lite",
+-      "ability_base:want"
++      # [linux-port auto-gate] "init:libbegetutil",
++      # [linux-port auto-gate] "ipc:ipc_single",
++      # [linux-port auto-gate] "safwk:system_ability_fwk",
++      # [linux-port auto-gate] "window_manager:libwm_lite",
++      # [linux-port auto-gate] "ability_base:want"
+     ]
+   }
+   if (resource_schedule_service_enabled) {
+     external_deps += [ "resource_schedule_service:ressched_client" ]
+   }
+   if (hitrace_enabled) {
+-    external_deps += [ "hitrace:hitrace_meter" ]
++    # [linux-port auto-gate] external_deps += [ "hitrace:hitrace_meter" ]
+   }
+ 
+   if (defined(use_rosen_drawing) && use_rosen_drawing) {
+@@ -326,13 +338,13 @@ ohos_shared_library("libmmi-server-common") {
+   ]
+ 
+   external_deps = [
+-    "data_share:datashare_consumer",
+-    "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
+     "c_utils:utils",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     "hilog:libhilog",
+-    "ability_runtime:dataobs_manager",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ 
+   part_name = "input"
+@@ -528,11 +540,11 @@ ohos_shared_library("libmmi-server") {
+   ]
+ 
+   if (input_feature_pointer_drawing) {
+-    external_deps += [ "window_manager:libwm_lite" ]
++    # [linux-port auto-gate] external_deps += [ "window_manager:libwm_lite" ]
+   }
+ 
+   if (input_ext_feature_magiccursor) {
+-    external_deps += [ "eventhandler:libeventhandler" ]
++    # [linux-port auto-gate] external_deps += [ "eventhandler:libeventhandler" ]
+   }
+ 
+   if (security_component_enable) {
+@@ -557,7 +569,7 @@ ohos_shared_library("libmmi-server") {
+   }
+ 
+   if (input_feature_product == "pc") {
+-    external_deps += [ "eventhandler:libeventhandler" ]
++    # [linux-port auto-gate] external_deps += [ "eventhandler:libeventhandler" ]
+   }
+ 
+   if (input_feature_touch_drawing) {
+@@ -571,25 +583,25 @@ ohos_shared_library("libmmi-server") {
+   }
+ 
+   external_deps += [
+-    "ability_runtime:ability_connect_callback_stub",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:app_manager",
+-    "access_token:libtokenid_sdk",
+-    "access_token:libprivacy_sdk",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "faultloggerd:libbacktrace_local",
+-    "faultloggerd:libdfx_dumpcatcher",
+-    "faultloggerd:libjson_stack_formatter",
+-    "ffrt:libffrt",
+-    "hicollie:libhicollie",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "ability_runtime:ability_connect_callback_stub",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libprivacy_sdk",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "faultloggerd:libbacktrace_local",
++    # [linux-port auto-gate] "faultloggerd:libdfx_dumpcatcher",
++    # [linux-port auto-gate] "faultloggerd:libjson_stack_formatter",
++    # [linux-port auto-gate] "ffrt:libffrt",
++    # [linux-port auto-gate] "hicollie:libhicollie",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm_lite",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm_lite",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ 
+   if (input_feature_product != "watch") {
+@@ -608,22 +620,22 @@ ohos_shared_library("libmmi-server") {
+     }
+ 
+     external_deps += [
+-      "common_event_service:cesfwk_innerkits",
+-      "hdf_core:libhdi",
++      # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++      # [linux-port auto-gate] "hdf_core:libhdi",
+       "hilog:libhilog",
+       "image_framework:image_native",
+-      "init:libbeget_proxy",
+-      "init:libbegetutil",
+-      "ipc:ipc_single",
+-      "safwk:system_ability_fwk",
++      # [linux-port auto-gate] "init:libbeget_proxy",
++      # [linux-port auto-gate] "init:libbegetutil",
++      # [linux-port auto-gate] "ipc:ipc_single",
++      # [linux-port auto-gate] "safwk:system_ability_fwk",
+       "openssl:libcrypto_shared",
+       "openssl:libssl_shared",
+-      "os_account:os_account_innerkits",
++      # [linux-port auto-gate] "os_account:os_account_innerkits",
+     ]
+   }
+ 
+   if (hitrace_enabled) {
+-    external_deps += [ "hitrace:hitrace_meter" ]
++    # [linux-port auto-gate] external_deps += [ "hitrace:hitrace_meter" ]
+   }
+ 
+   if (input_feature_touch_drawing || input_feature_pointer_drawing) {
+@@ -669,18 +681,18 @@ ohos_unittest("event_resample_test") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -711,10 +723,10 @@ ohos_unittest("TwoFingerLongTouchTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -723,14 +735,14 @@ ohos_unittest("TwoFingerLongTouchTest") {
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -757,18 +769,18 @@ ohos_unittest("EventFilterDeathRecipientTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -819,21 +831,21 @@ ohos_unittest("EventFilterHandlerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -862,24 +874,24 @@ ohos_unittest("ApplicationStateObserverTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -956,15 +968,15 @@ ohos_unittest("KeyShortcutManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -973,15 +985,15 @@ ohos_unittest("KeyShortcutManagerTest") {
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "ipc:ipc_core",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm_lite",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm_lite",
+   ]
+ 
+   if (enable_player_framework) {
+@@ -1011,16 +1023,16 @@ ohos_unittest("TimerManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utilsbase",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ }
+ 
+@@ -1054,21 +1066,21 @@ ohos_unittest("InputDisplayBindHelperTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1112,14 +1124,14 @@ ohos_unittest("PointerDrawingManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -1129,14 +1141,14 @@ ohos_unittest("PointerDrawingManagerTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwmutil",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwmutil",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1179,13 +1191,13 @@ ohos_unittest("PointerDrawingManagerExTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -1195,13 +1207,13 @@ ohos_unittest("PointerDrawingManagerExTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1245,13 +1257,13 @@ ohos_unittest("PointerDrawingManagerSupTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -1261,14 +1273,14 @@ ohos_unittest("PointerDrawingManagerSupTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwmutil",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwmutil",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1321,11 +1333,11 @@ ohos_unittest("TouchDrawingManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -1334,12 +1346,12 @@ ohos_unittest("TouchDrawingManagerTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
+-    "window_manager:libwmutil",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwmutil",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+     "preferences:native_preferences",
+   ]
+ }
+@@ -1386,11 +1398,11 @@ ohos_unittest("CursorDrawingComponentTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -1399,11 +1411,11 @@ ohos_unittest("CursorDrawingComponentTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1448,11 +1460,11 @@ ohos_unittest("CursorDrawingComponentCoverageTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -1461,11 +1473,11 @@ ohos_unittest("CursorDrawingComponentCoverageTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1547,23 +1559,23 @@ ohos_unittest("PointerDrawingManagerHardCursorTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwmutil",
+-    "ability_runtime:dataobs_manager",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwmutil",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1610,14 +1622,14 @@ ohos_unittest("InputWindowsManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utilsbase",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:libcomposer",
+@@ -1626,14 +1638,14 @@ ohos_unittest("InputWindowsManagerTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1684,10 +1696,10 @@ ohos_unittest("InputWindowsManagerCoverageTest") {
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1752,14 +1764,14 @@ ohos_unittest("InputWindowsManagerOneTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utilsbase",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:libcomposer",
+@@ -1768,14 +1780,14 @@ ohos_unittest("InputWindowsManagerOneTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -1835,49 +1847,49 @@ ohos_unittest("InputWindowsManagerEXTest") {
+   }
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_base:zuri",
+-    "ability_runtime:ability_connect_callback_stub",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_base:zuri",
++    # [linux-port auto-gate] "ability_runtime:ability_connect_callback_stub",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
+     "cJSON:cjson",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "eventhandler:libeventhandler",
+-    "faultloggerd:libbacktrace_local",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "faultloggerd:libbacktrace_local",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:libcomposer",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+-    "hdf_core:libhdi",
+-    "hicollie:libhicollie",
++    # [linux-port auto-gate] "hdf_core:libhdi",
++    # [linux-port auto-gate] "hicollie:libhicollie",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm_lite",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm_lite",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ 
+   if (hitrace_enabled) {
+-    external_deps += [ "hitrace:hitrace_meter" ]
++    # [linux-port auto-gate] external_deps += [ "hitrace:hitrace_meter" ]
+   }
+ 
+   if (call_manager_service_enabled) {
+@@ -1937,11 +1949,11 @@ ohos_unittest("InputDisplayBindHelperBranchStandaloneTest") {
+   ]
+ 
+   external_deps = [
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -1978,22 +1990,22 @@ ohos_unittest("AccountManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:wantagent_innerkits",
++    # [linux-port auto-gate] "ability_runtime:wantagent_innerkits",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ 
+   if (call_manager_service_enabled) {
+@@ -2081,18 +2093,18 @@ ohos_unittest("SubscriberTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_runtime:wantagent_innerkits",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_runtime:wantagent_innerkits",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+   ]
+ 
+@@ -2104,7 +2116,7 @@ ohos_unittest("SubscriberTest") {
+     external_deps += [
+       "graphic_2d:2d_graphics",
+       "graphic_2d:librender_service_client",
+-      "window_manager:libwm",
++      # [linux-port auto-gate] "window_manager:libwm",
+     ]
+   }
+ }
+@@ -2146,14 +2158,14 @@ ohos_unittest("KeyGestureManagerEXTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
+-    "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ 
+   if (input_feature_switch) {
+@@ -2191,9 +2203,9 @@ ohos_unittest("NapProcessTest") {
+     "c_utils:utils",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -2230,18 +2242,18 @@ ohos_unittest("MonitorTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -2286,11 +2298,11 @@ ohos_unittest("Event_Monitor_HandlerNewTest") {
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+ 
+@@ -2350,26 +2362,26 @@ ohos_unittest("ModuleLoaderTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:configuration",
+-    "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_base:configuration",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gtest_main",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ 
+   if (security_component_enable) {
+@@ -2409,10 +2421,10 @@ ohos_unittest("KeyEventNormalizeTest") {
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -2505,7 +2517,7 @@ ohos_unittest("KeyEventNormalizeWithMockTest") {
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ }
+ 
+@@ -2541,10 +2553,10 @@ ohos_unittest("KeyUnicodeTransformationTest") {
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -2668,11 +2680,11 @@ ohos_unittest("LongPressSubscribeHandlerTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm_lite",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm_lite",
+   ]
+ }
+ 
+@@ -2709,8 +2721,8 @@ ohos_unittest("StylusKeyTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+   ]
+ }
+@@ -2740,10 +2752,10 @@ ohos_unittest("InfraredEmitterTest") {
+     "c_utils:utilsbase",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+-    "hdf_core:libhdi",
++    # [linux-port auto-gate] "hdf_core:libhdi",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -2781,10 +2793,10 @@ ohos_unittest("InfraredEmitterEXTest") {
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+-    "hdf_core:libhdi",
++    # [linux-port auto-gate] "hdf_core:libhdi",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -2820,8 +2832,8 @@ ohos_unittest("InterceptorTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -2849,13 +2861,13 @@ ohos_unittest("InterceptorExTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utilsbase",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+   ]
+ }
+@@ -2891,11 +2903,11 @@ ohos_unittest("KeyAutoRepeatExTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
+   ]
+ }
+ 
+@@ -2942,19 +2954,19 @@ ohos_unittest("EventHandlerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -3025,19 +3037,19 @@ ohos_unittest("InputEventHandlerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -3075,10 +3087,10 @@ ohos_unittest("EventNormalizeHandlerTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -3119,20 +3131,20 @@ ohos_unittest("EventHandlerEXTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+   if (resource_schedule_service_enabled) {
+     external_deps += [ "resource_schedule_service:ressched_client" ]
+@@ -3204,26 +3216,26 @@ ohos_unittest("EventDispatchTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
+-    "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+     "openssl:libcrypto_shared",
+     "openssl:libssl_shared"
+   ]
+@@ -3262,7 +3274,7 @@ ohos_unittest("LibinputAdapterTest") {
+     "c_utils:utilsbase",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ }
+ 
+@@ -3309,25 +3321,25 @@ ohos_unittest("ServerMsgHandlerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:ability_connect_callback_stub",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
+-    "bundle_framework:appexecfwk_core",
++    # [linux-port auto-gate] "ability_runtime:ability_connect_callback_stub",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "bundle_framework:appexecfwk_core",
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "data_share:datashare_consumer",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ 
+   if (security_component_enable) {
+@@ -3373,14 +3385,14 @@ ohos_unittest("AuthorizationDialogTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:ability_connect_callback_stub",
+-    "ability_runtime:app_manager",
+-    "bundle_framework:appexecfwk_core",
++    # [linux-port auto-gate] "ability_runtime:ability_connect_callback_stub",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "bundle_framework:appexecfwk_core",
+     "c_utils:utils",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ 
+   if (security_component_enable) {
+@@ -3409,16 +3421,16 @@ ohos_unittest("PermissionHelperTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:dataobs_manager",
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ 
+   if (security_component_enable) {
+@@ -3452,21 +3464,21 @@ ohos_unittest("DisplayStateManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
++    # [linux-port auto-gate] "ability_base:want",
+     "cJSON:cjson",
+     "c_utils:utils",
+     "c_utils:utilsbase",
+-    "common_event_service:cesfwk_core",
++    # [linux-port auto-gate] "common_event_service:cesfwk_core",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -3502,11 +3514,11 @@ ohos_unittest("DeviceManagerTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libdm_lite",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
+   ]
+ }
+ 
+@@ -3583,20 +3595,20 @@ ohos_unittest("DeviceManagerExTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utilsbase",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
+   ]
+ }
+ 
+@@ -3665,7 +3677,7 @@ ohos_unittest("DelegateTaskTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "init:libbegetutil",
+     "napi:ace_napi",
+   ]
+ }
+@@ -3712,8 +3724,8 @@ ohos_unittest("ConnectManagerProxyEXTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:app_manager",
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+     "c_utils:utilsbase",
+@@ -3722,12 +3734,12 @@ ohos_unittest("ConnectManagerProxyEXTest") {
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ 
+   if (security_component_enable) {
+@@ -3784,19 +3796,19 @@ ohos_unittest("EventDumpTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -3823,21 +3835,21 @@ ohos_unittest("DeviceEventMonitorTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_runtime:wantagent_innerkits",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_runtime:wantagent_innerkits",
+     "cJSON:cjson",
+     "c_utils:utilsbase",
+-    "common_event_service:cesfwk_innerkits",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+ 
+@@ -3872,10 +3884,10 @@ ohos_unittest("DfxHisysEventTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+ 
+@@ -3963,11 +3975,11 @@ ohos_unittest("SpecialInputDeviceParserTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libdm_lite",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
+   ]
+ }
+ 
+@@ -4033,18 +4045,18 @@ ohos_unittest("EventDispatchOrderCheckerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4110,18 +4122,18 @@ ohos_unittest("EventLoopClosureCheckerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4192,19 +4204,19 @@ ohos_unittest("KeyEventHookManagerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4331,19 +4343,19 @@ ohos_unittest("InputEventHookManagerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4420,19 +4432,19 @@ ohos_unittest("KeyLoopClosureCheckerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4508,19 +4520,19 @@ ohos_unittest("PointerLoopClosureCheckerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4601,19 +4613,19 @@ ohos_unittest("PointerEventHookTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4695,19 +4707,19 @@ ohos_unittest("KeyEventHookTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4791,15 +4803,15 @@ ohos_unittest("HardwareCursorPointerManagerTest") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "hicollie:libhicollie",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "hicollie:libhicollie",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "init:libbegetutil",
+   ]
+ }
+ 
+@@ -4841,20 +4853,20 @@ ohos_unittest("KeymapMgrTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_base:zuri",
+-    "ability_runtime:ability_connect_callback_stub",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_base:zuri",
++    # [linux-port auto-gate] "ability_runtime:ability_connect_callback_stub",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "preferences:native_preferences",
+   ]
+ }
+@@ -4906,11 +4918,11 @@ ohos_unittest("ProductTypeParserTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libdm_lite",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
+   ]
+ }
+ 
+@@ -4949,12 +4961,12 @@ ohos_unittest("InputServiceContextTest") {
+     "googletest:gtest_main",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -4991,7 +5003,7 @@ ohos_unittest("DragSecurityManagerTest") {
+     "googletest:gtest_main",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+     "openssl:libcrypto_shared",
+     "openssl:libssl_shared"
+   ]
+@@ -5082,7 +5094,7 @@ ohos_unittest("PropertyNameMapperTest") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "preferences:native_preferences",
+@@ -5163,19 +5175,19 @@ ohos_unittest("InputEventHookTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -5215,7 +5227,7 @@ ohos_unittest("TripleFingerSnapshotManagerTest") {
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+   ]
+ }
+ 
+diff --git a/service/connect_manager/BUILD.gn b/service/connect_manager/BUILD.gn
+index 5271985..f75741d 100644
+--- a/service/connect_manager/BUILD.gn
++++ b/service/connect_manager/BUILD.gn
+@@ -91,13 +91,13 @@ ohos_source_set("mmi_connect_manager_service") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "cJSON:cjson",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ 
+   if (input_feature_product != "watch") {
+@@ -106,7 +106,7 @@ ohos_source_set("mmi_connect_manager_service") {
+       "c_utils:utilsbase",
+       "graphic_2d:2d_graphics",
+       "hilog:libhilog",
+-      "safwk:system_ability_fwk",
++      # [linux-port auto-gate] "safwk:system_ability_fwk",
+     ]
+   }
+ 
+@@ -178,12 +178,12 @@ ohos_source_set("mmi_connect_manager_proxy") {
+   external_deps = [
+     "bounds_checking_function:libsec_shared",
+     "c_utils:utilsbase",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+diff --git a/service/crown_transform_processor/test/BUILD.gn b/service/crown_transform_processor/test/BUILD.gn
+index 3ca01c8..6ca4404 100644
+--- a/service/crown_transform_processor/test/BUILD.gn
++++ b/service/crown_transform_processor/test/BUILD.gn
+@@ -58,17 +58,17 @@ ohos_unittest("CrownTransformProcessorTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+@@ -97,14 +97,14 @@ ohos_unittest("CrownTransformProcessorExTest") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "libinput:libinput-third-mmi",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+diff --git a/service/filter/BUILD.gn b/service/filter/BUILD.gn
+index d0cc450..8b85ffb 100644
+--- a/service/filter/BUILD.gn
++++ b/service/filter/BUILD.gn
+@@ -61,8 +61,8 @@ ohos_source_set("mmi_event_filter_service") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
+   ]
+ }
+ 
+@@ -92,9 +92,9 @@ ohos_source_set("mmi_event_filter_proxy") {
+     "bounds_checking_function:libsec_shared",
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "ipc:ipc_single",
+-    "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
+   ]
+ 
+   if (is_ohos && is_clang && (target_cpu == "arm" || target_cpu == "arm64") &&
+diff --git a/service/joystick/BUILD.gn b/service/joystick/BUILD.gn
+index 7cccab3..dfd246f 100644
+--- a/service/joystick/BUILD.gn
++++ b/service/joystick/BUILD.gn
+@@ -47,13 +47,13 @@ ohos_shared_library("mmi_joystick_event_normalization") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+     "icu:shared_icuuc",
+   ]
+@@ -101,9 +101,9 @@ ohos_source_set("joystick_event_normalization") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+   ]
+ 
+diff --git a/service/joystick/test/BUILD.gn b/service/joystick/test/BUILD.gn
+index 74a0354..43e37df 100644
+--- a/service/joystick/test/BUILD.gn
++++ b/service/joystick/test/BUILD.gn
+@@ -88,11 +88,11 @@ ohos_unittest("JoystickLayoutMapTest") {
+   external_deps = [
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+diff --git a/service/key_command/test/BUILD.gn b/service/key_command/test/BUILD.gn
+index 3a61810..708e9ec 100755
+--- a/service/key_command/test/BUILD.gn
++++ b/service/key_command/test/BUILD.gn
+@@ -72,27 +72,27 @@ ohos_unittest("KeyCommandTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+diff --git a/service/module_loader/test/BUILD.gn b/service/module_loader/test/BUILD.gn
+index 5d290e1..7871044 100644
+--- a/service/module_loader/test/BUILD.gn
++++ b/service/module_loader/test/BUILD.gn
+@@ -61,7 +61,7 @@ ohos_unittest("PreferencesManagerTestWithMock") {
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "init:libbegetutil",
+     "libxml2:libxml2",
+     "preferences:native_preferences",
+     "c_utils:utils",
+diff --git a/service/mouse_event_normalize/BUILD.gn b/service/mouse_event_normalize/BUILD.gn
+index 49b38ee..ade676d 100644
+--- a/service/mouse_event_normalize/BUILD.gn
++++ b/service/mouse_event_normalize/BUILD.gn
+@@ -64,18 +64,18 @@ deps = [
+ external_deps = [
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "preferences:native_preferences",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "window_manager:libdm_lite",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
+     "graphic_2d:librender_service_client",
+-    "window_manager:libwsutils",
+-    "libinput:libinput-third-mmi",
+-    "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "window_manager:libwsutils",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
+     "icu:shared_icuuc",
+ ]
+ 
+@@ -122,12 +122,12 @@ deps = [
+ 
+ external_deps = [
+     "c_utils:utils",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+ ]
+ 
+ part_name = "${mmi_part_name}"
+@@ -165,8 +165,8 @@ external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+     "preferences:native_preferences",
+-    "libinput:libinput-third-mmi",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_single",
+ ]
+ 
+ part_name = "${mmi_part_name}"
+diff --git a/service/mouse_event_normalize/test/BUILD.gn b/service/mouse_event_normalize/test/BUILD.gn
+index 5fc256b..f41d8f7 100644
+--- a/service/mouse_event_normalize/test/BUILD.gn
++++ b/service/mouse_event_normalize/test/BUILD.gn
+@@ -85,13 +85,13 @@ ohos_unittest("MouseEventNormalizeTestWithMock") {
+     "googletest:gtest_main",
+     "graphic_2d:librender_service_base",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+-    "window_manager:libwsutils",
+-    "libinput:libinput-third-mmi",
+-    "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "window_manager:libwsutils",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+   ]
+@@ -150,11 +150,11 @@ ohos_unittest("MouseEventNormalizeTest") {
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libwm",
+-    "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
+     "icu:shared_icuuc",
+   ]
+ }
+@@ -199,13 +199,13 @@ ohos_unittest("MouseEventNormalizeEXTest") {
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ }
+ 
+@@ -260,13 +260,13 @@ ohos_unittest("MouseTransformProcessorEXTest") {
+     "cJSON:cjson",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "window_manager:libwsutils",
+-    "window_manager:libwm",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "window_manager:libwsutils",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "init:libbegetutil",
+     "graphic_2d:librender_service_client",
+   ]
+ }
+@@ -323,12 +323,12 @@ ohos_unittest("PointerMotionAccelerationTestWithMock") {
+   external_deps = [
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+   ]
+ }
+@@ -385,14 +385,14 @@ ohos_unittest("MousePreferenceAccessorTest") {
+   external_deps = [
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -453,14 +453,14 @@ ohos_unittest("MouseEventInterfaceTest") {
+   external_deps = [
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+diff --git a/service/subscriber/test/BUILD.gn b/service/subscriber/test/BUILD.gn
+index 99da73f..ce2ebc6 100644
+--- a/service/subscriber/test/BUILD.gn
++++ b/service/subscriber/test/BUILD.gn
+@@ -34,11 +34,11 @@ ohos_unittest("key_shortcut_rules_test") {
+ 
+   external_deps = [
+     "c_utils:utilsbase",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -72,9 +72,9 @@ ohos_unittest("InputActiveSubscriberHandlerTest") {
+     "hilog:libhilog",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+-    "hisysevent:libhisysevent",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ }
+ 
+@@ -113,9 +113,9 @@ ohos_unittest("InputActiveSubscriberHandlerNewTest") {
+     "hilog:libhilog",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+-    "hisysevent:libhisysevent",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ }
+ 
+@@ -176,15 +176,15 @@ ohos_unittest("KeyGestureManagerTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+-    "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ 
+   if (input_feature_switch) {
+diff --git a/service/touch_event_normalize/BUILD.gn b/service/touch_event_normalize/BUILD.gn
+index 9f6d108..fb79cca 100644
+--- a/service/touch_event_normalize/BUILD.gn
++++ b/service/touch_event_normalize/BUILD.gn
+@@ -53,9 +53,9 @@ ohos_shared_library("mmi_touch_gesture_manager") {
+   external_deps = [
+     "c_utils:utils",
+     "cJSON:cjson",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+   ]
+ 
+@@ -99,9 +99,9 @@ ohos_source_set("touch_gesture_manager") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+   ]
+ 
+diff --git a/service/touch_event_normalize/test/BUILD.gn b/service/touch_event_normalize/test/BUILD.gn
+index ad8f54b..1802424 100644
+--- a/service/touch_event_normalize/test/BUILD.gn
++++ b/service/touch_event_normalize/test/BUILD.gn
+@@ -104,11 +104,11 @@ ohos_unittest("TouchEventNormalizeTestWithMock") {
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "preferences:native_preferences",
+-    "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
+     "icu:shared_icuuc",
+   ]
+ 
+@@ -165,16 +165,16 @@ ohos_unittest("TouchEventNormalizeTest") {
+ 
+   external_deps = [
+     "c_utils:utilsbase",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "cJSON:cjson",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+   ]
+@@ -306,19 +306,19 @@ ohos_unittest("GestureTransformTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_base:zuri",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_base:zuri",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -326,19 +326,19 @@ ohos_unittest("GestureTransformTest") {
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "sensor:sensor_interface_native",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "sensor:sensor_interface_native",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ 
+   if (call_manager_service_enabled) {
+@@ -351,7 +351,7 @@ ohos_unittest("GestureTransformTest") {
+ 
+   if (input_ext_feature_magiccursor) {
+     external_deps += [
+-      "eventhandler:libeventhandler",
++      # [linux-port auto-gate] "eventhandler:libeventhandler",
+       "graphic_2d_ext:libsdf",
+     ]
+   }
+@@ -458,19 +458,19 @@ ohos_unittest("TabletToolTransformTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_base:zuri",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_base:zuri",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -478,18 +478,18 @@ ohos_unittest("TabletToolTransformTest") {
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+     "openssl:libcrypto_shared",
+     "openssl:libssl_shared"
+   ]
+@@ -504,7 +504,7 @@ ohos_unittest("TabletToolTransformTest") {
+ 
+   if (input_ext_feature_magiccursor) {
+     external_deps += [
+-      "eventhandler:libeventhandler",
++      # [linux-port auto-gate] "eventhandler:libeventhandler",
+       "graphic_2d_ext:libsdf",
+     ]
+   }
+@@ -649,21 +649,21 @@ ohos_unittest("TouchTransformProcessorTestWithMock") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_base:zuri",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_base:zuri",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -672,18 +672,18 @@ ohos_unittest("TouchTransformProcessorTestWithMock") {
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libdm_lite",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libdm_lite",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ 
+   if (hitrace_enabled) {
+@@ -692,7 +692,7 @@ ohos_unittest("TouchTransformProcessorTestWithMock") {
+ 
+   if (input_ext_feature_magiccursor) {
+     external_deps += [
+-      "eventhandler:libeventhandler",
++      # [linux-port auto-gate] "eventhandler:libeventhandler",
+       "graphic_2d_ext:libsdf",
+     ]
+   }
+@@ -702,7 +702,7 @@ ohos_unittest("TouchTransformProcessorTestWithMock") {
+   }
+ 
+   if (input_feature_combination_key) {
+-    external_deps += [ "sensor:sensor_interface_native" ]
++    # [linux-port auto-gate] external_deps += [ "sensor:sensor_interface_native" ]
+   }
+ }
+ 
+@@ -816,19 +816,19 @@ ohos_unittest("TouchpadGestureTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_base:zuri",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_base:zuri",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+@@ -836,18 +836,18 @@ ohos_unittest("TouchpadGestureTest") {
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "window_manager:libwsutils",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwsutils",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ 
+   if (hitrace_enabled) {
+@@ -860,7 +860,7 @@ ohos_unittest("TouchpadGestureTest") {
+ 
+   if (input_ext_feature_magiccursor) {
+     external_deps += [
+-      "eventhandler:libeventhandler",
++      # [linux-port auto-gate] "eventhandler:libeventhandler",
+       "graphic_2d_ext:libsdf",
+     ]
+   }
+@@ -970,20 +970,20 @@ ohos_unittest("TouchPadTransformProcessorMockTest") {
+   ]
+ 
+   external_deps = [
+-    "ability_base:want",
+-    "ability_base:zuri",
+-    "ability_runtime:ability_manager",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "ability_runtime:dataobs_manager",
++    # [linux-port auto-gate] "ability_base:want",
++    # [linux-port auto-gate] "ability_base:zuri",
++    # [linux-port auto-gate] "ability_runtime:ability_manager",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ability_runtime:dataobs_manager",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "common_event_service:cesfwk_innerkits",
+-    "config_policy:configpolicy_util",
+-    "data_share:datashare_consumer",
+-    "eventhandler:libeventhandler",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "common_event_service:cesfwk_innerkits",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+@@ -993,18 +993,18 @@ ohos_unittest("TouchPadTransformProcessorMockTest") {
+     "graphic_2d:librender_service_client",
+     "graphic_2d:window_animation",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "preferences:native_preferences",
+-    "safwk:system_ability_fwk",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
+-    "window_manager:libwm_lite",
+-    "window_manager:libwsutils",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
++    # [linux-port auto-gate] "window_manager:libwm_lite",
++    # [linux-port auto-gate] "window_manager:libwsutils",
+   ]
+ 
+   if (call_manager_service_enabled) {
+@@ -1017,7 +1017,7 @@ ohos_unittest("TouchPadTransformProcessorMockTest") {
+ 
+   if (input_ext_feature_magiccursor) {
+     external_deps += [
+-      "eventhandler:libeventhandler",
++      # [linux-port auto-gate] "eventhandler:libeventhandler",
+       "graphic_2d_ext:libsdf",
+     ]
+   }
+@@ -1078,9 +1078,9 @@ ohos_unittest("TouchGestureAdapterTest") {
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+   ]
+@@ -1140,15 +1140,15 @@ ohos_unittest("TouchGestureManagerTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     "image_framework:image_native",
+     "image_framework:pixelmap",
+   ]
+@@ -1204,8 +1204,8 @@ ohos_unittest("RemoteControlTransformProcessorTestWithMock") {
+     "c_utils:utilsbase",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -1248,12 +1248,12 @@ ohos_unittest("TouchGestureManagerTestWithMock") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "graphic_2d:2d_graphics",
+     "hilog:libhilog",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ 
+   if (enable_player_framework) {
+@@ -1298,19 +1298,19 @@ ohos_unittest("TouchpadTransformProcessorEXTest") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "graphic_2d:2d_graphics",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+     "preferences:native_preferences",
+-    "samgr:samgr_proxy",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+ 
+diff --git a/service/window_manager/BUILD.gn b/service/window_manager/BUILD.gn
+index 5b52711..3d45154 100644
+--- a/service/window_manager/BUILD.gn
++++ b/service/window_manager/BUILD.gn
+@@ -52,7 +52,7 @@ ohos_shared_library("mmi_touch_drawing_handler") {
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "init:libbegetutil",
+     "preferences:native_preferences",
+   ]
+ 
+@@ -117,7 +117,7 @@ ohos_unittest("TouchDrawingHandlerTest") {
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "hilog:libhilog",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "init:libbegetutil",
+     "preferences:native_preferences",
+   ]
+ 
+diff --git a/test/facility/event_handler_mock/BUILD.gn b/test/facility/event_handler_mock/BUILD.gn
+index 7e13206..1bd76d8 100644
+--- a/test/facility/event_handler_mock/BUILD.gn
++++ b/test/facility/event_handler_mock/BUILD.gn
+@@ -63,7 +63,7 @@ ohos_source_set("event_handler_mock") {
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ 
+   part_name = "${mmi_part_name}"
+diff --git a/test/facility/hardware_cursor_pointer_manager_mock/BUILD.gn b/test/facility/hardware_cursor_pointer_manager_mock/BUILD.gn
+index f3c6646..8b19f0a 100644
+--- a/test/facility/hardware_cursor_pointer_manager_mock/BUILD.gn
++++ b/test/facility/hardware_cursor_pointer_manager_mock/BUILD.gn
+@@ -1,58 +1,58 @@
+-# Copyright (c) 2025 Huawei Device Co., Ltd.
+-# Licensed under the Apache License, Version 2.0 (the "License");
+-# you may not use this file except in compliance with the License.
+-# You may obtain a copy of the License at
+-#
+-#     http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an "AS IS" BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-
+-import("../../../multimodalinput_mini.gni")
+-
+-config("hardware_cursor_pointer_manager_mock_public_config") {
+-  include_dirs = [ "include" ]
+-}
+-
+-ohos_source_set("hardware_cursor_pointer_manager_mock") {
+-  branch_protector_ret = "pac_ret"
+-  sanitize = {
+-    cfi = true
+-    cfi_cross_dso = true
+-    debug = false
+-  }
+-
+-  testonly = true
+-
+-  include_dirs = [
+-    "include",
+-    "${mmi_path}/util/common/include",
+-  ]
+-
+-  sources = [
+-    "src/hardware_cursor_pointer_manager.cpp",
+-  ]
+-
+-  public_configs = [ ":hardware_cursor_pointer_manager_mock_public_config" ]
+-
+-  deps = [
+-    "${mmi_path}/util:libmmi-util",
+-  ]
+-
+-  external_deps = [
+-    "c_utils:utils",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "googletest:gmock_main",
+-    "graphic_2d:librender_service_base",
+-    "graphic_2d:librender_service_client",
+-    "hilog:libhilog",
+-    "init:libbegetutil",
+-  ]
+-
+-  part_name = "${mmi_part_name}"
+-  subsystem_name = "${mmi_subsystem_name}"
++# Copyright (c) 2025 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++import("../../../multimodalinput_mini.gni")
++
++config("hardware_cursor_pointer_manager_mock_public_config") {
++  include_dirs = [ "include" ]
++}
++
++ohos_source_set("hardware_cursor_pointer_manager_mock") {
++  branch_protector_ret = "pac_ret"
++  sanitize = {
++    cfi = true
++    cfi_cross_dso = true
++    debug = false
++  }
++
++  testonly = true
++
++  include_dirs = [
++    "include",
++    "${mmi_path}/util/common/include",
++  ]
++
++  sources = [
++    "src/hardware_cursor_pointer_manager.cpp",
++  ]
++
++  public_configs = [ ":hardware_cursor_pointer_manager_mock_public_config" ]
++
++  deps = [
++    "${mmi_path}/util:libmmi-util",
++  ]
++
++  external_deps = [
++    "c_utils:utils",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    "googletest:gmock_main",
++    "graphic_2d:librender_service_base",
++    "graphic_2d:librender_service_client",
++    "hilog:libhilog",
++    # [linux-port auto-gate] "init:libbegetutil",
++  ]
++
++  part_name = "${mmi_part_name}"
++  subsystem_name = "${mmi_subsystem_name}"
+ }
+\ No newline at end of file
+diff --git a/test/facility/key_command_mock/BUILD.gn b/test/facility/key_command_mock/BUILD.gn
+index de7f77e..a40da3b 100644
+--- a/test/facility/key_command_mock/BUILD.gn
++++ b/test/facility/key_command_mock/BUILD.gn
+@@ -39,7 +39,7 @@ ohos_source_set("key_command_mock") {
+   deps = [ "${mmi_path}/util:libmmi-util" ]
+ 
+   external_deps = [
+-    "data_share:datashare_consumer",
++    # [linux-port auto-gate] "data_share:datashare_consumer",
+     "googletest:gmock_main",
+   ]
+ 
+diff --git a/test/facility/knuckle_mock/BUILD.gn b/test/facility/knuckle_mock/BUILD.gn
+index 9f99dfa..982bb72 100644
+--- a/test/facility/knuckle_mock/BUILD.gn
++++ b/test/facility/knuckle_mock/BUILD.gn
+@@ -41,7 +41,7 @@ ohos_source_set("knuckle_mock") {
+ 
+   external_deps = [
+     "googletest:gmock_main",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ 
+   part_name = "${mmi_part_name}"
+diff --git a/test/facility/libinput_wrapper/BUILD.gn b/test/facility/libinput_wrapper/BUILD.gn
+index d02cc8a..5b06cfc 100644
+--- a/test/facility/libinput_wrapper/BUILD.gn
++++ b/test/facility/libinput_wrapper/BUILD.gn
+@@ -36,7 +36,7 @@ ohos_source_set("libinput_wrapper_sources") {
+   external_deps = [
+     "c_utils:utilsbase",
+     "hilog:libhilog",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ 
+   part_name = "${mmi_part_name}"
+diff --git a/test/facility/mock/BUILD.gn b/test/facility/mock/BUILD.gn
+index ecef6a9..fc2e8ea 100644
+--- a/test/facility/mock/BUILD.gn
++++ b/test/facility/mock/BUILD.gn
+@@ -68,7 +68,7 @@ ohos_source_set("mmi_mock_sources") {
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+     "preferences:native_preferences",
+   ]
+ 
+diff --git a/test/unittest/interfaces/BUILD.gn b/test/unittest/interfaces/BUILD.gn
+index c0b3cb1..3a48354 100644
+--- a/test/unittest/interfaces/BUILD.gn
++++ b/test/unittest/interfaces/BUILD.gn
+@@ -48,12 +48,12 @@ ohos_unittest("InputNativeTest") {
+   }
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ 
+   subsystem_name = "multimodalinput"
+@@ -86,16 +86,16 @@ ohos_unittest("InputNativeHotkeyTest") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
+-    "access_token:libnativetoken",
+-    "access_token:libtoken_setproc",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libnativetoken",
++    # [linux-port auto-gate] "access_token:libtoken_setproc",
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_single",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+   ]
+ 
+   subsystem_name = "multimodalinput"
+diff --git a/tools/inject_event/BUILD.gn b/tools/inject_event/BUILD.gn
+index b9faf22..2ebdc35 100644
+--- a/tools/inject_event/BUILD.gn
++++ b/tools/inject_event/BUILD.gn
+@@ -56,11 +56,11 @@ ohos_source_set("input-manager") {
+   external_deps = [
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+   part_name = "input"
+   subsystem_name = "multimodalinput"
+@@ -132,11 +132,11 @@ ohos_unittest("InjectEventTest") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -158,11 +158,11 @@ ohos_unittest("QueryMouseInfoCommandTest") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+     "image_framework:image_native",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+diff --git a/tools/vuinput/BUILD.gn b/tools/vuinput/BUILD.gn
+index 33aed4c..0980ae7 100644
+--- a/tools/vuinput/BUILD.gn
++++ b/tools/vuinput/BUILD.gn
+@@ -35,7 +35,7 @@ ohos_source_set("libmmi-virtual-device") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ 
+   public_configs = [ ":virtual_device_public_config" ]
+@@ -58,7 +58,7 @@ ohos_executable("vuinput") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+   install_enable = true
+   part_name = "input"
+@@ -96,6 +96,6 @@ ohos_unittest("ut-virtual-device-out") {
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "libinput:libinput-third-mmi",
++    # [linux-port auto-gate] "libinput:libinput-third-mmi",
+   ]
+ }
+diff --git a/util/BUILD.gn b/util/BUILD.gn
+index a1f9e3e..3be5f3a 100644
+--- a/util/BUILD.gn
++++ b/util/BUILD.gn
+@@ -62,20 +62,32 @@ config("libmmi_util_config") {
+   }
+ }
+ 
+-ohos_rust_shared_ffi("mmi_rust_key_config") {
+-  sources = [ "rust_key/src/lib.rs" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("mmi_rust_key_config") {
++  }
++} else {
++  ohos_rust_shared_ffi("mmi_rust_key_config") {
++    sources = [ "rust_key/src/lib.rs" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
+ }
+ 
+-ohos_rust_unittest("rust_mmi_key_config_test") {
+-  module_out_path = module_output_path
+-  sources = [ "rust_key/test/lib_test.rs" ]
+-  deps = [ ":mmi_rust_key_config" ]
+-  external_deps = [ "hilog:hilog_rust" ]
+-  subsystem_name = "multimodalinput"
+-  part_name = "input"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("rust_mmi_key_config_test") {
++  }
++} else {
++  ohos_rust_unittest("rust_mmi_key_config_test") {
++    module_out_path = module_output_path
++    sources = [ "rust_key/test/lib_test.rs" ]
++    deps = [ ":mmi_rust_key_config" ]
++    external_deps = [ "hilog:hilog_rust" ]
++    subsystem_name = "multimodalinput"
++    part_name = "input"
++  }
+ }
+ 
+ ohos_shared_library("libmmi-util") {
+@@ -94,13 +106,13 @@ ohos_shared_library("libmmi-util") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "config_policy:configpolicy_util",
++    # [linux-port auto-gate] "config_policy:configpolicy_util",
+     "hilog:libhilog",
+-    "ipc:ipc_single",
+-    "hisysevent:libhisysevent",
+-    "access_token:libaccesstoken_sdk",
+-    "ability_base:configuration",
+-    "ability_runtime:app_manager",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "ability_base:configuration",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
+     "cJSON:cjson",
+   ]
+ 
+diff --git a/util/common/BUILD.gn b/util/common/BUILD.gn
+index 6683dbf..cb600ab 100644
+--- a/util/common/BUILD.gn
++++ b/util/common/BUILD.gn
+@@ -54,9 +54,9 @@ ohos_unittest("UtilCommonTest") {
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "access_token:libaccesstoken_sdk",
+-    "ability_base:configuration",
+-    "ability_runtime:app_manager",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "ability_base:configuration",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
+   ]
+ }
+ 
+@@ -94,11 +94,11 @@ ohos_unittest("InputEventDataTransformationTest") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "googletest:gtest_main",
+     "hilog:libhilog",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
+     "preferences:native_preferences",
+   ]
+ 
+diff --git a/util/screen_capture/BUILD.gn b/util/screen_capture/BUILD.gn
+index 98b3117..8767694 100644
+--- a/util/screen_capture/BUILD.gn
++++ b/util/screen_capture/BUILD.gn
+@@ -51,7 +51,7 @@ ohos_shared_library("libmmi-screen_capture") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "hisysevent:libhisysevent",
++    # [linux-port auto-gate] "hisysevent:libhisysevent",
+   ]
+ 
+   if (enable_player_framework) {

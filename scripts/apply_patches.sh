@@ -49,10 +49,15 @@ case "$TARGET" in
       "foundation/graphic/graphic_2d:graphic_2d"
       "base/global/resource_management:resmgr"
       "base/hiviewdfx/hilog:hilog"
+      "base/hiviewdfx/hitrace:hitrace"
       "arkcompiler/runtime_core:runtime_core"
       "developtools/ace_ets2bundle:ace_ets2bundle"
       "foundation/multimodalinput/input:input"
       "foundation/multimedia/image_framework:image_framework"
+      "commonlibrary/c_utils:c_utils"
+      "foundation/distributeddatamgr/preferences:preferences"
+      "foundation/filemanagement/file_api:file_api"
+      "third_party/ffmpeg:ffmpeg"
     )
     ;;
   *)

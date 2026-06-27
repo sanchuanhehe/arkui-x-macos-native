@@ -1,0 +1,186 @@
+diff --git a/example/BUILD.gn b/example/BUILD.gn
+index 1d160c1..ad828bb 100644
+--- a/example/BUILD.gn
++++ b/example/BUILD.gn
+@@ -28,15 +28,21 @@ ohos_executable("hitrace_example") {
+   part_name = "hitrace"
+ }
+ 
+-ohos_rust_executable("hitrace_example_rust") {
+-  sources = [ "rust/main.rs" ]
+-
+-  deps = [
+-    "$hitrace_interfaces_path/rust/innerkits/hitrace_meter:hitrace_meter_rust",
+-  ]
+-  install_enable = false
+-  subsystem_name = "hiviewdfx"
+-  part_name = "hitrace"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("hitrace_example_rust") {
++  }
++} else {
++  ohos_rust_executable("hitrace_example_rust") {
++    sources = [ "rust/main.rs" ]
++  
++    deps = [
++      "$hitrace_interfaces_path/rust/innerkits/hitrace_meter:hitrace_meter_rust",
++    ]
++    install_enable = false
++    subsystem_name = "hiviewdfx"
++    part_name = "hitrace"
++  }
+ }
+ 
+ group("hitrace_example_target") {
+diff --git a/interfaces/rust/innerkits/hitrace_meter/BUILD.gn b/interfaces/rust/innerkits/hitrace_meter/BUILD.gn
+index f273cfb..7d1bba7 100644
+--- a/interfaces/rust/innerkits/hitrace_meter/BUILD.gn
++++ b/interfaces/rust/innerkits/hitrace_meter/BUILD.gn
+@@ -14,13 +14,19 @@
+ import("//base/hiviewdfx/hitrace/hitrace.gni")
+ import("//build/ohos.gni")
+ 
+-ohos_rust_shared_library("hitrace_meter_rust") {
+-  sources = [ "src/lib.rs" ]
+-  rustflags = [ "-Zstack-protector=all" ]
+-  deps = [ "$hitrace_interfaces_path/native/innerkits:hitrace_meter" ]
+-  crate_name = "hitrace_meter_rust"
+-  crate_type = "dylib"
+-
+-  subsystem_name = "hiviewdfx"
+-  part_name = "hitrace"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("hitrace_meter_rust") {
++  }
++} else {
++  ohos_rust_shared_library("hitrace_meter_rust") {
++    sources = [ "src/lib.rs" ]
++    rustflags = [ "-Zstack-protector=all" ]
++    deps = [ "$hitrace_interfaces_path/native/innerkits:hitrace_meter" ]
++    crate_name = "hitrace_meter_rust"
++    crate_type = "dylib"
++  
++    subsystem_name = "hiviewdfx"
++    part_name = "hitrace"
++  }
+ }
+diff --git a/interfaces/rust/innerkits/hitracechain/BUILD.gn b/interfaces/rust/innerkits/hitracechain/BUILD.gn
+index 5595b33..b60ad31 100644
+--- a/interfaces/rust/innerkits/hitracechain/BUILD.gn
++++ b/interfaces/rust/innerkits/hitracechain/BUILD.gn
+@@ -14,20 +14,26 @@
+ import("//base/hiviewdfx/hitrace/hitrace.gni")
+ import("//build/ohos.gni")
+ 
+-ohos_rust_shared_library("hitracechain_rust") {
+-  sources = [
+-    "src/lib.rs",
+-    "src/macros.rs",
+-  ]
+-  rustflags = [ "-Zstack-protector=all" ]
+-  deps = [
+-    "$hitrace_frameworks_path/native/c_wrapper:hitracechain_c_wrapper",
+-    "$hitrace_interfaces_path/native/innerkits:libhitracechain",
+-  ]
+-
+-  crate_name = "hitracechain"
+-  crate_type = "dylib"
+-
+-  part_name = "hitrace"
+-  subsystem_name = "hiviewdfx"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("hitracechain_rust") {
++  }
++} else {
++  ohos_rust_shared_library("hitracechain_rust") {
++    sources = [
++      "src/lib.rs",
++      "src/macros.rs",
++    ]
++    rustflags = [ "-Zstack-protector=all" ]
++    deps = [
++      "$hitrace_frameworks_path/native/c_wrapper:hitracechain_c_wrapper",
++      "$hitrace_interfaces_path/native/innerkits:libhitracechain",
++    ]
++  
++    crate_name = "hitracechain"
++    crate_type = "dylib"
++  
++    part_name = "hitrace"
++    subsystem_name = "hiviewdfx"
++  }
+ }
+diff --git a/test/unittest/rust/hitrace_meter/BUILD.gn b/test/unittest/rust/hitrace_meter/BUILD.gn
+index df8b0c1..5675a6c 100644
+--- a/test/unittest/rust/hitrace_meter/BUILD.gn
++++ b/test/unittest/rust/hitrace_meter/BUILD.gn
+@@ -16,16 +16,22 @@ import("//build/test.gni")
+ 
+ module_output_path = "hitrace/hitrace"
+ 
+-ohos_rust_unittest("rust_meter_test") {
+-  module_out_path = module_output_path
+-
+-  sources = [
+-    "src/main.rs",
+-    "src/trace_test.rs"
+-  ]
+-
+-  deps = [
+-    "$hitrace_interfaces_path/rust/innerkits/hitrace_meter:hitrace_meter_rust",
+-    "c:hitrace_meter_rust_test",
+-  ]
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("rust_meter_test") {
++  }
++} else {
++  ohos_rust_unittest("rust_meter_test") {
++    module_out_path = module_output_path
++  
++    sources = [
++      "src/main.rs",
++      "src/trace_test.rs"
++    ]
++  
++    deps = [
++      "$hitrace_interfaces_path/rust/innerkits/hitrace_meter:hitrace_meter_rust",
++      "c:hitrace_meter_rust_test",
++    ]
++  }
+ }
+\ No newline at end of file
+diff --git a/test/unittest/rust/hitracechain/BUILD.gn b/test/unittest/rust/hitracechain/BUILD.gn
+index 32640e9..4e7c71b 100644
+--- a/test/unittest/rust/hitracechain/BUILD.gn
++++ b/test/unittest/rust/hitracechain/BUILD.gn
+@@ -16,12 +16,18 @@ import("//build/test.gni")
+ 
+ module_output_path = "hitrace/hitrace"
+ 
+-ohos_rust_unittest("rust_hitracechain_test") {
+-  module_out_path = module_output_path
+-
+-  sources = [ "src/main.rs" ]
+-
+-  deps = [
+-    "$hitrace_interfaces_path/rust/innerkits/hitracechain:hitracechain_rust",
+-  ]
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("rust_hitracechain_test") {
++  }
++} else {
++  ohos_rust_unittest("rust_hitracechain_test") {
++    module_out_path = module_output_path
++  
++    sources = [ "src/main.rs" ]
++  
++    deps = [
++      "$hitrace_interfaces_path/rust/innerkits/hitracechain:hitracechain_rust",
++    ]
++  }
+ }

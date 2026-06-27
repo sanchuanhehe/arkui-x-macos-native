@@ -1,3 +1,115 @@
+diff --git a/adapter/preview/build/platform.gni b/adapter/preview/build/platform.gni
+index 0b18db5..9bcceaa 100644
+--- a/adapter/preview/build/platform.gni
++++ b/adapter/preview/build/platform.gni
+@@ -41,6 +41,12 @@ if (use_mac) {
+ if (use_linux) {
+   linux_platform = {
+     name = "linux"
++
++    # Linux/Wayland native port: admit linux into graphic_2d's ace_platforms under
++    # is_arkui_x. ace_platforms.gni filters cross-platform entries by this flag, so
++    # without it 2d_graphics_source_linux / skia_libtxt_linux etc. are never
++    # generated and their consumers (ace_core_ng_linux, rosen_text_skia) fail.
++    cross_platform_support = true
+     config = {
+       import("config_linux.gni")
+     }
+diff --git a/frameworks/opengl_wrapper/BUILD.gn b/frameworks/opengl_wrapper/BUILD.gn
+index 2d40b52..962bf00 100644
+--- a/frameworks/opengl_wrapper/BUILD.gn
++++ b/frameworks/opengl_wrapper/BUILD.gn
+@@ -105,7 +105,7 @@ if (current_os != "ohos") {
+       "bundle_framework:appexecfwk_core",
+       "c_utils:utils",
+       "config_policy:configpolicy_util",
+-      "graphic_surface:surface",
++      # [linux-port auto-gate] "graphic_surface:surface",
+       "hilog:libhilog",
+       "init:libbeget_proxy",
+       "init:libbegetutil",
+@@ -159,7 +159,7 @@ ohos_shared_library("GLESv1") {
+ 
+   external_deps = [
+     "hilog:libhilog",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+   ]
+ 
+   output_name = "GLESv1"
+@@ -202,7 +202,7 @@ ohos_shared_library("GLESv2") {
+ 
+   external_deps = [
+     "hilog:libhilog",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+   ]
+ 
+   output_name = "GLESv2"
+@@ -254,7 +254,7 @@ if (current_os != "ohos") {
+ 
+     external_deps = [
+       "hilog:libhilog",
+-      "graphic_surface:surface",
++      # [linux-port auto-gate] "graphic_surface:surface",
+     ]
+ 
+     output_name = "GLESv3"
+@@ -308,7 +308,7 @@ if (current_os != "ohos") {
+       "egl:libEGL",
+       "opengles:libGLES",
+       "hilog:libhilog",
+-      "graphic_surface:surface",
++      # [linux-port auto-gate] "graphic_surface:surface",
+     ]
+ 
+     if (graphic_2d_feature_enable_opengl_to_vulkan) {
+@@ -353,7 +353,7 @@ ohos_executable("opengl_wrapper_native_test") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "graphic_surface:surface_headers",
++    # [linux-port auto-gate] "graphic_surface:surface_headers",
+     "hilog:libhilog",
+   ]
+ 
+diff --git a/frameworks/text/interface/mlb/napi/BUILD.gn b/frameworks/text/interface/mlb/napi/BUILD.gn
+index f4e9624..901c0d4 100644
+--- a/frameworks/text/interface/mlb/napi/BUILD.gn
++++ b/frameworks/text/interface/mlb/napi/BUILD.gn
+@@ -104,13 +104,13 @@ ohos_shared_library("text_napi_impl") {
+   ]
+ 
+   external_deps = [
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_context",
+-    "ability_runtime:napi_common",
+-    "bundle_framework:appexecfwk_core",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_context",
++    # [linux-port auto-gate] "ability_runtime:napi_common",
++    # [linux-port auto-gate] "bundle_framework:appexecfwk_core",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "hilog:libhilog",
+     "image_framework:image_native",
+     "napi:ace_napi",
+diff --git a/frameworks/text/interface/ndk_src/BUILD.gn b/frameworks/text/interface/ndk_src/BUILD.gn
+index 9ad6361..fac4ff3 100644
+--- a/frameworks/text/interface/ndk_src/BUILD.gn
++++ b/frameworks/text/interface/ndk_src/BUILD.gn
+@@ -63,7 +63,7 @@ ohos_source_set("text_ndk") {
+   }
+   external_deps = [
+     "bounds_checking_function:libsec_shared",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ 
+   configs = [ "$rosen_text_root:rosen_text_config" ]
 diff --git a/graphic_config.gni b/graphic_config.gni
 index 18125c6..b0406f2 100644
 --- a/graphic_config.gni
@@ -115,6 +227,1007 @@ index 18125c6..b0406f2 100644
    graphic_2d_car_features_configs = {
      import(
        "//foundation/graphic/graphic_2d_ext/car_features/build/car_features_config.gni")
+diff --git a/rosen/modules/2d_graphics/BUILD.gn b/rosen/modules/2d_graphics/BUILD.gn
+index 2bf61ba..ad4e6d5 100755
+--- a/rosen/modules/2d_graphics/BUILD.gn
++++ b/rosen/modules/2d_graphics/BUILD.gn
+@@ -519,8 +519,12 @@ if (!is_arkui_x) {
+ }
+ 
+ group("2d_graphics_packages") {
+-  deps = [
+-    "$drawing_root:2d_graphics",
+-    "$drawing_root/drawing_ndk:native_drawing_ndk",
+-  ]
++  deps = [ "$drawing_root:2d_graphics" ]
++
++  # Linux/Wayland native port: native_drawing_ndk.so is only defined for
++  # !is_arkui_x (see drawing_ndk/BUILD.gn). Don't reference it on the arkui-x
++  # desktop client, otherwise gn reports an unresolved dependency.
++  if (!is_arkui_x) {
++    deps += [ "$drawing_root/drawing_ndk:native_drawing_ndk" ]
++  }
+ }
+diff --git a/rosen/modules/animation/window_animation/BUILD.gn b/rosen/modules/animation/window_animation/BUILD.gn
+index 9569744..79c46d2 100644
+--- a/rosen/modules/animation/window_animation/BUILD.gn
++++ b/rosen/modules/animation/window_animation/BUILD.gn
+@@ -39,9 +39,9 @@ ohos_shared_library("window_animation") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ 
+   part_name = "graphic_2d"
+diff --git a/rosen/modules/composer/BUILD.gn b/rosen/modules/composer/BUILD.gn
+index 5aa05d8..bcca7f8 100644
+--- a/rosen/modules/composer/BUILD.gn
++++ b/rosen/modules/composer/BUILD.gn
+@@ -75,32 +75,32 @@ ohos_shared_library("libcomposer") {
+ 
+   public_external_deps = [
+     "c_utils:utils",
+-    "graphic_surface:buffer_handle",
+-    "graphic_surface:sync_fence",
++    # [linux-port auto-gate] "graphic_surface:buffer_handle",
++    # [linux-port auto-gate] "graphic_surface:sync_fence",
+   ]
+ 
+   external_deps = [
+-    "drivers_interface_display:libdisplay_buffer_proxy_1.0",
+-    "drivers_interface_display:libdisplay_commontype_proxy_1.0",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.1",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.3",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.4",
+-    "drivers_interface_display:libdisplay_composer_hdi_impl_1.5",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.0",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.1",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.2",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.3",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.4",
+-    "drivers_interface_display:libdisplay_composer_proxy_1.5",
+-    "eventhandler:libeventhandler",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_buffer_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_commontype_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.1",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.3",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.4",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.5",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.1",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.2",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.3",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.4",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.5",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "init:libbeget_proxy",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "init:libbeget_proxy",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ 
+   part_name = "graphic_2d"
+diff --git a/rosen/modules/composer/hdi_backend/test/systemtest/BUILD.gn b/rosen/modules/composer/hdi_backend/test/systemtest/BUILD.gn
+index 7cebc3f..5a96d4a 100644
+--- a/rosen/modules/composer/hdi_backend/test/systemtest/BUILD.gn
++++ b/rosen/modules/composer/hdi_backend/test/systemtest/BUILD.gn
+@@ -55,9 +55,9 @@ ohos_systemtest("hdiscreen_sys_test") {
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ ## SystemTest hdiscreen_sys_test }}}
+diff --git a/rosen/modules/composer/hdi_backend/test/unittest/BUILD.gn b/rosen/modules/composer/hdi_backend/test/unittest/BUILD.gn
+index 2b6e396..8b52a6c 100644
+--- a/rosen/modules/composer/hdi_backend/test/unittest/BUILD.gn
++++ b/rosen/modules/composer/hdi_backend/test/unittest/BUILD.gn
+@@ -37,7 +37,7 @@ ohos_unittest("hdiframebuffersurface_unit_test") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+   ]
+ }
+ 
+@@ -55,7 +55,7 @@ ohos_unittest("hdilayerinfo_unit_test") {
+   ]
+ 
+   external_deps = [
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+   ]
+ }
+ 
+@@ -74,7 +74,7 @@ ohos_unittest("hdiscreen_unit_test") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "googletest:gmock_main",
+   ]
+ }
+@@ -94,7 +94,7 @@ ohos_unittest("hdidevice_unit_test") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "googletest:gmock_main",
+   ]
+ }
+@@ -133,9 +133,9 @@ ohos_static_library("hdibackend_test_common") {
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ ## Build hdibackend_test_common.a }}}
+diff --git a/rosen/modules/composer/native_vsync/BUILD.gn b/rosen/modules/composer/native_vsync/BUILD.gn
+index 9292bfd..2f2744b 100644
+--- a/rosen/modules/composer/native_vsync/BUILD.gn
++++ b/rosen/modules/composer/native_vsync/BUILD.gn
+@@ -56,7 +56,7 @@ ohos_shared_library("libnative_vsync") {
+   ]
+ 
+   external_deps = [
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "hilog:libhilog",
+     "c_utils:utils"
+   ]
+diff --git a/rosen/modules/composer/vsync/BUILD.gn b/rosen/modules/composer/vsync/BUILD.gn
+index 8bac328..2cff021 100644
+--- a/rosen/modules/composer/vsync/BUILD.gn
++++ b/rosen/modules/composer/vsync/BUILD.gn
+@@ -120,23 +120,23 @@ ohos_shared_library("libvsync") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ffrt:libffrt",
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "init:libbegetutil",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "init:libbegetutil",
++    # [linux-port auto-gate] "ipc:ipc_core",
+     "qos_manager:qos",
+-    "safwk:system_ability_fwk",
++    # [linux-port auto-gate] "safwk:system_ability_fwk",
+     "qos_manager:concurrent_task_client",
+   ]
+ 
+   public_external_deps = 
+   [ 
+     "c_utils:utils",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ 
+   if (defined(global_parts_info) &&
+diff --git a/rosen/modules/composer/vsync/test/systemtest/BUILD.gn b/rosen/modules/composer/vsync/test/systemtest/BUILD.gn
+index 877692c..e81fb52 100644
+--- a/rosen/modules/composer/vsync/test/systemtest/BUILD.gn
++++ b/rosen/modules/composer/vsync/test/systemtest/BUILD.gn
+@@ -69,21 +69,21 @@ ohos_unittest("vsync_test_st") {
+     "//foundation/graphic/graphic_2d/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -115,21 +115,21 @@ ohos_unittest("vsync_ltpo_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -161,21 +161,21 @@ ohos_unittest("vsync_30to60_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -207,21 +207,21 @@ ohos_unittest("vsync_30to90_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -253,21 +253,21 @@ ohos_unittest("vsync_30to120_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -299,21 +299,21 @@ ohos_unittest("vsync_60to30_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -345,21 +345,21 @@ ohos_unittest("vsync_60to90_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -391,21 +391,21 @@ ohos_unittest("vsync_60to120_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -437,21 +437,21 @@ ohos_unittest("vsync_90to30_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -483,21 +483,21 @@ ohos_unittest("vsync_90to60_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -529,21 +529,21 @@ ohos_unittest("vsync_90to120_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -575,21 +575,21 @@ ohos_unittest("vsync_120to30_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -621,21 +621,21 @@ ohos_unittest("vsync_120to60_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -667,21 +667,21 @@ ohos_unittest("vsync_120to90_test_st") {
+     "$graphic_2d_root/utils:socketpair",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -714,21 +714,21 @@ ohos_unittest("vsync_multicallback_test_st") {
+     "../..:libvsync",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -853,21 +853,21 @@ ohos_unittest("vsync_setvsyncrate_test_st") {
+     "../..:libvsync",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -900,21 +900,21 @@ ohos_unittest("vsync_callbackeveryframe_test_st") {
+     "../..:libvsync",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+@@ -946,21 +946,21 @@ ohos_unittest("vsync_sample_test_st") {
+     "../..:libvsync",
+   ]
+   external_deps = [
+-    "access_token:libaccesstoken_sdk",
++    # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+     "cJSON:cjson",
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gtest_main",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "selinux_adapter:librestorecon",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "selinux_adapter:librestorecon",
+   ]
+ 
+   defines = []
+   if (graphic_2d_support_access_token) {
+     external_deps += [
+-      "access_token:libnativetoken",
+-      "access_token:libtoken_setproc",
++      # [linux-port auto-gate] "access_token:libnativetoken",
++      # [linux-port auto-gate] "access_token:libtoken_setproc",
+     ]
+     defines += [ "SUPPORT_ACCESS_TOKEN" ]
+   }
+diff --git a/rosen/modules/composer/vsync/test/unittest/BUILD.gn b/rosen/modules/composer/vsync/test/unittest/BUILD.gn
+index 5cbfcdd..78ee314 100644
+--- a/rosen/modules/composer/vsync/test/unittest/BUILD.gn
++++ b/rosen/modules/composer/vsync/test/unittest/BUILD.gn
+@@ -51,11 +51,11 @@ ohos_unittest("dvsync_lib_manager_test") {
+   ]
+ 
+   external_deps = [
+-    "eventhandler:libeventhandler",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_single",
+   ]
+ }
+ 
+@@ -74,9 +74,9 @@ ohos_unittest("vsync_connection_test") {
+   ]
+ 
+   external_deps = [
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -94,9 +94,9 @@ ohos_unittest("vsync_callback_listener_test") {
+   ]
+ 
+   external_deps = [
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ 
+ }
+@@ -116,7 +116,7 @@ ohos_unittest("vsync_system_ability_listener_test") {
+ 
+   external_deps = [
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -134,9 +134,9 @@ ohos_unittest("vsync_controller_test") {
+   ]
+ 
+   external_deps = [
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -155,10 +155,10 @@ ohos_unittest("vsync_distributor_test") {
+   ]
+ 
+   external_deps = [
+-    "eventhandler:libeventhandler",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -177,10 +177,10 @@ ohos_unittest("vsync_generator_test") {
+   ]
+ 
+   external_deps = [
+-    "eventhandler:libeventhandler",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
+-    "ffrt:libffrt",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
++    # [linux-port auto-gate] "ffrt:libffrt",
+   ]
+ }
+ 
+@@ -201,9 +201,9 @@ ohos_unittest("vsync_receiver_test") {
+   ]
+ 
+   external_deps = [
+-    "eventhandler:libeventhandler",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ }
+ 
+@@ -226,8 +226,8 @@ ohos_unittest("vsync_sampler_test") {
+ 
+   external_deps = [
+     "googletest:gmock_main",
+-    "ipc:ipc_core",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+   ]
+ 
+   cflags = [
+@@ -266,7 +266,7 @@ ohos_unittest("vsync_present_fence_test") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+   ]
+ 
+   include_dirs = [
+@@ -295,7 +295,7 @@ ohos_unittest("dvsync_rate_test") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 
+@@ -332,7 +332,7 @@ ohos_static_library("vsync_test_common") {
+     "c_utils:utils",
+     "googletest:gmock_main",
+     "googletest:gtest_main",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+   ]
+ 
+   subsystem_name = "graphic"
+diff --git a/rosen/modules/render_frame_trace/BUILD.gn b/rosen/modules/render_frame_trace/BUILD.gn
+index 82adadf..8067850 100644
+--- a/rosen/modules/render_frame_trace/BUILD.gn
++++ b/rosen/modules/render_frame_trace/BUILD.gn
+@@ -40,14 +40,14 @@ ohos_source_set("render_frame_trace") {
+   if (!build_ohos_sdk) {
+     external_deps += [
+       "c_utils:utils",
+-      "ipc:ipc_single",
++      # [linux-port auto-gate] "ipc:ipc_single",
+       "qos_manager:concurrent_task_client",
+     ]
+     if (!is_arkui_x) {
+       defines = [ "QOS_MANAGER" ]
+     }
+     if (!is_mingw) {
+-      external_deps += [ "samgr:samgr_proxy" ]
++      # [linux-port auto-gate] external_deps += [ "samgr:samgr_proxy" ]
+     }
+   }
+   if (defined(global_parts_info)) {
+diff --git a/rosen/modules/render_service_base/BUILD.gn b/rosen/modules/render_service_base/BUILD.gn
+index f15ea13..66e86e9 100644
+--- a/rosen/modules/render_service_base/BUILD.gn
++++ b/rosen/modules/render_service_base/BUILD.gn
+@@ -37,23 +37,41 @@ config("export_config") {
+ 
+ if (enable_compiler_rust) {
+   defines = [ "ENABLE_RUST" ]
+-  rust_cxx("particle_cxx_gen") {
+-    sources = [ "rust/src/lib.rs" ]
++  if (defined(is_arkui_x) && is_arkui_x) {
++    # [linux-port] no rust toolchain; empty stub so consumers resolve
++    group("particle_cxx_gen") {
++    }
++  } else {
++    rust_cxx("particle_cxx_gen") {
++      sources = [ "rust/src/lib.rs" ]
++    }
+   }
+ 
+   if (is_ohos && is_clang && target_cpu == "arm64" && defined(build_ext_path)) {
+-    ohos_rust_shared_ffi("particle_cxx_rust") {
+-      sources = [ "rust/src/lib.rs" ]
+-      external_deps = [ "rust_cxx:lib" ]
+-      part_name = "graphic_2d"
+-      subsystem_name = "graphic"
++    if (defined(is_arkui_x) && is_arkui_x) {
++      # [linux-port] no rust toolchain; empty stub so consumers resolve
++      group("particle_cxx_rust") {
++      }
++    } else {
++      ohos_rust_shared_ffi("particle_cxx_rust") {
++        sources = [ "rust/src/lib.rs" ]
++        external_deps = [ "rust_cxx:lib" ]
++        part_name = "graphic_2d"
++        subsystem_name = "graphic"
++      }
+     }
+   } else {
+-    ohos_rust_static_ffi("particle_cxx_rust") {
+-      sources = [ "rust/src/lib.rs" ]
+-      external_deps = [ "rust_cxx:lib" ]
+-      part_name = "graphic_2d"
+-      subsystem_name = "graphic"
++    if (defined(is_arkui_x) && is_arkui_x) {
++      # [linux-port] no rust toolchain; empty stub so consumers resolve
++      group("particle_cxx_rust") {
++      }
++    } else {
++      ohos_rust_static_ffi("particle_cxx_rust") {
++        sources = [ "rust/src/lib.rs" ]
++        external_deps = [ "rust_cxx:lib" ]
++        part_name = "graphic_2d"
++        subsystem_name = "graphic"
++      }
+     }
+   }
+ 
+@@ -670,11 +688,17 @@ ohos_source_set("render_service_base_src") {
+   }
+ 
+   external_deps = [
+-    "graphic_surface:surface_headers",
+-    "graphics_effect:graphics_effect_core",
++    # [linux-port auto-gate] "graphic_surface:surface_headers",
+     "hilog:libhilog",
+   ]
+ 
++  # Linux/Wayland native port: arkui-x links libgraphics_effect (added in the
++  # is_arkui_x block above); graphics_effect_core only exists for the non-arkui_x
++  # build, so referencing it here left it unresolved on the desktop client.
++  if (!is_arkui_x) {
++    external_deps += [ "graphics_effect:graphics_effect_core" ]
++  }
++
+   if (graphic_2d_feature_rs_enable_uni_render) {
+     external_deps += [ "ability_runtime:ability_manager" ]
+   }
+@@ -961,7 +985,7 @@ ohos_shared_library("librender_service_base") {
+     external_deps += [ "hisysevent:libhisysevent" ]
+     public_external_deps += [
+       "c_utils:utils",
+-      "graphic_surface:sync_fence",
++      # [linux-port auto-gate] "graphic_surface:sync_fence",
+       "image_framework:image_native",
+       "skia:skia_canvaskit",
+     ]
+@@ -1008,7 +1032,7 @@ ohos_source_set("librender_service_base_static") {
+   public_external_deps = []
+   if (rosen_is_ohos) {
+     public_external_deps += [
+-      "graphic_surface:sync_fence",
++      # [linux-port auto-gate] "graphic_surface:sync_fence",
+       "image_framework:image_native",
+     ]
+   }
 diff --git a/rosen/modules/render_service_base/config.gni b/rosen/modules/render_service_base/config.gni
 index e0f5123..87324e7 100644
 --- a/rosen/modules/render_service_base/config.gni
@@ -133,3 +1246,139 @@ index e0f5123..87324e7 100644
  
  if (rosen_cross_platform) {
    rs_common_define += [
+diff --git a/rosen/modules/render_service_base/proxy/BUILD.gn b/rosen/modules/render_service_base/proxy/BUILD.gn
+index 73e61cb..0d6e258 100644
+--- a/rosen/modules/render_service_base/proxy/BUILD.gn
++++ b/rosen/modules/render_service_base/proxy/BUILD.gn
+@@ -120,8 +120,8 @@ ohos_source_set("render_service_proxy_src") {
+ 
+   external_deps = [
+     "hilog:libhilog",
+-    "ipc:ipc_core",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+     #"init:libbegetutil",
+     "c_utils:utils",
+   ]
+diff --git a/rosen/modules/render_service_base/src/platform/windows/BUILD.gn b/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
+index 867c084..4f3f285 100644
+--- a/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
++++ b/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
+@@ -62,7 +62,7 @@ ohos_source_set("windows") {
+ 
+   external_deps = [
+     "egl:libEGL",
+-    "graphic_surface:surface_headers",
++    # [linux-port auto-gate] "graphic_surface:surface_headers",
+     "hilog:libhilog",
+   ]
+ 
+@@ -70,7 +70,13 @@ ohos_source_set("windows") {
+     defines += [ "USE_ROSEN_DRAWING" ]
+     public_deps += [ "$rosen_root/modules/2d_graphics:2d_graphics" ]
+ 
+-    external_deps += [ "graphics_effect:graphics_effect_core" ]
++    # Linux/Wayland native port: arkui-x exposes libgraphics_effect, not the
++    # graphics_effect_core shared lib (only built for non-arkui_x).
++    if (is_arkui_x) {
++      deps += [ "//foundation/graphic/graphics_effect:libgraphics_effect" ]
++    } else {
++      external_deps += [ "graphics_effect:graphics_effect_core" ]
++    }
+   }
+ 
+   part_name = "graphic_2d"
+diff --git a/rosen/modules/render_service_client/BUILD.gn b/rosen/modules/render_service_client/BUILD.gn
+index 74df8bc..0db8a42 100644
+--- a/rosen/modules/render_service_client/BUILD.gn
++++ b/rosen/modules/render_service_client/BUILD.gn
+@@ -372,10 +372,10 @@ template("render_service_client_source_set") {
+       external_deps += [ "jsoncpp:jsoncpp" ]
+     }
+ 
+-    external_deps += [ "graphic_surface:surface_headers" ]
++    # [linux-port auto-gate] external_deps += [ "graphic_surface:surface_headers" ]
+ 
+     if (!build_ohos_sdk && !is_mingw) {
+-      external_deps += [ "samgr:samgr_proxy" ]
++      # [linux-port auto-gate] external_deps += [ "samgr:samgr_proxy" ]
+     }
+ 
+     if (rosen_cross_platform) {
+@@ -399,7 +399,7 @@ template("render_service_client_source_set") {
+           graphic_2d_broker_configs.librender_service_client_ext_broker_sources
+       sources -= graphic_2d_broker_configs.librender_service_client_ext_broker_sources_del
+       external_deps += [ "ipc:ipc_core" ]
+-      external_deps += [ "samgr:samgr_proxy" ]
++      # [linux-port auto-gate] external_deps += [ "samgr:samgr_proxy" ]
+     }
+ 
+     if (tp_feature_enable) {
+@@ -507,11 +507,11 @@ ohos_shared_library("librender_service_client") {
+     public_external_deps += [
+       "c_utils:utils",
+       "eventhandler:libeventhandler",
+-      "graphic_surface:surface",
++      # [linux-port auto-gate] "graphic_surface:surface",
+       "image_framework:image_native",
+     ]
+   } else if (rosen_preview) {
+-    public_external_deps += [ "graphic_surface:surface_headers" ]
++    # [linux-port auto-gate] public_external_deps += [ "graphic_surface:surface_headers" ]
+   }
+ 
+   if (rosen_is_win || current_os == "linux" || rosen_is_mac) {
+@@ -534,9 +534,9 @@ ohos_source_set("librender_service_client_static") {
+ 
+   public_external_deps = []
+   if (rosen_is_ohos) {
+-    public_external_deps += [ "graphic_surface:surface" ]
++    # [linux-port auto-gate] public_external_deps += [ "graphic_surface:surface" ]
+   } else if (rosen_preview) {
+-    public_external_deps += [ "graphic_surface:surface_headers" ]
++    # [linux-port auto-gate] public_external_deps += [ "graphic_surface:surface_headers" ]
+   } else if (is_arkui_x) {
+     public_deps +=
+         [ "//foundation/graphic/graphic_surface/surface:surface_headers" ]
+diff --git a/utils/scoped_bytrace/BUILD.gn b/utils/scoped_bytrace/BUILD.gn
+index f2ceeee..003a6f0 100644
+--- a/utils/scoped_bytrace/BUILD.gn
++++ b/utils/scoped_bytrace/BUILD.gn
+@@ -39,8 +39,8 @@ ohos_static_library("scoped_bytrace") {
+ 
+   external_deps = [
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "init:libbegetutil",
+   ]
+ 
+   subsystem_name = "graphic"
+diff --git a/utils/socketpair/BUILD.gn b/utils/socketpair/BUILD.gn
+index 62ee023..c555d0d 100644
+--- a/utils/socketpair/BUILD.gn
++++ b/utils/socketpair/BUILD.gn
+@@ -40,7 +40,7 @@ ohos_shared_library("socketpair") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+   part_name = "graphic_2d"
+   subsystem_name = "graphic"
+diff --git a/utils/socketpair/test/unittest/BUILD.gn b/utils/socketpair/test/unittest/BUILD.gn
+index 4c003d6..7da52b8 100644
+--- a/utils/socketpair/test/unittest/BUILD.gn
++++ b/utils/socketpair/test/unittest/BUILD.gn
+@@ -29,7 +29,7 @@ ohos_unittest("socketpair_test") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+ }
+ 

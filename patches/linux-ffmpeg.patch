@@ -1,0 +1,26 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index e7a2cdc..474e10c 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -1931,12 +1931,20 @@ action("gen_config_header") {
+     ucc = "true"
+   }
+ 
++  # Linux/Wayland native port: the arkui-x linux build is a host build with no
++  # musl sysroot, so `sysroot` is empty and rebase_path("") errors ("Empty
++  # directory path"). Fall back to the source root for the config-gen script.
++  ffmpeg_sysroot = sysroot
++  if (ffmpeg_sysroot == "") {
++    ffmpeg_sysroot = "//"
++  }
++
+   args = [
+     rebase_path("//third_party/ffmpeg", root_build_dir),
+     rebase_path("${target_gen_dir}/include/", root_build_dir),
+     ffmpeg_selected_platform,
+     rebase_path(default_clang_base_path, root_build_dir),
+-    rebase_path(sysroot, root_build_dir),
++    rebase_path(ffmpeg_sysroot, root_build_dir),
+     ucc,
+     ohos_ffmpeg_enable_demuxers,
+     ohos_ffmpeg_enable_parsers,

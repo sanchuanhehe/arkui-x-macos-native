@@ -1,0 +1,165 @@
+diff --git a/base/BUILD.gn b/base/BUILD.gn
+index d4a6a5a..03c1c27 100644
+--- a/base/BUILD.gn
++++ b/base/BUILD.gn
+@@ -303,12 +303,18 @@ declare_args() {
+ if (host_os == "linux" && host_cpu != "arm64" && !is_arkui_x &&
+     current_os != "mac" && utils_rust_enable) {
+   import("//build/templates/rust/rust_cxx.gni")  # used for templates rust_cxx()
+-  rust_cxx("cxx_rust_gen") {
+-    sources = [
+-      "src/rust/ashmem.rs",
+-      "src/rust/directory_ex.rs",
+-      "src/rust/file_ex.rs",
+-    ]
++  if (defined(is_arkui_x) && is_arkui_x) {
++    # [linux-port] no rust toolchain; empty stub so consumers resolve
++    group("cxx_rust_gen") {
++    }
++  } else {
++    rust_cxx("cxx_rust_gen") {
++      sources = [
++        "src/rust/ashmem.rs",
++        "src/rust/directory_ex.rs",
++        "src/rust/file_ex.rs",
++      ]
++    }
+   }
+ 
+   ohos_static_library("utils_static_cxx_rust") {
+@@ -335,35 +341,41 @@ if (host_os == "linux" && host_cpu != "arm64" && !is_arkui_x &&
+ }
+ 
+ if (!is_arkui_x && !(host_os == "linux" && host_cpu == "arm64") && current_os != "mac" && utils_rust_enable) {
+-  ohos_rust_shared_library("utils_rust") {
+-    if (host_os == "linux") {
+-      sources = [
+-        "src/rust/ashmem.rs",
+-        "src/rust/directory_ex.rs",
+-        "src/rust/file_ex.rs",
+-        "src/rust/lib.rs",
+-      ]
+-      deps = [ ":utils_static_cxx_rust" ]
+-
+-      external_deps = [ "rust_cxx:lib" ]
+-
+-      crate_root = "src/rust/lib.rs"
+-      crate_name = "utils_rust"
+-      crate_type = "dylib"
+-      output_extension = "dylib.so"
+-      subsystem_name = "commonlibrary"
+-      part_name = "c_utils"
+-      install_images = [
+-        "system",
+-        "updater",
+-      ]
+-    } else {
+-      sources = [
+-        "src/rust/ashmem.rs",
+-        "src/rust/directory_ex.rs",
+-        "src/rust/file_ex.rs",
+-        "src/rust/lib.rs",
+-      ]
++  if (defined(is_arkui_x) && is_arkui_x) {
++    # [linux-port] no rust toolchain; empty stub so consumers resolve
++    group("utils_rust") {
++    }
++  } else {
++    ohos_rust_shared_library("utils_rust") {
++      if (host_os == "linux") {
++        sources = [
++          "src/rust/ashmem.rs",
++          "src/rust/directory_ex.rs",
++          "src/rust/file_ex.rs",
++          "src/rust/lib.rs",
++        ]
++        deps = [ ":utils_static_cxx_rust" ]
++  
++        external_deps = [ "rust_cxx:lib" ]
++  
++        crate_root = "src/rust/lib.rs"
++        crate_name = "utils_rust"
++        crate_type = "dylib"
++        output_extension = "dylib.so"
++        subsystem_name = "commonlibrary"
++        part_name = "c_utils"
++        install_images = [
++          "system",
++          "updater",
++        ]
++      } else {
++        sources = [
++          "src/rust/ashmem.rs",
++          "src/rust/directory_ex.rs",
++          "src/rust/file_ex.rs",
++          "src/rust/lib.rs",
++        ]
++      }
+     }
+   }
+ } else {
+diff --git a/base/test/unittest/rust/BUILD.gn b/base/test/unittest/rust/BUILD.gn
+index 8865d0f..f9417c0 100644
+--- a/base/test/unittest/rust/BUILD.gn
++++ b/base/test/unittest/rust/BUILD.gn
+@@ -43,26 +43,44 @@ if (host_os == "linux" && !is_asan && !is_arkui_x) {
+   }
+ 
+   if (utils_rust_test_enable) {
+-    ohos_rust_unittest("rust_utils_ashmem_test") {
+-      module_out_path = "c_utils/c_utils/rust"
+-      sources = [ "rust_utils_ashmem_test.rs" ]
+-      configs = [ ":module_private_config" ]
+-      deps = [ "//commonlibrary/c_utils/base:utils_rust" ]
++    if (defined(is_arkui_x) && is_arkui_x) {
++      # [linux-port] no rust toolchain; empty stub so consumers resolve
++      group("rust_utils_ashmem_test") {
++      }
++    } else {
++      ohos_rust_unittest("rust_utils_ashmem_test") {
++        module_out_path = "c_utils/c_utils/rust"
++        sources = [ "rust_utils_ashmem_test.rs" ]
++        configs = [ ":module_private_config" ]
++        deps = [ "//commonlibrary/c_utils/base:utils_rust" ]
++      }
+     }
+ 
+-    ohos_rust_unittest("rust_utils_file_test") {
+-      module_out_path = "c_utils/c_utils/rust"
+-      sources = [ "rust_utils_file_test.rs" ]
+-      deps = [ "//commonlibrary/c_utils/base:utils_rust" ]
+-      external_deps = [ "rust_cxx:lib" ]
++    if (defined(is_arkui_x) && is_arkui_x) {
++      # [linux-port] no rust toolchain; empty stub so consumers resolve
++      group("rust_utils_file_test") {
++      }
++    } else {
++      ohos_rust_unittest("rust_utils_file_test") {
++        module_out_path = "c_utils/c_utils/rust"
++        sources = [ "rust_utils_file_test.rs" ]
++        deps = [ "//commonlibrary/c_utils/base:utils_rust" ]
++        external_deps = [ "rust_cxx:lib" ]
++      }
+     }
+ 
+-    ohos_rust_unittest("rust_utils_directory_test") {
+-      module_out_path = "c_utils/c_utils/rust"
+-      sources = [ "rust_utils_directory_test.rs" ]
+-      deps = [ "//commonlibrary/c_utils/base:utils_rust" ]
+-
+-      external_deps = [ "rust_cxx:lib" ]
++    if (defined(is_arkui_x) && is_arkui_x) {
++      # [linux-port] no rust toolchain; empty stub so consumers resolve
++      group("rust_utils_directory_test") {
++      }
++    } else {
++      ohos_rust_unittest("rust_utils_directory_test") {
++        module_out_path = "c_utils/c_utils/rust"
++        sources = [ "rust_utils_directory_test.rs" ]
++        deps = [ "//commonlibrary/c_utils/base:utils_rust" ]
++  
++        external_deps = [ "rust_cxx:lib" ]
++      }
+     }
+   }
+ }

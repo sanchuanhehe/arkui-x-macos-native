@@ -1,8 +1,419 @@
+diff --git a/frameworks/innerkitsimpl/accessor/BUILD.gn b/frameworks/innerkitsimpl/accessor/BUILD.gn
+index 8094083..a1054f4 100644
+--- a/frameworks/innerkitsimpl/accessor/BUILD.gn
++++ b/frameworks/innerkitsimpl/accessor/BUILD.gn
+@@ -104,9 +104,9 @@ ohos_shared_library("image_accessor") {
+     "libexif:libexif",
+     "zlib:libz",
+     "skia:dng_sdk",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "libpng:libpng",
+-    "xmp_toolkit_sdk:xmpsdk",
++    # [linux-port auto-gate] "xmp_toolkit_sdk:xmpsdk",
+   ]
+ 
+   if (has_libtiff) {
+diff --git a/frameworks/innerkitsimpl/egl_image/BUILD.gn b/frameworks/innerkitsimpl/egl_image/BUILD.gn
+index 1298e9f..80f8a0d 100644
+--- a/frameworks/innerkitsimpl/egl_image/BUILD.gn
++++ b/frameworks/innerkitsimpl/egl_image/BUILD.gn
+@@ -51,11 +51,11 @@ ohos_shared_library("egl_image") {
+     "c_utils:utils",
+     "graphic_2d:EGL",
+     "graphic_2d:GLESv3",
+-    "graphic_surface:surface",
+-    "graphic_surface:sync_fence",
++    # [linux-port auto-gate] "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:sync_fence",
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "skia:skia_canvaskit",
+     "egl:libEGL",
+     "opengles:libGLES",
+@@ -92,15 +92,15 @@ if (!use_clang_ios && !use_clang_android) {
+       defines = [ "USE_M133_SKIA" ]
+     }
+     external_deps = [
+-      "ipc:ipc_single",
++      # [linux-port auto-gate] "ipc:ipc_single",
+       "c_utils:utils",
+       "graphic_2d:EGL",
+       "graphic_2d:GLESv3",
+       "graphic_2d:color_manager",
+-      "graphic_surface:surface",
+-      "graphic_surface:sync_fence",
++      # [linux-port auto-gate] "graphic_surface:surface",
++      # [linux-port auto-gate] "graphic_surface:sync_fence",
+       "hilog:libhilog",
+-      "hitrace:hitrace_meter",
++      # [linux-port auto-gate] "hitrace:hitrace_meter",
+       "skia:skia_canvaskit",
+       "egl:libEGL",
+       "opengles:libGLES",
+diff --git a/frameworks/innerkitsimpl/pixelconverter/BUILD.gn b/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
+index f1181a4..7e046be 100644
+--- a/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
++++ b/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
+@@ -146,7 +146,7 @@ if (use_clang_ios) {
+       ]
+       external_deps = [
+         "c_utils:utils",
+-        "ffmpeg:libohosffmpeg",
++        # [linux-port: ffmpeg dropped] "ffmpeg:libohosffmpeg",
+         "graphic_2d:color_manager",
+         "hilog:libhilog",
+         "skia:skia_canvaskit",
+diff --git a/frameworks/innerkitsimpl/utils/BUILD.gn b/frameworks/innerkitsimpl/utils/BUILD.gn
+index 71a4a0a..877d597 100644
+--- a/frameworks/innerkitsimpl/utils/BUILD.gn
++++ b/frameworks/innerkitsimpl/utils/BUILD.gn
+@@ -48,7 +48,7 @@ if (use_clang_ios) {
+       "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+       "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
+     ]
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
+     if (defined(global_parts_info) &&
+         defined(global_parts_info.open_source_libyuv)) {
+       defines += [ "EXT_PIXEL" ]
+@@ -91,7 +91,7 @@ if (use_clang_ios) {
+     ]
+ 
+     external_deps = [ 
+-      "drivers_interface_display:libdisplay_commontype_proxy_1.0",
++      # [linux-port auto-gate] "drivers_interface_display:libdisplay_commontype_proxy_1.0",
+     ]
+     if (use_mingw_win) {
+       defines = image_decode_windows_defines
+@@ -103,7 +103,7 @@ if (use_clang_ios) {
+         "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+       ]
+-      deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++      # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
+     } else if (use_clang_mac) {
+       defines = image_decode_mac_defines
+       include_dirs += [ "//third_party/ffmpeg" ]
+@@ -117,7 +117,7 @@ if (use_clang_ios) {
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+         "//third_party/bounds_checking_function:libsec_static",
+       ]
+-      deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++      # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
+     } else if (use_clang_android) {
+       defines = image_decode_android_defines
+       defines += [ "CROSS_PLATFORM" ]
+@@ -132,7 +132,7 @@ if (use_clang_ios) {
+       ]
+       sources += [ "src/image_dfx.cpp" ]
+       sources += [ "src/image_data_statistics.cpp" ]
+-      deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++      # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
+     } else {
+       defines = [ "DUAL_ADAPTER" ]
+ 
+@@ -148,22 +148,22 @@ if (use_clang_ios) {
+         "src/hispeed_image_manager.cpp",
+       ]
+       external_deps += [
+-        "access_token:libprivacy_sdk",
+-        "access_token:libtokenid_sdk",
+-        "bundle_framework:appexecfwk_base",
+-        "bundle_framework:appexecfwk_core",
++        # [linux-port auto-gate] "access_token:libprivacy_sdk",
++        # [linux-port auto-gate] "access_token:libtokenid_sdk",
++        # [linux-port auto-gate] "bundle_framework:appexecfwk_base",
++        # [linux-port auto-gate] "bundle_framework:appexecfwk_core",
+         "c_utils:utils",
+         "ffmpeg:libohosffmpeg",
+-        "ffrt:libffrt",
++        # [linux-port auto-gate] "ffrt:libffrt",
+         "graphic_2d:color_manager",
+-        "graphic_surface:surface",
++        # [linux-port auto-gate] "graphic_surface:surface",
+         "hilog:libhilog",
+-        "hisysevent:libhisysevent",
+-        "hitrace:hitrace_meter",
+-        "ipc:ipc_single",
+-        "ipc:ipc_core",
+-        "os_account:os_account_innerkits",
+-        "samgr:samgr_proxy",
++        # [linux-port auto-gate] "hisysevent:libhisysevent",
++        # [linux-port auto-gate] "hitrace:hitrace_meter",
++        # [linux-port auto-gate] "ipc:ipc_single",
++        # [linux-port auto-gate] "ipc:ipc_core",
++        # [linux-port auto-gate] "os_account:os_account_innerkits",
++        # [linux-port auto-gate] "samgr:samgr_proxy",
+         "json:nlohmann_json_static",
+       ]
+       if (defined(global_parts_info) &&
+@@ -175,7 +175,7 @@ if (use_clang_ios) {
+       }
+ 
+       if (is_standard_system) {
+-        external_deps += [ "init:libbegetutil" ]
++        # [linux-port auto-gate] external_deps += [ "init:libbegetutil" ]
+       } else {
+         external_deps += [ "startup:syspara" ]
+       }
+@@ -235,7 +235,7 @@ ohos_static_library("image_utils_static") {
+       "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+       "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+     ]
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++    # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
+   } else if (use_clang_mac) {
+     defines = image_decode_mac_defines
+     include_dirs += [ "//third_party/ffmpeg" ]
+@@ -248,7 +248,7 @@ ohos_static_library("image_utils_static") {
+       "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+       "//third_party/bounds_checking_function:libsec_static",
+     ]
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++    # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
+   } else if (use_clang_ios) {
+     defines = image_decode_ios_defines
+     defines += [ "CROSS_PLATFORM" ]
+@@ -270,7 +270,7 @@ ohos_static_library("image_utils_static") {
+       "src/image_fwk_ext_manager.cpp",
+       "src/hispeed_image_manager.cpp",
+     ]
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
+   } else if (use_clang_android) {
+     defines = image_decode_android_defines
+     defines += [ "CROSS_PLATFORM" ]
+@@ -292,7 +292,7 @@ ohos_static_library("image_utils_static") {
+       "src/image_fwk_ext_manager.cpp",
+       "src/hispeed_image_manager.cpp",
+     ]
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
+   } else {
+     sources += [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
+     sources += [
+@@ -308,18 +308,18 @@ ohos_static_library("image_utils_static") {
+ 
+     external_deps = [
+       "c_utils:utils",
+-      "drivers_interface_display:libdisplay_commontype_proxy_1.0",
++      # [linux-port auto-gate] "drivers_interface_display:libdisplay_commontype_proxy_1.0",
+       "ffmpeg:libohosffmpeg",
+-      "ffrt:libffrt",
++      # [linux-port auto-gate] "ffrt:libffrt",
+       "graphic_2d:color_manager",
+-      "graphic_surface:surface",
++      # [linux-port auto-gate] "graphic_surface:surface",
+       "hilog:libhilog",
+-      "hisysevent:libhisysevent",
+-      "hitrace:hitrace_meter",
++      # [linux-port auto-gate] "hisysevent:libhisysevent",
++      # [linux-port auto-gate] "hitrace:hitrace_meter",
+     ]
+ 
+     if (is_standard_system) {
+-      external_deps += [ "init:libbegetutil" ]
++      # [linux-port auto-gate] external_deps += [ "init:libbegetutil" ]
+     } else {
+       external_deps += [ "startup:syspara" ]
+     }
+diff --git a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn b/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
+index 47c0ecc..e092124 100644
+--- a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
++++ b/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
+@@ -39,7 +39,7 @@ ohos_shared_library("pixelmap_ndk") {
+   deps = [ "$SUBSYSTEM_DIR/interfaces/kits/js/common:image" ]
+   external_deps = [
+     "c_utils:utils",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "graphic_2d:color_manager",
+     "napi:ace_napi",
+   ]
+@@ -85,14 +85,14 @@ ohos_shared_library("pixelmap") {
+ 
+   external_deps = [
+     "c_utils:utils",
+-    "drivers_interface_display:display_commontype_idl_headers",
++    # [linux-port auto-gate] "drivers_interface_display:display_commontype_idl_headers",
+     "graphic_2d:EGL",
+     "graphic_2d:color_manager",
+     "graphic_2d:color_space_object_convertor",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+     "graphic_2d:libnative_color_space_manager",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "hilog:libhilog",
+     "egl:libEGL",
+     "opengles:libGLES",
+diff --git a/frameworks/kits/taihe/BUILD.gn b/frameworks/kits/taihe/BUILD.gn
+index 7ee671c..3bb9de9 100644
+--- a/frameworks/kits/taihe/BUILD.gn
++++ b/frameworks/kits/taihe/BUILD.gn
+@@ -90,22 +90,22 @@ taihe_shared_library("image_taihe") {
+   ]
+ 
+   external_deps = [
+-    "access_token:libtokenid_sdk",
++    # [linux-port auto-gate] "access_token:libtokenid_sdk",
+     "c_utils:utils",
+-    "drivers_interface_display:libdisplay_commontype_proxy_1.0",
+-    "eventhandler:libeventhandler",
++    # [linux-port auto-gate] "drivers_interface_display:libdisplay_commontype_proxy_1.0",
++    # [linux-port auto-gate] "eventhandler:libeventhandler",
+     "graphic_2d:EGL",
+     "graphic_2d:ani_color_space_object_convertor",
+     "graphic_2d:color_manager",
+     "graphic_2d:color_space_object_convertor",
+     "graphic_2d:librender_service_base",
+     "graphic_2d:librender_service_client",
+-    "graphic_surface:surface",
+-    "graphic_surface:sync_fence",
++    # [linux-port auto-gate] "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:sync_fence",
+     "hilog:libhilog",
+-    "hitrace:hitrace_meter",
+-    "ipc:ipc_core",
+-    "ipc:ipc_single",
++    # [linux-port auto-gate] "hitrace:hitrace_meter",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_single",
+     "napi:ace_napi",
+     "runtime_core:ani_helpers",
+     "egl:libEGL",
+diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
+index b6ee377..d775053 100644
+--- a/interfaces/innerkits/BUILD.gn
++++ b/interfaces/innerkits/BUILD.gn
+@@ -108,7 +108,7 @@ if (use_clang_android) {
+     sources = image_native_android_sources
+     include_dirs = image_native_android_include_dirs
+     deps = image_native_android_deps
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
+     subsystem_name = "multimedia"
+     part_name = "image_framework"
+   }
+@@ -128,7 +128,7 @@ if (use_clang_android) {
+     include_dirs = image_native_ios_include_dirs
+     sources = image_native_ios_sources
+     deps = image_native_ios_deps
+-    deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
++    # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg_static" ]
+     external_deps = image_native_ios_external_deps
+     subsystem_name = "multimedia"
+     part_name = "image_framework"
+@@ -216,9 +216,9 @@ if (use_clang_android) {
+         "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils:image_utils_static",
+         "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+-        "//third_party/ffmpeg:libohosffmpeg_static",
++        # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] "//third_party/ffmpeg:libohosffmpeg_static",
+       ]
+-      external_deps = [ "graphic_surface:surface" ]
++      # [linux-port auto-gate] external_deps = [ "graphic_surface:surface" ]
+     } else if (use_clang_mac) {
+       defines = image_decode_mac_defines
+       sources -= [
+@@ -235,9 +235,9 @@ if (use_clang_android) {
+         "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+         "//third_party/bounds_checking_function:libsec_statics",
+-        "//third_party/ffmpeg:libohosffmpeg_static",
++        # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] "//third_party/ffmpeg:libohosffmpeg_static",
+       ]
+-      external_deps = [ "graphic_surface:surface" ]
++      # [linux-port auto-gate] external_deps = [ "graphic_surface:surface" ]
+     } else {
+       defines = [ "DUAL_ADAPTER" ]
+       DUAL_ADAPTER = true
+@@ -255,30 +255,30 @@ if (use_clang_android) {
+         deps += [ "//third_party/libpng:libpng" ]
+       }
+       external_deps = [
+-        "astc-encoder:astc_encoder_shared",
++        # [linux-port auto-gate] "astc-encoder:astc_encoder_shared",
+         "c_utils:utils",
+-        "drivers_interface_display:libdisplay_commontype_proxy_1.0",
+-        "drivers_interface_display:libdisplay_composer_proxy_1.2",
+-        "drivers_interface_display:libhdifd_parcelable",
+-        "hitrace:hitrace_meter",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_commontype_proxy_1.0",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.2",
++        # [linux-port auto-gate] "drivers_interface_display:libhdifd_parcelable",
++        # [linux-port auto-gate] "hitrace:hitrace_meter",
+         "ffmpeg:libohosffmpeg",
+-        "ffrt:libffrt",
++        # [linux-port auto-gate] "ffrt:libffrt",
+         "hilog:libhilog",
+-        "hitrace:hitrace_meter",
+-        "ipc:ipc_core",
+-        "libjpeg-turbo:turbojpeg",
++        # [linux-port auto-gate] "hitrace:hitrace_meter",
++        # [linux-port auto-gate] "ipc:ipc_core",
++        # [linux-port auto-gate] "libjpeg-turbo:turbojpeg",
+         "libpng:libpng",
+         "napi:ace_napi",
+         "zlib:libz",
+         "graphic_2d:GLESv3",
+-        "graphic_surface:sync_fence",
++        # [linux-port auto-gate] "graphic_surface:sync_fence",
+         "egl:libEGL",
+         "opengles:libGLES",
+         "jsoncpp:jsoncpp",
+       ]
+       public_external_deps = [
+         "graphic_2d:color_manager",
+-        "graphic_surface:surface",
++        # [linux-port auto-gate] "graphic_surface:surface",
+         "skia:skia_canvaskit",
+       ]
+       if (enable_libexif) {
+@@ -434,7 +434,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+         "//foundation/multimedia/image_framework/mock/native:log_mock_static",
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+       ]
+-      external_deps = [ "graphic_surface:surface" ]
++      # [linux-port auto-gate] external_deps = [ "graphic_surface:surface" ]
+     } else if (use_clang_mac) {
+       defines = image_decode_mac_defines
+       sources -= [
+@@ -453,8 +453,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
+         "//third_party/bounds_checking_function:libsec_static",
+       ]
+-      deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
+-      external_deps = [ "graphic_surface:surface" ]
++      # [linux-port: ffmpeg dropped, skia decodes; symbols stubbed at link] deps += [ "//third_party/ffmpeg:libohosffmpeg" ]
++      # [linux-port auto-gate] external_deps = [ "graphic_surface:surface" ]
+     } else if (use_clang_ios) {
+       defines = image_decode_ios_defines
+       defines += [ "CROSS_PLATFORM" ]
+@@ -510,11 +510,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+       }
+       external_deps = [
+         "c_utils:utils",
+-        "drivers_interface_display:libdisplay_commontype_proxy_1.0",
+-        "drivers_interface_display:libdisplay_composer_proxy_1.2",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_commontype_proxy_1.0",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.2",
+         "ffmpeg:libohosffmpeg",
+         "graphic_2d:color_manager",
+-        "graphic_surface:surface",
++        # [linux-port auto-gate] "graphic_surface:surface",
+         "hilog:libhilog",
+         "libpng:libpng",
+         "napi:ace_napi",
 diff --git a/interfaces/kits/js/common/BUILD.gn b/interfaces/kits/js/common/BUILD.gn
-index af8196e..f5c6fd2 100644
+index af8196e..a28197c 100644
 --- a/interfaces/kits/js/common/BUILD.gn
 +++ b/interfaces/kits/js/common/BUILD.gn
-@@ -151,12 +151,21 @@ if (use_clang_ios) {
+@@ -151,12 +151,14 @@ if (use_clang_ios) {
      external_deps = [
        "c_utils:utils",
        "graphic_2d:color_manager",
@@ -14,19 +425,12 @@ index af8196e..f5c6fd2 100644
  
 +    # Linux/Wayland native port: graphic_surface and ipc are not registered
 +    # components in the arkui-x linux build (unlike c_utils/graphic_2d/hilog/napi);
-+    # the image JS common module doesn't need them on the desktop client. Keep
-+    # them for the platforms that have them.
-+    if (current_os != "linux") {
-+      external_deps += [
-+        "graphic_surface:surface",
-+        "ipc:ipc_single",
-+      ]
-+    }
++    # the image JS common module doesn't need them on the desktop client.
 +
      output_name = "libimage"
      relative_install_dir = "module/multimedia"
      subsystem_name = "multimedia"
-@@ -187,12 +196,21 @@ if (use_clang_ios) {
+@@ -187,12 +189,14 @@ if (use_clang_ios) {
      external_deps = [
        "c_utils:utils",
        "graphic_2d:color_manager",
@@ -38,19 +442,12 @@ index af8196e..f5c6fd2 100644
  
 +    # Linux/Wayland native port: graphic_surface and ipc are not registered
 +    # components in the arkui-x linux build (unlike c_utils/graphic_2d/hilog/napi);
-+    # the image JS common module doesn't need them on the desktop client. Keep
-+    # them for the platforms that have them.
-+    if (current_os != "linux") {
-+      external_deps += [
-+        "graphic_surface:surface",
-+        "ipc:ipc_single",
-+      ]
-+    }
++    # the image JS common module doesn't need them on the desktop client.
 +
      output_name = "libsendableimage"
      relative_install_dir = "module/multimedia"
      subsystem_name = "multimedia"
-@@ -269,7 +287,13 @@ if (use_clang_ios) {
+@@ -269,7 +273,13 @@ if (use_clang_ios) {
        "-DIMAGE_DEBUG_FLAG",
        "-DIMAGE_COLORSPACE_FLAG",
      ]
@@ -65,3 +462,173 @@ index af8196e..f5c6fd2 100644
      if (enable_libexif) {
        external_deps += [ "libexif:libexif" ]
      }
+@@ -307,14 +317,14 @@ if (use_clang_ios) {
+     }
+ 
+     external_deps += [
+-      "ability_runtime:runtime",
+-      "access_token:libtokenid_sdk",
++# [linux-port auto-gate: ability_runtime not in arkui-x linux parts]       "ability_runtime:runtime",
++# [linux-port auto-gate: access_token not in arkui-x linux parts]       "access_token:libtokenid_sdk",
+       "c_utils:utils",
+-      "drivers_interface_display:display_commontype_idl_headers",
+-      "drivers_interface_display:libdisplay_composer_proxy_1.2",
+-      "drivers_interface_display:libhdifd_parcelable",
++# [linux-port auto-gate: drivers_interface_display not in arkui-x linux parts]       "drivers_interface_display:display_commontype_idl_headers",
++# [linux-port auto-gate: drivers_interface_display not in arkui-x linux parts]       "drivers_interface_display:libdisplay_composer_proxy_1.2",
++# [linux-port auto-gate: drivers_interface_display not in arkui-x linux parts]       "drivers_interface_display:libhdifd_parcelable",
+       "ets_runtime:libark_jsruntime",
+-      "eventhandler:libeventhandler",
++# [linux-port auto-gate: eventhandler not in arkui-x linux parts]       "eventhandler:libeventhandler",
+       "graphic_2d:2d_graphics",
+       "graphic_2d:EGL",
+       "graphic_2d:GLESv3",
+@@ -323,13 +333,9 @@ if (use_clang_ios) {
+       "graphic_2d:libcomposer",
+       "graphic_2d:librender_service_base",
+       "graphic_2d:librender_service_client",
+-      "graphic_surface:surface",
+-      "graphic_surface:sync_fence",
+-      "hitrace:hitrace_meter",
+-      "ipc:ipc_core",
+-      "ipc:ipc_napi",
+-      "ipc:ipc_single",
+-      "napi:ace_napi",
++# [linux-port auto-gate: graphic_surface not in arkui-x linux parts]       "graphic_surface:surface",
++# [linux-port auto-gate: graphic_surface not in arkui-x linux parts]       "graphic_surface:sync_fence",
++      # [linux-port auto-gate] # [linux-port auto-gate] # [linux-port auto-gate] "napi:ace_napi",
+       "resource_management:librawfile",
+       "egl:libEGL",
+       "opengles:libGLES",
+@@ -380,8 +386,7 @@ if (use_clang_ios) {
+ 
+       external_deps = [
+         "c_utils:utils",
+-        "hitrace:hitrace_meter",
+-        "egl:libEGL",
++        # [linux-port auto-gate] "egl:libEGL",
+         "opengles:libGLES",
+       ]
+ 
+diff --git a/plugins/common/libs/image/libextplugin/BUILD.gn b/plugins/common/libs/image/libextplugin/BUILD.gn
+index 89376c5..89b8abe 100644
+--- a/plugins/common/libs/image/libextplugin/BUILD.gn
++++ b/plugins/common/libs/image/libextplugin/BUILD.gn
+@@ -87,7 +87,7 @@ ohos_shared_library("textureEncoderCL") {
+     external_deps = [
+       "c_utils:utils",
+       "hilog:libhilog",
+-      "opencl-headers:libcl",
++      # [linux-port auto-gate] "opencl-headers:libcl",
+     ]
+   }
+   cflags = [ "-O3" ]
+@@ -190,17 +190,17 @@ ohos_shared_library("extplugin") {
+     ]
+ 
+     external_deps = [
+-      "astc-encoder:astc_encoder_shared",
++      # [linux-port auto-gate] "astc-encoder:astc_encoder_shared",
+       "c_utils:utils",
+-      "drivers_interface_display:libdisplay_commontype_proxy_1.0",
+-      "ffmpeg:libohosffmpeg",
+-      "ffrt:libffrt",
++      # [linux-port auto-gate] "drivers_interface_display:libdisplay_commontype_proxy_1.0",
++      # [linux-port: ffmpeg dropped] "ffmpeg:libohosffmpeg",
++      # [linux-port auto-gate] "ffrt:libffrt",
+       "graphic_2d:color_manager",
+-      "graphic_surface:surface",
++      # [linux-port auto-gate] "graphic_surface:surface",
+       "hilog:libhilog",
+-      "hisysevent:libhisysevent",
++      # [linux-port auto-gate] "hisysevent:libhisysevent",
+       "libexif:libexif",
+-      "libjpeg-turbo:turbojpeg",
++      # [linux-port auto-gate] "libjpeg-turbo:turbojpeg",
+       "skia:libjpegm133",
+       "skia:piexm133",
+       "skia:skia_canvaskit",
+@@ -211,7 +211,7 @@ ohos_shared_library("extplugin") {
+         defined(global_parts_info.open_source_libyuv)) {
+       defines += [ "ENABLE_ASTC_ENCODE_BASED_GPU" ]
+       deps += [ ":textureEncoderCL" ]
+-      external_deps += [ "opencl-headers:libcl" ]
++      # [linux-port auto-gate] external_deps += [ "opencl-headers:libcl" ]
+     }
+ 
+     if (defined(global_parts_info) &&
+@@ -225,10 +225,10 @@ ohos_shared_library("extplugin") {
+     if (enable_jpeg_hw_decode) {
+       external_deps += [
+         "drivers_interface_codec:libimage_proxy_2.1",
+-        "drivers_interface_display:libdisplay_buffer_hdi_impl",
+-        "drivers_interface_display:libdisplay_buffer_proxy_1.0",
+-        "drivers_interface_display:libdisplay_composer_hdi_impl_1.3",
+-        "drivers_interface_display:libdisplay_composer_proxy_1.0",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_buffer_hdi_impl",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_buffer_proxy_1.0",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_hdi_impl_1.3",
++        # [linux-port auto-gate] "drivers_interface_display:libdisplay_composer_proxy_1.0",
+         "hdf_core:libhdf_utils",
+         "hdf_core:libhdi",
+         "ipc:ipc_single",
+@@ -439,7 +439,7 @@ ohos_shared_library("heifimpl") {
+ 
+   external_deps = [
+     "graphic_2d:color_manager",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "hilog:libhilog",
+   ]
+ 
+@@ -448,7 +448,7 @@ ohos_shared_library("heifimpl") {
+       "c_utils:utils",
+       "drivers_interface_codec:libcodec_proxy_4.0",
+       "drivers_interface_codec:libimage_proxy_2.1",
+-      "drivers_interface_display:display_commontype_idl_headers",
++      # [linux-port auto-gate] "drivers_interface_display:display_commontype_idl_headers",
+       "hdf_core:libhdi",
+       "hitrace:hitrace_meter",
+       "init:libbegetutil",
+@@ -501,9 +501,9 @@ ohos_shared_library("avifimpl") {
+ 
+   external_deps = [
+     "bounds_checking_function:libsec_shared",
+-    "ffmpeg:libohosffmpeg",
++    # [linux-port: ffmpeg dropped] "ffmpeg:libohosffmpeg",
+     "graphic_2d:color_manager",
+-    "graphic_surface:surface",
++    # [linux-port auto-gate] "graphic_surface:surface",
+     "hilog:libhilog",
+   ]
+ 
+diff --git a/plugins/common/libs/image/librawplugin/BUILD.gn b/plugins/common/libs/image/librawplugin/BUILD.gn
+index 6ba3fd8..a4566f8 100644
+--- a/plugins/common/libs/image/librawplugin/BUILD.gn
++++ b/plugins/common/libs/image/librawplugin/BUILD.gn
+@@ -70,11 +70,11 @@ ohos_shared_library("rawplugin") {
+       "graphic_2d:color_manager",
+       "hilog:libhilog",
+       "libexif:libexif",
+-      "libjpeg-turbo:turbojpeg",
++      # [linux-port auto-gate] "libjpeg-turbo:turbojpeg",
+       "skia:libjpegm133",
+       "skia:piexm133",
+       "skia:skia_canvaskit",
+-      "ipc:ipc_single",
++      # [linux-port auto-gate] "ipc:ipc_single",
+     ]
+   }
+   if (image_use_new_skia) {
+diff --git a/test/resource/image/images/test_rfdatab_depthen.jpg b/test/resource/image/images/test_rfdatab_depthen.jpg
+index 73c072c..7459e3f 100644
+Binary files a/test/resource/image/images/test_rfdatab_depthen.jpg and b/test/resource/image/images/test_rfdatab_depthen.jpg differ
+diff --git a/test/resource/image/images/test_rfdatab_depthp.jpg b/test/resource/image/images/test_rfdatab_depthp.jpg
+index da7c446..c2539b4 100644
+Binary files a/test/resource/image/images/test_rfdatab_depthp.jpg and b/test/resource/image/images/test_rfdatab_depthp.jpg differ
+diff --git a/test/resource/image/images/test_rfdatab_rfdatab.jpg b/test/resource/image/images/test_rfdatab_rfdatab.jpg
+index 29292ab..bdd352f 100644
+Binary files a/test/resource/image/images/test_rfdatab_rfdatab.jpg and b/test/resource/image/images/test_rfdatab_rfdatab.jpg differ
+diff --git a/test/resource/image/images/xmp/dng_xmp.dng b/test/resource/image/images/xmp/dng_xmp.dng
+index a67bf77..d7b7b72 100644
+Binary files a/test/resource/image/images/xmp/dng_xmp.dng and b/test/resource/image/images/xmp/dng_xmp.dng differ

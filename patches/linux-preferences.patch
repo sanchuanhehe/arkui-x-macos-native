@@ -1,0 +1,63 @@
+diff --git a/interfaces/inner_api/BUILD.gn b/interfaces/inner_api/BUILD.gn
+index b35de1d..9b80f7f 100644
+--- a/interfaces/inner_api/BUILD.gn
++++ b/interfaces/inner_api/BUILD.gn
+@@ -106,23 +106,26 @@ if (is_ohos) {
+     configs = [ ":native_preferences_config" ]
+ 
+     external_deps = [
+-      "ability_base:zuri",
+-      "ability_runtime:dataobs_manager",
+-      "access_token:libaccesstoken_sdk",
++      # [linux-port auto-gate] "ability_base:zuri",
++      # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++      # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+       "bounds_checking_function:libsec_shared",
+       "c_utils:utils",
+-      "ffrt:libffrt",
++      # [linux-port auto-gate] "ffrt:libffrt",
+       "hilog:libhilog",
+-      "hisysevent:libhisysevent",
+-      "hitrace:hitrace_meter",
+-      "ipc:ipc_single",
++      # [linux-port auto-gate] "hisysevent:libhisysevent",
++      # [linux-port auto-gate] "hitrace:hitrace_meter",
++      # [linux-port auto-gate] "ipc:ipc_single",
+       "libxml2:libxml2",
+     ]
+     public_configs = [ ":native_preferences_public_config" ]
+     subsystem_name = "distributeddatamgr"
+     part_name = "preferences"
+   }
+-} else if (is_mingw || is_mac) {
++} else if (is_mingw || is_mac || current_os == "linux") {
++  # Linux/Wayland native port: the desktop client uses the same mock/executor-pool
++  # backend as mac/mingw (no ffrt). The original if-chain had no linux branch, so
++  # native_preferences was undefined for arkui-x linux and 80+ consumers failed.
+   ohos_shared_library("native_preferences") {
+     sources = base_sources
+     sources += mock_sources
+@@ -287,16 +290,16 @@ ohos_static_library("native_preferences_static") {
+       ]
+     }
+     external_deps = [
+-      "ability_base:zuri",
+-      "ability_runtime:dataobs_manager",
+-      "access_token:libaccesstoken_sdk",
++      # [linux-port auto-gate] "ability_base:zuri",
++      # [linux-port auto-gate] "ability_runtime:dataobs_manager",
++      # [linux-port auto-gate] "access_token:libaccesstoken_sdk",
+       "bounds_checking_function:libsec_shared",
+       "c_utils:utils",
+-      "ffrt:libffrt",
++      # [linux-port auto-gate] "ffrt:libffrt",
+       "hilog:libhilog",
+-      "hisysevent:libhisysevent",
+-      "hitrace:hitrace_meter",
+-      "ipc:ipc_single",
++      # [linux-port auto-gate] "hisysevent:libhisysevent",
++      # [linux-port auto-gate] "hitrace:hitrace_meter",
++      # [linux-port auto-gate] "ipc:ipc_single",
+       "libxml2:libxml2",
+     ]
+   }

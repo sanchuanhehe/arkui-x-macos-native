@@ -123,7 +123,7 @@ index eb25f004..65cfd67c 100644
        import("config_linux.gni")
      }
 diff --git a/frameworks/bridge/declarative_frontend/BUILD.gn b/frameworks/bridge/declarative_frontend/BUILD.gn
-index a9ff3c0d..61cc50c2 100644
+index a9ff3c0d..58f91e75 100644
 --- a/frameworks/bridge/declarative_frontend/BUILD.gn
 +++ b/frameworks/bridge/declarative_frontend/BUILD.gn
 @@ -74,10 +74,16 @@ template("declarative_frontend") {
@@ -147,3 +147,59 @@ index a9ff3c0d..61cc50c2 100644
      }
    }
  }
+@@ -692,7 +698,10 @@ template("declarative_js_engine") {
+       ]
+     }
+ 
+-    if (platform == "windows" || platform == "mac" || platform == "linux") {
++    if ((platform == "windows" || platform == "mac" || platform == "linux") &&
++        !is_arkui_x) {
++      # Linux/Wayland native port: js_mock_system_plugin is a previewer-only gen
++      # target (defined under !is_arkui_x); the arkui-x desktop app doesn't use it.
+       deps += [ ":gen_obj_src_js_mock_system_plugin" ]
+     } else {
+       if (defined(config.plugin_components_support) &&
+diff --git a/frameworks/core/components/text_overlay/BUILD.gn b/frameworks/core/components/text_overlay/BUILD.gn
+index b5e9bccc..95f36b44 100755
+--- a/frameworks/core/components/text_overlay/BUILD.gn
++++ b/frameworks/core/components/text_overlay/BUILD.gn
+@@ -48,8 +48,8 @@ build_component("text_overlay_for_web") {
+ 
+   standard_web_deps = [ "webview:libnweb" ]
+   external_deps += [
+-    "ability_runtime:abilitykit_native",
+-    "ability_runtime:app_manager",
+-    "window_manager:libwm",
++    # [linux-port auto-gate] "ability_runtime:abilitykit_native",
++    # [linux-port auto-gate] "ability_runtime:app_manager",
++    # [linux-port auto-gate] "window_manager:libwm",
+   ]
+ }
+diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
+index e58f8e0b..43c454fe 100644
+--- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
++++ b/interfaces/inner_api/drawable_descriptor/BUILD.gn
+@@ -14,6 +14,10 @@
+ import("//build/ohos.gni")
+ import("//foundation/arkui/ace_engine/ace_config.gni")
+ 
++# Linux/Wayland native port: ace_enable_gpu (used below) is defined in graphic_2d's
++# graphic_config.gni, which ace_config.gni doesn't pull in here.
++import("//foundation/graphic/graphic_2d/graphic_config.gni")
++
+ config("drawable_config") {
+   visibility = [ ":*" ]
+   include_dirs = [
+@@ -64,6 +68,12 @@ if (is_arkui_x) {
+     if (use_clang_ios) {
+       defines = image_decode_ios_defines
+     }
++    if (current_os == "linux") {
++      # Linux/Wayland native port: defines was only initialized for android/ios,
++      # so the subsequent `defines +=` (ace_enable_gpu / upgrade_skia) hit an
++      # undefined identifier on the desktop client. Initialize it here.
++      defines = []
++    }
+     if (ace_enable_gpu) {
+       defines += [ "RS_ENABLE_GPU" ]
+     }

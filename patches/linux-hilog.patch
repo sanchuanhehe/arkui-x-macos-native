@@ -16,3 +16,42 @@ index 00e5006..cffcfea 100644
        external_deps += [ "init:libbegetutil" ]
        deps = [ "../../interfaces/sandbox_log:libsandboxlog" ]
      }
+diff --git a/interfaces/rust/BUILD.gn b/interfaces/rust/BUILD.gn
+index 816dfa2..a9ae8b6 100644
+--- a/interfaces/rust/BUILD.gn
++++ b/interfaces/rust/BUILD.gn
+@@ -13,17 +13,23 @@
+ 
+ import("//build/ohos.gni")
+ 
+-ohos_rust_shared_library("hilog_rust") {
+-  sources = [ "src/lib.rs" ]
+-
+-  deps = [ "../../interfaces/native/innerkits:libhilog" ]
+-
+-  crate_name = "hilog_rust"
+-  crate_type = "dylib"
+-  rustflags = [ "-Zstack-protector=all" ]
+-
+-  subsystem_name = "hiviewdfx"
+-  part_name = "hilog"
++if (defined(is_arkui_x) && is_arkui_x) {
++  # [linux-port] no rust toolchain; empty stub so consumers resolve
++  group("hilog_rust") {
++  }
++} else {
++  ohos_rust_shared_library("hilog_rust") {
++    sources = [ "src/lib.rs" ]
++  
++    deps = [ "../../interfaces/native/innerkits:libhilog" ]
++  
++    crate_name = "hilog_rust"
++    crate_type = "dylib"
++    rustflags = [ "-Zstack-protector=all" ]
++  
++    subsystem_name = "hiviewdfx"
++    part_name = "hilog"
++  }
+ }
+ 
+ group("rust_hilog_component") {
