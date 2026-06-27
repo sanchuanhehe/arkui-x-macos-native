@@ -1,0 +1,93 @@
+diff --git a/core/gn/BUILD.gn b/core/gn/BUILD.gn
+index a8183f4..55c58f0 100755
+--- a/core/gn/BUILD.gn
++++ b/core/gn/BUILD.gn
+@@ -30,7 +30,16 @@ if (product_name == "ohos-sdk") {
+   }
+ } else if (product_name == "arkui-x") {
+   group("arkui_targets") {
+-    deps = [ "//build_plugins/sdk:arkui_cross_sdk" ]
++    if (target_os == "linux") {
++      # Linux/Wayland native port (Route A): the native ace_linux executable.
++      # This pulls the full chain (libace_static_linux + adapter/linux + EGL
++      # graphic backend) into the build graph; the OHOS component loader
++      # otherwise prunes targets not reachable from a product root.
++      deps =
++          [ "//foundation/arkui/ace_engine/adapter/linux/build:ace_linux" ]
++    } else {
++      deps = [ "//build_plugins/sdk:arkui_cross_sdk" ]
++    }
+   }
+ } else {
+   group("make_all") {
+diff --git a/hb/resources/args/default/buildargs.json b/hb/resources/args/default/buildargs.json
+index da6993a..d89a380 100644
+--- a/hb/resources/args/default/buildargs.json
++++ b/hb/resources/args/default/buildargs.json
+@@ -28,7 +28,8 @@
+     "arg_attribute": {
+       "optional": [
+         "android",
+-        "ios"
++        "ios",
++        "linux"
+       ]
+     },
+     "resolve_function": "resolve_target_os",
+diff --git a/scripts/check_path_exists.py b/scripts/check_path_exists.py
+new file mode 100755
+index 0000000..b1dfa09
+--- /dev/null
++++ b/scripts/check_path_exists.py
+@@ -0,0 +1,36 @@
++#!/usr/bin/env python
++# -*- coding: utf-8 -*-
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# Linux/Wayland native port: the prebuilt gn shipped for linux-aarch64 (version
++# 2021) predates the `path_exists()` builtin that the tree now uses in ~18 .gn
++# sites. This helper provides an exec_script-based equivalent so the old gn can
++# still gen the graph. Usage in GN:
++#   exec_script("//build/scripts/check_path_exists.py",
++#               [ rebase_path("//some/path") ], "trim string") == "True"
++
++import os
++import sys
++
++
++def main() -> int:
++    if len(sys.argv) < 2:
++        print("False")
++        return 0
++    print(os.path.exists(sys.argv[1]))
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+diff --git a/test.gni b/test.gni
+index 95d3729..8e5f67e 100644
+--- a/test.gni
++++ b/test.gni
+@@ -866,7 +866,9 @@ template("ohos_rust_systemtest") {
+ 
+ #arkts1.2 api test template
+ ohos_ets_build_system_deps = "ets_frontend:ohos_ets_build_system"
+-if (path_exists("//developtools/ace_ets2bundle")) {
++if (exec_script("//build/scripts/check_path_exists.py",
++                [ rebase_path("//developtools/ace_ets2bundle") ],
++                "trim string") == "True") {
+     ohos_ets_ui_plugins_deps = "ace_ets2bundle:ohos_ets_ui_plugins"
+ }
+ 

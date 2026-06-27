@@ -1,0 +1,18 @@
+diff --git a/adapter/preview/build/platform.gni b/adapter/preview/build/platform.gni
+index eb25f004..65cfd67c 100644
+--- a/adapter/preview/build/platform.gni
++++ b/adapter/preview/build/platform.gni
+@@ -41,6 +41,13 @@ if (use_mac) {
+ if (use_linux) {
+   linux_platform = {
+     name = "linux"
++
++    # Linux/Wayland native port: admit the linux platform into ace_platforms under
++    # is_arkui_x (the foreach filter requires cross_platform_support). This makes
++    # skia_linux / 2d_graphics_source_linux / libace_static_linux etc. get
++    # generated for target_os=linux, mirroring the mac port. Route A: real stage
++    # app + Android-style client-side EGL, not the GLFW preview path.
++    cross_platform_support = true
+     config = {
+       import("config_linux.gni")
+     }

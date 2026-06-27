@@ -1,0 +1,18 @@
+diff --git a/rosen/modules/render_service_base/config.gni b/rosen/modules/render_service_base/config.gni
+index e0f5123..87324e7 100644
+--- a/rosen/modules/render_service_base/config.gni
++++ b/rosen/modules/render_service_base/config.gni
+@@ -25,7 +25,12 @@ rs_common_define = []
+ rosen_cross_platform =
+     current_os == "mac" || current_os == "mingw" || current_os == "linux" ||
+     current_os == "android" || current_os == "ios"
+-rosen_preview = rosen_is_mac || rosen_is_win || rosen_is_linux
++# Linux/Wayland native port (Route A): the arkui-x linux build does NOT take the
++# GLFW preview path — it renders client-side via EGL window surface (like Android,
++# ROSEN_ARKUI_X). Non-arkui-x linux (the standalone previewer) stays on preview.
++rosen_preview =
++    rosen_is_mac || rosen_is_win ||
++    (rosen_is_linux && !(defined(is_arkui_x) && is_arkui_x))
+ 
+ if (rosen_cross_platform) {
+   rs_common_define += [

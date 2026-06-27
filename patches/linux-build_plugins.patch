@@ -1,0 +1,17 @@
+diff --git a/build_scripts/build.sh b/build_scripts/build.sh
+index 8d14265..bfa614d 100755
+--- a/build_scripts/build.sh
++++ b/build_scripts/build.sh
+@@ -62,6 +62,12 @@ case $(uname -m) in
+     *x86_64)
+         host_cpu_prefix="x86"
+         ;;
++    *aarch64)
++        # Linux/Wayland native port: linux-aarch64 host. uname -m="aarch64" does
++        # NOT match "*arm*"; the prebuilts dirs are linux-aarch64 (python /
++        # build-tools / clang), so the prefix must be "aarch64" not "arm64".
++        host_cpu_prefix="aarch64"
++        ;;
+     *arm*)
+         host_cpu_prefix="arm64"
+         ;;
