@@ -1,50 +1,9 @@
-diff --git a/BUILD.gn b/BUILD.gn
-index 5168ec96d72..899c379ae51 100644
---- a/BUILD.gn
-+++ b/BUILD.gn
-@@ -32,6 +32,17 @@ config("ace_config") {
-   }
-   defines = ace_common_defines
- 
-+  # Phase 0 path X: the native-macOS build uses the appframework (iOS-style)
-+  # backend, not the previewer, but PREVIEW leaks in via ace_common_defines. With
-+  # PREVIEW set, JsMessageDispatcher::CallCurlFunction becomes a pure virtual that
-+  # AceContainerSG never implements -> "allocating an object of abstract class
-+  # type 'AceContainerSG'". Strip PREVIEW for the mac iOS-backend build.
-+  if (use_mac && defined(mac_use_ios_backend) && mac_use_ios_backend) {
-+    if (filter_include(defines, [ "PREVIEW" ]) != []) {
-+      defines -= [ "PREVIEW" ]
-+    }
-+  }
-+
-   if (is_wearable_product) {
-     defines += ace_wearable_defines
-   }
-@@ -74,6 +85,18 @@ config("ace_config") {
-     ]
-   }
- 
-+  # Phase 0 path X (mac): the Xcode clang used on mac (use_xcode_clang) does not
-+  # know the "enum-constexpr-conversion" warning. The base mac config passes a
-+  # harmless "-Wno-error=enum-constexpr-conversion", but combined with this
-+  # "-Werror=unknown-warning-option" clang promotes that unknown -Wno-error to a
-+  # hard error ("unknown warning option '-Werror=enum-constexpr-conversion'"),
-+  # failing ~all ace TUs. Drop the unknown-warning-option hardening on mac so the
-+  # unknown flag is merely ignored (a "-Wno-unknown-warning-option" is already
-+  # present in the base config).
-+  if (target_os == "mac") {
-+    cflags -= [ "-Werror=unknown-warning-option" ]
-+  }
-+
-   if (is_ohos && is_clang && (target_cpu == "arm" || target_cpu == "arm64") &&
-       enhanced_opt) {
-     if (ace_engine_feature_enable_pgo) {
 diff --git a/adapter/macos/build/BUILD.gn b/adapter/macos/build/BUILD.gn
 new file mode 100644
-index 00000000000..181d1fa6fc0
+index 00000000000..61aafe0949b
 --- /dev/null
 +++ b/adapter/macos/build/BUILD.gn
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,77 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -113,6 +72,10 @@ index 00000000000..181d1fa6fc0
 +    "QuartzCore.framework",
 +    "OpenGL.framework",
 +    "CoreVideo.framework",
++    # CoreText + CoreGraphics: skia's mac font ports (SkFontMgr_mac_ct / SkShaper_coretext)
++    # need these once skia_use_fonthost_mac=true is enabled for text rendering.
++    "CoreText.framework",
++    "CoreGraphics.framework",
 +  ]
 +
 +  subsystem_name = "arkui"
@@ -460,10 +423,10 @@ index 00000000000..cbb5011c9f2
 +#endif  // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_WINDOW_VIEW_H
 diff --git a/adapter/macos/entrance/WindowView.mm b/adapter/macos/entrance/WindowView.mm
 new file mode 100644
-index 00000000000..14368490235
+index 00000000000..8867894f348
 --- /dev/null
 +++ b/adapter/macos/entrance/WindowView.mm
-@@ -0,0 +1,786 @@
+@@ -0,0 +1,788 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -687,8 +650,10 @@ index 00000000000..14368490235
 +        glBindFramebuffer(GL_READ_FRAMEBUFFER, _blitFbo);
 +        glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorRb);
 +        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
-+        // Flip Y: read bottom-to-top of source into top-to-bottom of dest.
-+        glBlitFramebuffer(0, 0, dstW, dstH, 0, dstH, dstW, 0,
++        // RS already renders the page right-side up into the offscreen color buffer, and
++        // CAOpenGLLayer's drawable shares the same top-left origin, so blit straight through
++        // (no Y flip) — flipping here turned the whole page upside down.
++        glBlitFramebuffer(0, 0, dstW, dstH, 0, 0, dstW, dstH,
 +                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
 +        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
@@ -12876,10 +12841,10 @@ index 00000000000..c2b6296c661
 +} // namespace OHOS::Ace
 diff --git a/adapter/macos/osal/mac_link_stubs.cpp b/adapter/macos/osal/mac_link_stubs.cpp
 new file mode 100644
-index 00000000000..d577f06314b
+index 00000000000..3667fa4c0c2
 --- /dev/null
 +++ b/adapter/macos/osal/mac_link_stubs.cpp
-@@ -0,0 +1,358 @@
+@@ -0,0 +1,337 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12992,37 +12957,16 @@ index 00000000000..d577f06314b
 +}
 +
 +// ---------------------------------------------------------------------------
-+// skia port stubs. The mac build does not compile skia's platform SkDebugf
-+// (SkDebug_stdio/ohos) nor a runtimeOS SkFontMgr::Factory / HmSymbolConfig port.
-+// Provide inert versions so libace links; text/raster paths use the default
-+// fontmgr wiring elsewhere.
++// skia port stub. The mac build does not compile skia's platform SkDebugf
++// (SkDebug_stdio/ohos), so provide an inert version. The SkFontMgr::Factory /
++// HmSymbolConfig / runtimeOS symbols are now provided by skia's real mac font
++// ports (skia_use_fonthost_mac=true / CoreText), so they are NOT stubbed here.
 +// ---------------------------------------------------------------------------
-+#include <functional>
-+
-+#include "include/core/SkFontMgr.h"
-+#include "src/ports/skia_ohos/HmSymbolConfig_ohos.h"
 +
 +// SkDebugf has C++ linkage (declared in skia's SkDebug.h); match it.
 +void SkDebugf(const char* /* format */, ...)
 +{
 +}
-+
-+std::string SkFontMgr::containerFontPath;
-+std::string SkFontMgr::runtimeOS;
-+
-+sk_sp<SkFontMgr> SkFontMgr::Factory()
-+{
-+    return nullptr;
-+}
-+
-+namespace skia::text {
-+void HmSymbolConfig_OHOS::SetLoadSymbolConfig(std::function<int(const char* filePath)>& /* loadSymbolConfigFunc */)
-+{
-+}
-+void HmSymbolConfig_OHOS::ClearLoadSymbolConfig()
-+{
-+}
-+} // namespace skia::text
 +
 +// ---------------------------------------------------------------------------
 +// ace platform services (non-startup paths): static helpers + concrete-class
@@ -28568,538 +28512,3 @@ index 00000000000..54cd7f7ed45
 +
 +ability_runtime_cross_platform_path =
 +    "//foundation/appframework/ability/ability_runtime/cross_platform"
-diff --git a/adapter/preview/build/config_mac.gni b/adapter/preview/build/config_mac.gni
-index 5bdfafed3cd..1e4f247fa9e 100644
---- a/adapter/preview/build/config_mac.gni
-+++ b/adapter/preview/build/config_mac.gni
-@@ -12,9 +12,99 @@
- # limitations under the License.
- 
- import("preview_common.gni")
-+import(
-+    "//foundation/graphic/graphic_2d/rosen/modules/render_service_base/config.gni")
- 
- # windows platform defines and configs
- defines += [
-   "MAC_PLATFORM",
-   "SK_BUILD_FONT_MGR_FOR_PREVIEW_MAC",
-+
-+  # Phase 0 path X: bounds_checking_function securectype.h leaves
-+  # SECUREC_ENABLE_SNPRINTF/VSNPRINTF at 0 on non-MSVC (mac), so securec.h hides
-+  # snprintf_s/vsnprintf_s. Many libace TUs (ace ios_trace.cpp, graphic_2d
-+  # rs_dfx_string.h, ...) call them. The bounds_checking lib implements them; just
-+  # turn the declarations on for the mac build.
-+  "SECUREC_ENABLE_SNPRINTF=1",
-+  "SECUREC_ENABLE_VSNPRINTF=1",
- ]
-+
-+# Phase 1 path X: the macOS desktop build uses the appframework (iOS-style)
-+# backend, not the previewer. The "PREVIEW" define (from preview_common.gni)
-+# collides with enum identifiers in image_framework (e.g. Cr3UuidType::PREVIEW),
-+# so drop it for the native-mac build.
-+# Phase 0 path X: the native-mac (appframework/iOS-style) backend is NOT the
-+# previewer, so PREVIEW must be dropped. It was previously only removed under
-+# preview_support, but PREVIEW (added by preview_common.gni) leaks into the macos
-+# adapter TUs regardless. With PREVIEW set, JsMessageDispatcher::CallCurlFunction
-+# becomes a pure virtual that AceContainerSG does not implement -> "allocating an
-+# object of abstract class type 'AceContainerSG'". Remove it whenever the iOS-style
-+# backend is active (and still under the old preview_support path for safety).
-+if ((defined(mac_use_ios_backend) && mac_use_ios_backend) ||
-+    (defined(preview_support) && preview_support)) {
-+  if (filter_include(defines, [ "PREVIEW" ]) != []) {
-+    defines -= [ "PREVIEW" ]
-+  }
-+}
-+
-+# Phase 2 path X (M1): wire the native-macOS adapter into libace so the ace_engine
-+# framework picks up the macos entrance/osal/stage/uicontent targets (mirrors
-+# adapter/ios/build/config.gni). Also turn on the iOS-style feature defines so the
-+# ~45 IOS_PLATFORM code branches are reused (mac defines both IOS_PLATFORM and
-+# MAC_PLATFORM; real UIKit/AppKit divergences are split on MAC_PLATFORM).
-+if (defined(mac_use_ios_backend) && mac_use_ios_backend) {
-+  # Path X is the appframework/iOS-style backend, not the previewer.
-+  build_for_preview = false
-+
-+  # Static ICU like iOS (the shared ICU isn't built for the standalone app; the
-+  # static target also supplies the unicode/* include path).
-+  use_external_icu = "static"
-+
-+  defines += [
-+    "IOS_PLATFORM",
-+    # Phase 0 path X: mirror adapter/ios/build/config.gni — CROSS_PLATFORM gates
-+    # the cross-platform InputMethodManager method declarations (ShowKeyboard /
-+    # SetEditingState / Attach / ...) in core/common/ime/input_method_manager.h;
-+    # without it the macos osal input_method_manager_ios.cpp out-of-line defs do
-+    # not match any declaration.
-+    "CROSS_PLATFORM",
-+    # Phase 0 path X: mirror adapter/ios/build/config.gni — NG_BUILD selects the
-+    # new (NG) pipeline frontend. ace_container_sg.cpp instantiates
-+    # DeclarativeFrontendNG; without NG_BUILD the NG frontend delegate header is
-+    # compiled out and the type is unknown.
-+    "NG_BUILD",
-+    "VIRTUAL_RS_WINDOW",
-+    "ENABLE_ROSEN_BACKEND",
-+    "QUICK_PUSH_TRANSITION",
-+    "ACE_ENABLE_GL",
-+
-+    # Phase 0 path X: the macos uicontent reuses the iOS ace_view_sg.cpp, which
-+    # calls PipelineBase::OnTouchTargetHitTest — a method declared only under
-+    # #if defined(SUPPORT_TOUCH_TARGET_TEST). iOS turns this on via its config
-+    # (support_touch_target_test); mirror it for mac.
-+    "SUPPORT_TOUCH_TARGET_TEST",
-+  ]
-+
-+  # Replace the previewer platform_deps (set in preview_common.gni) with the
-+  # native-mac adapter targets.
-+  platform_deps = []
-+  platform_deps = [
-+    "//foundation/arkui/ace_engine/adapter/macos/entrance:ace_macos_entrance",
-+    "//foundation/arkui/ace_engine/adapter/macos/osal:ace_osal_mac",
-+    "//foundation/arkui/ace_engine/adapter/macos/stage/ability:stage_macos_entrance",
-+    "//foundation/arkui/ace_engine/adapter/macos/stage/uicontent:ace_uicontent_mac",
-+  ]
-+
-+  # libace_static_mac is already generated by ace_engine/build/BUILD.gn's
-+  # foreach over ace_platforms; the macos platform_deps above are pulled into it
-+  # via ace_lib.gni.
-+  libace_target = "//foundation/arkui/ace_engine/build:libace_static_mac"
-+
-+  # Phase 0 path X: drop PREVIEW at the very end of the mac iOS-backend config
-+  # (after every import/define above). PREVIEW makes JsMessageDispatcher::
-+  # CallCurlFunction a pure virtual that AceContainerSG never implements
-+  # ("allocating an object of abstract class type 'AceContainerSG'").
-+  if (filter_include(defines, [ "PREVIEW" ]) != []) {
-+    defines -= [ "PREVIEW" ]
-+  }
-+}
-diff --git a/adapter/preview/build/platform.gni b/adapter/preview/build/platform.gni
-index eb25f0049ec..ca804727826 100644
---- a/adapter/preview/build/platform.gni
-+++ b/adapter/preview/build/platform.gni
-@@ -30,6 +30,12 @@ if (use_mingw_win) {
- if (use_mac) {
-   mac_platform = {
-     name = "mac"
-+
-+    # Phase 0 path X: mark the mac platform as cross-platform-supported so it is
-+    # admitted into ace_platforms under is_arkui_x (the foreach filter requires
-+    # cross_platform_support). This makes skia_mac / 2d_graphics_source_mac etc.
-+    # get generated for target_os=mac.
-+    cross_platform_support = true
-     config = {
-       import("config_mac.gni")
-     }
-diff --git a/frameworks/bridge/declarative_frontend/BUILD.gn b/frameworks/bridge/declarative_frontend/BUILD.gn
-index 20b15499ef9..6002ad91115 100644
---- a/frameworks/bridge/declarative_frontend/BUILD.gn
-+++ b/frameworks/bridge/declarative_frontend/BUILD.gn
-@@ -704,7 +704,10 @@ template("declarative_js_engine") {
-       ]
-     }
- 
--    if (platform == "windows" || platform == "mac" || platform == "linux") {
-+    if ((platform == "windows" || platform == "mac" || platform == "linux") &&
-+        !is_arkui_x) {
-+      # Phase 2 path X: js_mock_system_plugin is a previewer-only gen target
-+      # (defined under !is_arkui_x); the arkui-x mac app doesn't use it.
-       deps += [ ":gen_obj_src_js_mock_system_plugin" ]
-     } else {
-       if (defined(config.plugin_components_support) &&
-diff --git a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp
-index 3d1be9d56f3..47345bc9fac 100644
---- a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp
-+++ b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp
-@@ -17,7 +17,7 @@
- 
- namespace OHOS::Ace::Framework {
- 
--    thread_local std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> IFunctionBinding::functions;
--    thread_local void* IFunctionBinding::runtime = nullptr;
-+    ACE_JSI_THREAD_LOCAL std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> IFunctionBinding::functions;
-+    ACE_JSI_THREAD_LOCAL void* IFunctionBinding::runtime = nullptr;
- 
- }; // namespace OHOS::Ace::Framework
-diff --git a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h
-index 0b5f5b15ce7..a4f6ee97f7b 100644
---- a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h
-+++ b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.h
-@@ -16,6 +16,18 @@
- #ifndef FOUNDATION_ACE_FRAMEWORKS_DECLARATIVE_FRONTEND_ENGINE_BINDINGS_IMPLEMENTATION_H
- #define FOUNDATION_ACE_FRAMEWORKS_DECLARATIVE_FRONTEND_ENGINE_BINDINGS_IMPLEMENTATION_H
- 
-+// Phase 0 path X (M1 link): on macOS, `ACE_JSI_THREAD_LOCAL` template static members
-+// (JsiClass<T>::className_/jsName/staticFunctions_/...) emit a strong, per-TU
-+// TLS-init helper symbol that the Apple linker refuses to coalesce, producing
-+// "duplicate symbol" for every JS binding type instantiated in >1 TU. The
-+// desktop app drives the JS engine from a single thread, so use a plain static
-+// (clang emits it as a coalesced weak symbol) on mac.
-+#if defined(MAC_PLATFORM)
-+#define ACE_JSI_THREAD_LOCAL
-+#else
-+#define ACE_JSI_THREAD_LOCAL thread_local
-+#endif
-+
- #include <cmath>
- #include <string>
- #include <unordered_map>
-@@ -35,8 +47,8 @@ enum MethodOptions : uint8_t {
- 
- class IFunctionBinding {
- public:
--    thread_local static std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> functions;
--    thread_local static void* runtime;
-+    ACE_JSI_THREAD_LOCAL static std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> functions;
-+    ACE_JSI_THREAD_LOCAL static void* runtime;
-     IFunctionBinding(const char* name, MethodOptions options) : name_(name), options_(options)
-     {
-         functions[runtime].emplace_back(this);
-@@ -396,7 +408,7 @@ public:
-     static JSRef<JSObject> NewInstance();
- 
- private:
--    static thread_local std::string jsName;
-+    static ACE_JSI_THREAD_LOCAL std::string jsName;
- };
- 
- }; // namespace OHOS::Ace::Framework
-diff --git a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl
-index 65dfcf561ef..39149a607a1 100644
---- a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl
-+++ b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.inl
-@@ -18,7 +18,7 @@
- namespace OHOS::Ace::Framework {
- 
- template<typename T, template<typename> typename ImplDetail>
--thread_local std::string JSClassImpl<T, ImplDetail>::jsName;
-+ACE_JSI_THREAD_LOCAL std::string JSClassImpl<T, ImplDetail>::jsName;
- 
- template<typename C, template<typename> typename ImplDetail>
- void JSClassImpl<C, ImplDetail>::Declare(const char* name)
-diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h
-index 7d4b11d1dfb..f3143a20181 100644
---- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h
-+++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.h
-@@ -130,14 +130,14 @@ private:
- 
-     static bool CheckIfConstructCall(panda::JsiRuntimeCallInfo* runtimeCallInfo);
- 
--    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> staticFunctions_;
--    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customFunctions_;
--    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customGetFunctions_;
--    static thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customSetFunctions_;
--    static thread_local FunctionCallback constructor_;
--    static thread_local JsiClassConstructorBinding jsConstructorBinding_;
--    static thread_local std::string className_;
--    static thread_local panda::Global<panda::FunctionRef> classFunction_;
-+    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> staticFunctions_;
-+    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customFunctions_;
-+    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customGetFunctions_;
-+    static ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> customSetFunctions_;
-+    static ACE_JSI_THREAD_LOCAL FunctionCallback constructor_;
-+    static ACE_JSI_THREAD_LOCAL JsiClassConstructorBinding jsConstructorBinding_;
-+    static ACE_JSI_THREAD_LOCAL std::string className_;
-+    static ACE_JSI_THREAD_LOCAL panda::Global<panda::FunctionRef> classFunction_;
- };
- 
- template<typename T>
-diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl
-index 85895498d4e..c94abc792bd 100644
---- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl
-+++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_bindings.inl
-@@ -24,28 +24,28 @@
- namespace OHOS::Ace::Framework {
- 
- template<typename C>
--thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::staticFunctions_;
-+ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::staticFunctions_;
- 
- template<typename C>
--thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customFunctions_;
-+ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customFunctions_;
- 
- template<typename C>
--thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customGetFunctions_;
-+ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customGetFunctions_;
- 
- template<typename C>
--thread_local std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customSetFunctions_;
-+ACE_JSI_THREAD_LOCAL std::unordered_map<std::string, panda::Global<panda::FunctionRef>> JsiClass<C>::customSetFunctions_;
- 
- template<typename C>
--thread_local FunctionCallback JsiClass<C>::constructor_ = nullptr;
-+ACE_JSI_THREAD_LOCAL FunctionCallback JsiClass<C>::constructor_ = nullptr;
- 
- template<typename C>
--thread_local JsiClassConstructorBinding JsiClass<C>::jsConstructorBinding_;
-+ACE_JSI_THREAD_LOCAL JsiClassConstructorBinding JsiClass<C>::jsConstructorBinding_;
- 
- template<typename C>
--thread_local std::string JsiClass<C>::className_;
-+ACE_JSI_THREAD_LOCAL std::string JsiClass<C>::className_;
- 
- template<typename C>
--thread_local panda::Global<panda::FunctionRef> JsiClass<C>::classFunction_;
-+ACE_JSI_THREAD_LOCAL panda::Global<panda::FunctionRef> JsiClass<C>::classFunction_;
- 
- template<typename C>
- void JsiClass<C>::Declare(const char* name)
-diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-index 93b946c130b..08fa0894b64 100644
---- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-+++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-@@ -2145,6 +2145,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
-     const std::string assetPath = ASSET_PATH_PREFIX + moduleName + "/" + FORM_ES_MODULE_PATH;
-     runtime->SetAssetPath(assetPath);
-     runtime->SetModuleName(moduleName);
-+#ifdef CROSS_PLATFORM
-+    // The page is an esmodule loaded from the in-memory modules.abc. The shared VM may
-+    // still be in bundle-pack mode (default), which would make JSNApi::Execute treat the
-+    // page url as a script file path and fail. Force esmodule resolution for the page.
-+    runtime->SetBundle(false);
-+#endif
-     if (urlName.substr(0, strlen(BUNDLE_TAG)) != BUNDLE_TAG) {
- #ifdef CROSS_PLATFORM
-         std::string moduleNamePath = (moduleName.find_last_of('.') != std::string::npos)
-@@ -2155,7 +2161,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
-         urlName = container->GetModuleName() + "/ets/" + urlName;
- #endif
-     }
--    runtime->ExecuteJsBin(urlName, errorCallback);
-+    bool r = runtime->ExecuteJsBin(urlName, errorCallback);
- }
- #endif
- // Load the app.js file of the FA model in NG structure.
-diff --git a/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp b/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
-index a40c3c217e2..30c68979098 100644
---- a/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
-+++ b/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
-@@ -2667,11 +2667,13 @@ bool PageRouterManager::GenerateRouterPageInner(const RouterPageInfo& target)
-         auto intentInfo = target.intentInfo;
-         return generateIntentPageCallback_(intentInfo.bundleName, intentInfo.moduleName, intentInfo.pagePath);
-     }
--    if (loadNamedRouter_(target.url, target.isNamedRouterMode)) {
-+    bool lnr = loadNamedRouter_(target.url, target.isNamedRouterMode);
-+    if (lnr) {
-         return true;
-     }
-     if (!target.isNamedRouterMode) {
--        return updateRootComponent_();
-+        bool urc = updateRootComponent_();
-+        return urc;
-     }
-     if (target.errorCallback) {
-         target.errorCallback("The named route is not exist.", ERROR_CODE_NAMED_ROUTE_ERROR);
-diff --git a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json b/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
-index 303990672eb..241e87f0aa6 100644
---- a/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
-+++ b/frameworks/bridge/declarative_frontend/state_mgmt/package-lock.json
-@@ -1,31 +1,67 @@
- {
-   "name": "statemgmt",
-   "version": "0.0.1",
--  "lockfileVersion": 1,
-+  "lockfileVersion": 3,
-   "requires": true,
--  "dependencies": {
--    "@types/node": {
-+  "packages": {
-+    "": {
-+      "name": "statemgmt",
-+      "version": "0.0.1",
-+      "license": "Apache-2.0",
-+      "dependencies": {
-+        "pegjs": "^0.10.0"
-+      },
-+      "devDependencies": {
-+        "@types/node": "^15.0.1",
-+        "json5": "^2.2.3",
-+        "typescript": "^4.9.5"
-+      }
-+    },
-+    "node_modules/@types/node": {
-       "version": "15.14.9",
-       "resolved": "https://repo.huaweicloud.com/repository/npm/@types/node/-/node-15.14.9.tgz",
-       "integrity": "sha512-qjd88DrCxupx/kJD5yQgZdcYKZKSIGBVDIBE1/LTGcNm3d2Np/jxojkdePDdfnBHJc5W7vSMpbJ1aB7p/Py69A==",
--      "dev": true
-+      "dev": true,
-+      "license": "MIT"
-     },
--    "json5": {
-+    "node_modules/json5": {
-       "version": "2.2.3",
-       "resolved": "https://repo.huaweicloud.com/repository/npm/json5/-/json5-2.2.3.tgz",
-       "integrity": "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==",
--      "dev": true
-+      "dev": true,
-+      "license": "MIT",
-+      "bin": {
-+        "json5": "lib/cli.js"
-+      },
-+      "engines": {
-+        "node": ">=6"
-+      }
-     },
--    "pegjs": {
-+    "node_modules/pegjs": {
-       "version": "0.10.0",
-       "resolved": "https://repo.huaweicloud.com/repository/npm/pegjs/-/pegjs-0.10.0.tgz",
--      "integrity": "sha512-qI5+oFNEGi3L5HAxDwN2LA4Gg7irF70Zs25edhjld9QemOgp0CbvMtbFcMvFtEo1OityPrcCzkQFB8JP/hxgow=="
-+      "integrity": "sha512-qI5+oFNEGi3L5HAxDwN2LA4Gg7irF70Zs25edhjld9QemOgp0CbvMtbFcMvFtEo1OityPrcCzkQFB8JP/hxgow==",
-+      "license": "MIT",
-+      "bin": {
-+        "pegjs": "bin/pegjs"
-+      },
-+      "engines": {
-+        "node": ">=0.10"
-+      }
-     },
--    "typescript": {
-+    "node_modules/typescript": {
-       "version": "4.9.5",
-       "resolved": "https://repo.huaweicloud.com/repository/npm/typescript/-/typescript-4.9.5.tgz",
-       "integrity": "sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==",
--      "dev": true
-+      "dev": true,
-+      "license": "Apache-2.0",
-+      "bin": {
-+        "tsc": "bin/tsc",
-+        "tsserver": "bin/tsserver"
-+      },
-+      "engines": {
-+        "node": ">=4.2.0"
-+      }
-     }
-   }
- }
-diff --git a/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts b/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts
-index 29686e11b15..51f7dfc1536 100644
---- a/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts
-+++ b/frameworks/bridge/declarative_frontend/state_mgmt/src/lib/puv2_common/puv2_view_base.ts
-@@ -1334,6 +1334,15 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
-   }
- 
-   public static isNeedBuildPrebuildCmd(): boolean {
-+    // ArkUI-X macOS: in the dynamic-render shared-runtime scenario the stateMgmt
-+    // script-global `PrebuildPhase` enum may be absent from the page execution
-+    // context (PUV2ViewBase is registered via JsRegisterViews but the top-level
-+    // var is not on this realm's global). Prebuild is disabled on macOS anyway
-+    // (system_properties prebuildInMultiFrameEnabled_=false), so guard the lookup
-+    // to keep observeComponentCreation2 from throwing and aborting the first frame.
-+    if (typeof PrebuildPhase === 'undefined') {
-+      return false;
-+    }
-     const needBuild: boolean = PUV2ViewBase.prebuildPhase_ === PrebuildPhase.BuildPrebuildCmd;
-     return needBuild;
-   }
-diff --git a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp b/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
-index f50650ecfb1..66f62d29723 100644
---- a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
-+++ b/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
-@@ -270,6 +270,14 @@ bool StageManager::PushPage(const RefPtr<FrameNode>& node, bool needHideLast, bo
-     // flush layout task.
-     if (!stageNode_->GetGeometryNode()->GetMarginFrameSize().IsPositive()) {
-         // in first load case, wait for window size.
-+#if defined(MAC_PLATFORM)
-+        // ArkUI-X macOS (M1 格-c2): the window's real size arrives asynchronously after
-+        // PushPage, so the stage is still 0x0 here. Mark the page subtree dirty for measure
-+        // anyway, so when SetRootRect later applies the real size the page is re-measured
-+        // (otherwise its geometry stays 0 and RS paints nothing).
-+        stageNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-+        node->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-+#endif
-         return true;
-     }
-     stageNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.cpp b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
-index 086a3e22416..c3b81968871 100644
---- a/frameworks/core/components_ng/render/adapter/rosen_window.cpp
-+++ b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
-@@ -25,6 +25,12 @@
- #include "core/pipeline_ng/pipeline_context.h"
- #include "render_service_client/core/ui/rs_root_node.h"
- #include "render_service_client/core/ui/rs_surface_node.h"
-+#if defined(MAC_PLATFORM)
-+#include "render_service_client/core/pipeline/rs_render_thread.h"
-+#include "render_service_client/core/ui/rs_ui_context.h"
-+#include "transaction/rs_irender_client.h"
-+#include "transaction/rs_transaction_proxy.h"
-+#endif
- 
- namespace {
- constexpr int32_t IDLE_TASK_DELAY_MILLISECOND = 51;
-@@ -129,6 +135,29 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
-             rsUIcontext->AttachFromUI();
-             hasTaskRunner = rsUIcontext->HasTaskRunner();
-     }
-+#if defined(MAC_PLATFORM)
-+    // ArkUI-X macOS (M1 格-c2): this is the director that actually renders the page tree
-+    // (mac's Window::CreateSurfaceNode runs asynchronously after this ctor, so window->
-+    // GetRSUIDirector() was null above and we created our own director). The private
-+    // RSUIDirector::Init() never ran for it, so its transaction had no renderThreadClient_
-+    // and every committed page tree was dropped. Wire the render-thread client + start the
-+    // render thread on THIS director's context so RS receives and renders the page.
-+    {
-+        auto rtClient = OHOS::Rosen::RSIRenderClient::CreateRenderThreadClient();
-+        if (rsUIcontext) {
-+            auto transaction = rsUIcontext->GetRSTransaction();
-+            if (transaction) {
-+                transaction->SetRenderThreadClient(rtClient);
-+            }
-+        } else {
-+            auto* proxy = OHOS::Rosen::RSTransactionProxy::GetInstance();
-+            if (proxy) {
-+                proxy->SetRenderThreadClient(rtClient);
-+            }
-+        }
-+        OHOS::Rosen::RSRenderThread::Instance().Start();
-+    }
-+#endif
-     if (!hasTaskRunner) {
-         rsUIDirector_->SetUITaskRunner(
-                 [taskExecutor, id](const std::function<void()>& task, uint32_t delay) {
-diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.h b/frameworks/core/components_ng/render/adapter/rosen_window.h
-index ae41531d1dd..09ed7274703 100644
---- a/frameworks/core/components_ng/render/adapter/rosen_window.h
-+++ b/frameworks/core/components_ng/render/adapter/rosen_window.h
-@@ -23,7 +23,10 @@
- #include "wm/window.h"
- #elif VIRTUAL_RS_WINDOW
- // use real rs window later
--#ifdef IOS_PLATFORM
-+// Phase 2 path X: mac defines both IOS_PLATFORM and MAC_PLATFORM; check MAC first.
-+#if defined(MAC_PLATFORM)
-+#include "adapter/macos/entrance/virtual_rs_window.h"
-+#elif defined(IOS_PLATFORM)
- #include "adapter/ios/entrance/virtual_rs_window.h"
- #else
- #include "adapter/android/entrance/java/jni/virtual_rs_window.h"
-diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
-index e58f8e0b0a1..0a812c0f2a1 100644
---- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
-+++ b/interfaces/inner_api/drawable_descriptor/BUILD.gn
-@@ -64,6 +64,11 @@ if (is_arkui_x) {
-     if (use_clang_ios) {
-       defines = image_decode_ios_defines
-     }
-+    if (use_clang_mac) {
-+      # Phase 2 path X: mac was missing the defines initialization (only set for
-+      # android/ios), so the subsequent `defines +=` hit an undefined identifier.
-+      defines = image_decode_mac_defines
-+    }
-     if (ace_enable_gpu) {
-       defines += [ "RS_ENABLE_GPU" ]
-     }
-diff --git a/interfaces/napi/kits/drag_controller/BUILD.gn b/interfaces/napi/kits/drag_controller/BUILD.gn
-index fabbd18d316..b97638c01c8 100644
---- a/interfaces/napi/kits/drag_controller/BUILD.gn
-+++ b/interfaces/napi/kits/drag_controller/BUILD.gn
-@@ -42,6 +42,9 @@ template("napi_dragcontroller_static") {
-         include_dirs = [ "$ace_root/adapter/android/entrance/java/jni" ]
-       } else if (target_os == "ios") {
-         include_dirs = [ "$ace_root/adapter/ios/entrance" ]
-+      } else if (target_os == "mac") {
-+        # Phase 0 path X: mac reuses the iOS entrance headers.
-+        include_dirs = [ "$ace_root/adapter/macos/entrance" ]
-       }
-       include_dirs += [
-         "$ace_graphic/rosen/modules",

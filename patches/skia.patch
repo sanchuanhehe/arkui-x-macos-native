@@ -76,3 +76,30 @@ index e692b4e6b4..51ed474014 100644
      if (is_arkui_x) {
        deps -= [
          "${skia_root_dir}:graphite",
+diff --git a/m133/BUILD.gn b/m133/BUILD.gn
+index ecd61d32f1..42afa0a849 100644
+--- a/m133/BUILD.gn
++++ b/m133/BUILD.gn
+@@ -611,11 +611,17 @@ optional("fontmgr_symbol_load") {
+     deps += ["${skia_third_party_dir}/expat"]
+   }
+ 
+-  deps += [
+-    ":ohos_font_file_map.json",
+-    ":ohos_fontconfig.json",
+-    ":ohos_fontconfig_old.json",
+-  ]
++  # ArkUI-X macOS: the ohos_fontconfig.json / font_file_map targets below are only defined
++  # for `use_oh_skia && !is_arkui_x` (see further down). On arkui-x (e.g. native macOS using
++  # skia_use_fonthost_mac=CoreText) they don't exist, so depending on them breaks gn gen; and
++  # CoreText uses system fonts and needs no OHOS fontconfig json. Skip them for arkui-x.
++  if (!is_arkui_x) {
++    deps += [
++      ":ohos_font_file_map.json",
++      ":ohos_fontconfig.json",
++      ":ohos_fontconfig_old.json",
++    ]
++  }
+   if (skia_feature_product == "wearable") {
+     if (skia_feature_cfp_enable) {
+       deps += [ ":ohos_fontconfig_wearable_lite.json" ]

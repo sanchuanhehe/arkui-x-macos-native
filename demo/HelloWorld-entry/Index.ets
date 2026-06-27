@@ -18,15 +18,22 @@
 struct Index {
   @State message:string = 'Hello ArkUI on macOS'
   build() {
-    Column({ space: 24 }) {
+    Column({ space: 20 }) {
+      Text(this.message)
+        .fontSize(36)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+      Text('方舟 ArkUI · 原生 macOS 渲染')
+        .fontSize(22)
+        .fontColor(Color.Blue)
       Row()
-        .width('80%').height(120)
+        .width('70%').height(90)
         .backgroundColor(Color.Blue).borderRadius(16)
       Row()
-        .width('60%').height(120)
+        .width('55%').height(90)
         .backgroundColor(Color.Orange).borderRadius(16)
       Row()
-        .width('40%').height(120)
+        .width('40%').height(90)
         .backgroundColor(Color.Green).borderRadius(16)
     }
     .width('100%')

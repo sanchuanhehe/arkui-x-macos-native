@@ -1,0 +1,192 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 5168ec96d72..899c379ae51 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -32,6 +32,17 @@ config("ace_config") {
+   }
+   defines = ace_common_defines
+ 
++  # Phase 0 path X: the native-macOS build uses the appframework (iOS-style)
++  # backend, not the previewer, but PREVIEW leaks in via ace_common_defines. With
++  # PREVIEW set, JsMessageDispatcher::CallCurlFunction becomes a pure virtual that
++  # AceContainerSG never implements -> "allocating an object of abstract class
++  # type 'AceContainerSG'". Strip PREVIEW for the mac iOS-backend build.
++  if (use_mac && defined(mac_use_ios_backend) && mac_use_ios_backend) {
++    if (filter_include(defines, [ "PREVIEW" ]) != []) {
++      defines -= [ "PREVIEW" ]
++    }
++  }
++
+   if (is_wearable_product) {
+     defines += ace_wearable_defines
+   }
+@@ -74,6 +85,18 @@ config("ace_config") {
+     ]
+   }
+ 
++  # Phase 0 path X (mac): the Xcode clang used on mac (use_xcode_clang) does not
++  # know the "enum-constexpr-conversion" warning. The base mac config passes a
++  # harmless "-Wno-error=enum-constexpr-conversion", but combined with this
++  # "-Werror=unknown-warning-option" clang promotes that unknown -Wno-error to a
++  # hard error ("unknown warning option '-Werror=enum-constexpr-conversion'"),
++  # failing ~all ace TUs. Drop the unknown-warning-option hardening on mac so the
++  # unknown flag is merely ignored (a "-Wno-unknown-warning-option" is already
++  # present in the base config).
++  if (target_os == "mac") {
++    cflags -= [ "-Werror=unknown-warning-option" ]
++  }
++
+   if (is_ohos && is_clang && (target_cpu == "arm" || target_cpu == "arm64") &&
+       enhanced_opt) {
+     if (ace_engine_feature_enable_pgo) {
+diff --git a/adapter/preview/build/config_mac.gni b/adapter/preview/build/config_mac.gni
+index 5bdfafed3cd..1e4f247fa9e 100644
+--- a/adapter/preview/build/config_mac.gni
++++ b/adapter/preview/build/config_mac.gni
+@@ -12,9 +12,99 @@
+ # limitations under the License.
+ 
+ import("preview_common.gni")
++import(
++    "//foundation/graphic/graphic_2d/rosen/modules/render_service_base/config.gni")
+ 
+ # windows platform defines and configs
+ defines += [
+   "MAC_PLATFORM",
+   "SK_BUILD_FONT_MGR_FOR_PREVIEW_MAC",
++
++  # Phase 0 path X: bounds_checking_function securectype.h leaves
++  # SECUREC_ENABLE_SNPRINTF/VSNPRINTF at 0 on non-MSVC (mac), so securec.h hides
++  # snprintf_s/vsnprintf_s. Many libace TUs (ace ios_trace.cpp, graphic_2d
++  # rs_dfx_string.h, ...) call them. The bounds_checking lib implements them; just
++  # turn the declarations on for the mac build.
++  "SECUREC_ENABLE_SNPRINTF=1",
++  "SECUREC_ENABLE_VSNPRINTF=1",
+ ]
++
++# Phase 1 path X: the macOS desktop build uses the appframework (iOS-style)
++# backend, not the previewer. The "PREVIEW" define (from preview_common.gni)
++# collides with enum identifiers in image_framework (e.g. Cr3UuidType::PREVIEW),
++# so drop it for the native-mac build.
++# Phase 0 path X: the native-mac (appframework/iOS-style) backend is NOT the
++# previewer, so PREVIEW must be dropped. It was previously only removed under
++# preview_support, but PREVIEW (added by preview_common.gni) leaks into the macos
++# adapter TUs regardless. With PREVIEW set, JsMessageDispatcher::CallCurlFunction
++# becomes a pure virtual that AceContainerSG does not implement -> "allocating an
++# object of abstract class type 'AceContainerSG'". Remove it whenever the iOS-style
++# backend is active (and still under the old preview_support path for safety).
++if ((defined(mac_use_ios_backend) && mac_use_ios_backend) ||
++    (defined(preview_support) && preview_support)) {
++  if (filter_include(defines, [ "PREVIEW" ]) != []) {
++    defines -= [ "PREVIEW" ]
++  }
++}
++
++# Phase 2 path X (M1): wire the native-macOS adapter into libace so the ace_engine
++# framework picks up the macos entrance/osal/stage/uicontent targets (mirrors
++# adapter/ios/build/config.gni). Also turn on the iOS-style feature defines so the
++# ~45 IOS_PLATFORM code branches are reused (mac defines both IOS_PLATFORM and
++# MAC_PLATFORM; real UIKit/AppKit divergences are split on MAC_PLATFORM).
++if (defined(mac_use_ios_backend) && mac_use_ios_backend) {
++  # Path X is the appframework/iOS-style backend, not the previewer.
++  build_for_preview = false
++
++  # Static ICU like iOS (the shared ICU isn't built for the standalone app; the
++  # static target also supplies the unicode/* include path).
++  use_external_icu = "static"
++
++  defines += [
++    "IOS_PLATFORM",
++    # Phase 0 path X: mirror adapter/ios/build/config.gni — CROSS_PLATFORM gates
++    # the cross-platform InputMethodManager method declarations (ShowKeyboard /
++    # SetEditingState / Attach / ...) in core/common/ime/input_method_manager.h;
++    # without it the macos osal input_method_manager_ios.cpp out-of-line defs do
++    # not match any declaration.
++    "CROSS_PLATFORM",
++    # Phase 0 path X: mirror adapter/ios/build/config.gni — NG_BUILD selects the
++    # new (NG) pipeline frontend. ace_container_sg.cpp instantiates
++    # DeclarativeFrontendNG; without NG_BUILD the NG frontend delegate header is
++    # compiled out and the type is unknown.
++    "NG_BUILD",
++    "VIRTUAL_RS_WINDOW",
++    "ENABLE_ROSEN_BACKEND",
++    "QUICK_PUSH_TRANSITION",
++    "ACE_ENABLE_GL",
++
++    # Phase 0 path X: the macos uicontent reuses the iOS ace_view_sg.cpp, which
++    # calls PipelineBase::OnTouchTargetHitTest — a method declared only under
++    # #if defined(SUPPORT_TOUCH_TARGET_TEST). iOS turns this on via its config
++    # (support_touch_target_test); mirror it for mac.
++    "SUPPORT_TOUCH_TARGET_TEST",
++  ]
++
++  # Replace the previewer platform_deps (set in preview_common.gni) with the
++  # native-mac adapter targets.
++  platform_deps = []
++  platform_deps = [
++    "//foundation/arkui/ace_engine/adapter/macos/entrance:ace_macos_entrance",
++    "//foundation/arkui/ace_engine/adapter/macos/osal:ace_osal_mac",
++    "//foundation/arkui/ace_engine/adapter/macos/stage/ability:stage_macos_entrance",
++    "//foundation/arkui/ace_engine/adapter/macos/stage/uicontent:ace_uicontent_mac",
++  ]
++
++  # libace_static_mac is already generated by ace_engine/build/BUILD.gn's
++  # foreach over ace_platforms; the macos platform_deps above are pulled into it
++  # via ace_lib.gni.
++  libace_target = "//foundation/arkui/ace_engine/build:libace_static_mac"
++
++  # Phase 0 path X: drop PREVIEW at the very end of the mac iOS-backend config
++  # (after every import/define above). PREVIEW makes JsMessageDispatcher::
++  # CallCurlFunction a pure virtual that AceContainerSG never implements
++  # ("allocating an object of abstract class type 'AceContainerSG'").
++  if (filter_include(defines, [ "PREVIEW" ]) != []) {
++    defines -= [ "PREVIEW" ]
++  }
++}
+diff --git a/adapter/preview/build/platform.gni b/adapter/preview/build/platform.gni
+index eb25f0049ec..ca804727826 100644
+--- a/adapter/preview/build/platform.gni
++++ b/adapter/preview/build/platform.gni
+@@ -30,6 +30,12 @@ if (use_mingw_win) {
+ if (use_mac) {
+   mac_platform = {
+     name = "mac"
++
++    # Phase 0 path X: mark the mac platform as cross-platform-supported so it is
++    # admitted into ace_platforms under is_arkui_x (the foreach filter requires
++    # cross_platform_support). This makes skia_mac / 2d_graphics_source_mac etc.
++    # get generated for target_os=mac.
++    cross_platform_support = true
+     config = {
+       import("config_mac.gni")
+     }
+diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
+index e58f8e0b0a1..0a812c0f2a1 100644
+--- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
++++ b/interfaces/inner_api/drawable_descriptor/BUILD.gn
+@@ -64,6 +64,11 @@ if (is_arkui_x) {
+     if (use_clang_ios) {
+       defines = image_decode_ios_defines
+     }
++    if (use_clang_mac) {
++      # Phase 2 path X: mac was missing the defines initialization (only set for
++      # android/ios), so the subsequent `defines +=` hit an undefined identifier.
++      defines = image_decode_mac_defines
++    }
+     if (ace_enable_gpu) {
+       defines += [ "RS_ENABLE_GPU" ]
+     }
+diff --git a/interfaces/napi/kits/drag_controller/BUILD.gn b/interfaces/napi/kits/drag_controller/BUILD.gn
+index fabbd18d316..b97638c01c8 100644
+--- a/interfaces/napi/kits/drag_controller/BUILD.gn
++++ b/interfaces/napi/kits/drag_controller/BUILD.gn
+@@ -42,6 +42,9 @@ template("napi_dragcontroller_static") {
+         include_dirs = [ "$ace_root/adapter/android/entrance/java/jni" ]
+       } else if (target_os == "ios") {
+         include_dirs = [ "$ace_root/adapter/ios/entrance" ]
++      } else if (target_os == "mac") {
++        # Phase 0 path X: mac reuses the iOS entrance headers.
++        include_dirs = [ "$ace_root/adapter/macos/entrance" ]
+       }
+       include_dirs += [
+         "$ace_graphic/rosen/modules",
