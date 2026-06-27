@@ -102,3 +102,28 @@ index eb25f004..65cfd67c 100644
      config = {
        import("config_linux.gni")
      }
+diff --git a/frameworks/bridge/declarative_frontend/BUILD.gn b/frameworks/bridge/declarative_frontend/BUILD.gn
+index a9ff3c0d..61cc50c2 100644
+--- a/frameworks/bridge/declarative_frontend/BUILD.gn
++++ b/frameworks/bridge/declarative_frontend/BUILD.gn
+@@ -74,10 +74,16 @@ template("declarative_frontend") {
+       external_deps += [ "hilog:libhilog" ]
+     }
+     if (!build_ohos_sdk) {
+-      external_deps += [
+-        "c_utils:utils",
+-        "ipc:ipc_core",
+-      ]
++      external_deps += [ "c_utils:utils" ]
++
++      # Linux/Wayland native port: ipc (binder) isn't a part in the arkui-x linux
++      # component set (it is on other platforms), so referencing ipc:ipc_core
++      # unconditionally fails gn resolution here. Only add it when the ipc part
++      # is actually present (same defensive pattern as enable_player_framework).
++      if (defined(global_parts_info) &&
++          defined(global_parts_info.communication_ipc)) {
++        external_deps += [ "ipc:ipc_core" ]
++      }
+     }
+   }
+ }
