@@ -9,7 +9,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, "port/**"]
   pull_request:
   workflow_dispatch:
 
