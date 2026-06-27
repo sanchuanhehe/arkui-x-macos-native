@@ -1,3 +1,23 @@
+diff --git a/ace_config.gni b/ace_config.gni
+index 49645022..20305d09 100644
+--- a/ace_config.gni
++++ b/ace_config.gni
+@@ -277,7 +277,14 @@ if (defined(global_parts_info) &&
+   ffrt_support = false
+ }
+ 
+-if (defined(global_parts_info.multimedia_player_framework) || is_arkui_x) {
++# Linux/Wayland native port: arkui-x linux has no multimedia player_framework
++# (media_client pulls a whole OHOS media stack — access_token/audio/av_codec/
++# drivers/samgr — none in the arkui-x linux component set). components_ng/render
++# already excludes use_linux from the player_framework dep; mirror that here so
++# components_ng/pattern and the ace_common PLAYER_FRAMEWORK_EXISTS define agree.
++# mac keeps it (its component set has player_framework).
++if ((defined(global_parts_info.multimedia_player_framework) || is_arkui_x) &&
++    !use_linux) {
+   enable_player_framework = true
+   ace_common_defines += [ "PLAYER_FRAMEWORK_EXISTS" ]
+ } else {
 diff --git a/adapter/preview/build/config_linux.gni b/adapter/preview/build/config_linux.gni
 index 8393f4c6..8681c894 100644
 --- a/adapter/preview/build/config_linux.gni
