@@ -1,0 +1,54 @@
+diff --git a/frameworks/concurrent_task_client/BUILD.gn b/frameworks/concurrent_task_client/BUILD.gn
+index eb6556f..b4228b5 100644
+--- a/frameworks/concurrent_task_client/BUILD.gn
++++ b/frameworks/concurrent_task_client/BUILD.gn
+@@ -36,6 +36,14 @@ config("client_public_config") {
+     "../../interfaces/inner_api/",
+     "${target_gen_dir}",
+   ]
++  if (is_arkui_x) {
++    # Cross-platform (incl. linux/Wayland) has no foundation/communication/ipc
++    # repo (ipc:ipc_core/ipc_single auto-gated off), so the IDL-generated
++    # *_proxy/*_types/*_stub that include "iremote_proxy.h" cannot resolve it.
++    # Use the ace_engine IPC mock headers.
++    include_dirs +=
++        [ "//foundation/arkui/ace_engine/test/mock/ohos_mock/ipc_single" ]
++  }
+ }
+ 
+ ohos_source_set("concurrent_task_idl") {
+@@ -52,7 +60,7 @@ ohos_source_set("concurrent_task_idl") {
+   deps = [ ":qos_manager_interface" ]
+   external_deps = [
+     "c_utils:utils",
+-    "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_core",
+   ]
+   cflags_cc = [
+     "-fomit-frame-pointer",
+@@ -100,9 +108,9 @@ ohos_shared_library("concurrent_task_client") {
+   external_deps = [
+     "c_utils:utils",
+     "hilog:libhilog",
+-    "ipc:ipc_core",
+-    "ipc:ipc_single",
+-    "samgr:samgr_proxy",
++    # [linux-port auto-gate] "ipc:ipc_core",
++    # [linux-port auto-gate] "ipc:ipc_single",
++    # [linux-port auto-gate] "samgr:samgr_proxy",
+   ]
+ 
+   subsystem_name = "resourceschedule"
+diff --git a/qos/BUILD.gn b/qos/BUILD.gn
+index 7e10ace..39a3347 100644
+--- a/qos/BUILD.gn
++++ b/qos/BUILD.gn
+@@ -50,7 +50,7 @@ ohos_shared_library("qos") {
+ 
+   external_deps = [
+     "hilog:libhilog",
+-    "init:libbegetutil",
++    # [linux-port auto-gate] "init:libbegetutil",
+   ]
+ 
+   subsystem_name = "resourceschedule"

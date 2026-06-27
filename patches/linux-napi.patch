@@ -1,0 +1,48 @@
+diff --git a/interfaces/inner_api/cjffi/ark_interop/BUILD.gn b/interfaces/inner_api/cjffi/ark_interop/BUILD.gn
+index f622830..2dfd83a 100644
+--- a/interfaces/inner_api/cjffi/ark_interop/BUILD.gn
++++ b/interfaces/inner_api/cjffi/ark_interop/BUILD.gn
+@@ -127,8 +127,8 @@ ohos_shared_library("ark_interop") {
+   } else {
+     if (!ark_standalone_build) {
+       external_deps += [
+-        "eventhandler:libeventhandler",
+-        "hitrace:hitrace_meter",
++        # [linux-port auto-gate] "eventhandler:libeventhandler",
++        # [linux-port auto-gate] "hitrace:hitrace_meter",
+       ]
+     }
+   }
+diff --git a/interfaces/inner_api/cjffi/cj_backtrace/BUILD.gn b/interfaces/inner_api/cjffi/cj_backtrace/BUILD.gn
+index 15028a5..c94bb8e 100644
+--- a/interfaces/inner_api/cjffi/cj_backtrace/BUILD.gn
++++ b/interfaces/inner_api/cjffi/cj_backtrace/BUILD.gn
+@@ -24,9 +24,9 @@ ohos_shared_library("cj_backtrace") {
+     "cj_backtrace.cpp"
+   ]
+   external_deps = [
+-    "faultloggerd:libbacktrace_local",
++    # [linux-port auto-gate] "faultloggerd:libbacktrace_local",
+     "bounds_checking_function:libsec_shared",
+-    "faultloggerd:libunwinder",
++    # [linux-port auto-gate] "faultloggerd:libunwinder",
+   ]
+   public_configs = [ ":cj_backtrace_public_config" ]
+   innerapi_tags = [ "platformsdk" ]
+diff --git a/native_engine/impl/ark/ark_native_engine.cpp b/native_engine/impl/ark/ark_native_engine.cpp
+index d9aca5b..f5f854f 100644
+--- a/native_engine/impl/ark/ark_native_engine.cpp
++++ b/native_engine/impl/ark/ark_native_engine.cpp
+@@ -33,8 +33,11 @@
+ #include "securec.h"
+ #include "utils/file.h"
+ #include "utils/log.h"
+-#if !defined(PREVIEW) && !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
++#if !defined(PREVIEW) && !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM) && \
++    !defined(LINUX_PLATFORM)
+ #include "parameters.h"
++#endif
++#if !defined(PREVIEW) && !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
+ #include <uv.h>
+ #endif
+ #ifdef OHOS_STANDARD_PLATFORM

@@ -36,8 +36,32 @@ index 8094083..b006e81 100644
    ]
  
    if (has_libtiff) {
+diff --git a/frameworks/innerkitsimpl/converter/src/post_proc_slr.cpp b/frameworks/innerkitsimpl/converter/src/post_proc_slr.cpp
+index afcfd33..3bdfa6f 100644
+--- a/frameworks/innerkitsimpl/converter/src/post_proc_slr.cpp
++++ b/frameworks/innerkitsimpl/converter/src/post_proc_slr.cpp
+@@ -19,7 +19,8 @@
+ #include <memory>
+ #include <unistd.h>
+ #include <vector>
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && \
++    !defined(ANDROID_PLATFORM) && !defined(LINUX_PLATFORM)
+ #include "ffrt.h"
+ #endif
+ #include "image_log.h"
+@@ -290,7 +291,8 @@ inline void SLRSubtask(const SLRSliceKey &key, const SLRMat &src, SLRMat &dst,
+ 
+ void SLRProc::Parallel(const SLRMat &src, SLRMat &dst, const SLRWeightMat &x, const SLRWeightMat &y)
+ {
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && \
++    !defined(ANDROID_PLATFORM) && !defined(LINUX_PLATFORM)
+     CHECK_ERROR_RETURN_LOG(!SLRCheck(src, dst, x, y), "SLRProc::Parallel param error");
+     const int maxThread = 16; // 16 max thread size
+     int m = dst.size_.height;
 diff --git a/frameworks/innerkitsimpl/egl_image/BUILD.gn b/frameworks/innerkitsimpl/egl_image/BUILD.gn
-index 1298e9f..336d10c 100644
+index 1298e9f..97f8acd 100644
 --- a/frameworks/innerkitsimpl/egl_image/BUILD.gn
 +++ b/frameworks/innerkitsimpl/egl_image/BUILD.gn
 @@ -51,11 +51,11 @@ ohos_shared_library("egl_image") {
@@ -56,7 +80,7 @@ index 1298e9f..336d10c 100644
      "skia:skia_canvaskit",
      "egl:libEGL",
      "opengles:libGLES",
-@@ -80,7 +80,17 @@ if (!use_clang_ios && !use_clang_android) {
+@@ -80,7 +80,21 @@ if (!use_clang_ios && !use_clang_android) {
        "../../../interfaces/innerkits/include",
        "../../../interfaces/utils/include",
        "../utils/include",
@@ -65,16 +89,20 @@ index 1298e9f..336d10c 100644
 +      "//foundation/multimedia/image_framework/mock/native/include/log",
      ]
 +    if (current_os == "linux") {
-+      # Linux/Wayland port: surface_buffer.h from graphic_surface headers
-+      # (graphic_surface:surface external_dep auto-gated off for arkui-x).
++      # Linux/Wayland port: graphic_surface headers (graphic_surface:surface
++      # external_dep auto-gated off for arkui-x). surface_buffer.h pulls
++      # buffer_handle_utils.h (inner_api/utils) and surface_type.h pulls
++      # graphic_common.h (inner_api/common).
 +      include_dirs += [
 +        "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++        "//foundation/graphic/graphic_surface/interfaces/inner_api/utils",
++        "//foundation/graphic/graphic_surface/interfaces/inner_api/common",
 +      ]
 +    }
      sources = [
        "../utils/src/image_trace.cpp",
        "src/pixel_map_gl_context.cpp",
-@@ -92,15 +102,15 @@ if (!use_clang_ios && !use_clang_android) {
+@@ -92,15 +106,15 @@ if (!use_clang_ios && !use_clang_android) {
        defines = [ "USE_M133_SKIA" ]
      }
      external_deps = [
@@ -95,10 +123,27 @@ index 1298e9f..336d10c 100644
        "egl:libEGL",
        "opengles:libGLES",
 diff --git a/frameworks/innerkitsimpl/pixelconverter/BUILD.gn b/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
-index f1181a4..7e046be 100644
+index f1181a4..b4944cf 100644
 --- a/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
 +++ b/frameworks/innerkitsimpl/pixelconverter/BUILD.gn
-@@ -146,7 +146,7 @@ if (use_clang_ios) {
+@@ -82,6 +82,16 @@ config("pixelconvertadapter_public_config") {
+       "//third_party/bounds_checking_function/include",
+       "$image_subsystem/mock/native/include/log",
+     ]
++  } else if (current_os == "linux") {
++    # Linux/Wayland native port: ffmpeg:libohosffmpeg external_dep dropped, but
++    # pixel_convert_adapter.h still includes libswscale/swscale.h + libavutil/
++    # libavcodec headers; provide the ffmpeg header dir (swscale C entry points
++    # are stubbed at link).
++    include_dirs += [
++      "//third_party/ffmpeg",
++      "//foundation/multimedia/image_framework/mock/native/include",
++      "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
++    ]
+   }
+ }
+ 
+@@ -146,7 +156,7 @@ if (use_clang_ios) {
        ]
        external_deps = [
          "c_utils:utils",
@@ -680,6 +725,55 @@ index 28904e3..07444b3 100644
 +
  #endif // FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_VPE_UTILS_H
 \ No newline at end of file
+diff --git a/frameworks/innerkitsimpl/utils/src/image_dfx.cpp b/frameworks/innerkitsimpl/utils/src/image_dfx.cpp
+index 20422ac..cf89a66 100644
+--- a/frameworks/innerkitsimpl/utils/src/image_dfx.cpp
++++ b/frameworks/innerkitsimpl/utils/src/image_dfx.cpp
+@@ -19,7 +19,7 @@
+ #include <fstream>
+ #include <chrono>
+ 
+-#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
+ #include <sys/timerfd.h>
+ #include "ffrt.h"
+ #include "hisysevent.h"
+@@ -81,7 +81,7 @@ std::string ImageEvent::getInvokeType()
+ void ImageEvent::ReportDecodeFault()
+ {
+     std::string temp = getInvokeType();
+-#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
+     int timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+     if (timerFd < 0) {
+         return;
+@@ -143,7 +143,7 @@ void ImageEvent::ReportDecodeInfo()
+ {
+     uint64_t costTime = ImageUtils::GetNowTimeMilliSeconds() - startTime_;
+     std::string temp = GetInvokeTypeStr(options_.invokeType);
+-#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
+     int timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+     if (timerFd < 0) {
+         return;
+@@ -197,7 +197,7 @@ void ImageEvent::ReportDecodeInfo()
+ 
+ void ReportCreateImageSourceFault(uint32_t width, uint32_t height, std::string type, std::string message)
+ {
+-#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
+     std::string packageName = ImageUtils::GetCurrentProcessName();
+     HiSysEventWrite(IMAGE_FWK_UE,
+                     "CREATE_IMAGESOURCE_FAULT",
+@@ -213,7 +213,7 @@ void ReportCreateImageSourceFault(uint32_t width, uint32_t height, std::string t
+ 
+ void ReportEncodeFault(uint32_t width, uint32_t height, std::string mimeType, std::string message)
+ {
+-#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
+     std::string packageName = ImageUtils::GetCurrentProcessName();
+     HiSysEventWrite(IMAGE_FWK_UE,
+                     "ENCODE_FAULT",
 diff --git a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn b/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
 index 47c0ecc..e092124 100644
 --- a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
@@ -746,7 +840,7 @@ index 7ee671c..3bb9de9 100644
      "runtime_core:ani_helpers",
      "egl:libEGL",
 diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
-index b6ee377..a266ffa 100644
+index b6ee377..c96fbda 100644
 --- a/interfaces/innerkits/BUILD.gn
 +++ b/interfaces/innerkits/BUILD.gn
 @@ -55,7 +55,6 @@ config("image_external_config") {
@@ -757,42 +851,46 @@ index b6ee377..a266ffa 100644
        "$third_party_skia_root",
      ]
      if (image_use_new_skia) {
-@@ -63,6 +62,14 @@ config("image_external_config") {
+@@ -63,6 +62,19 @@ config("image_external_config") {
      }
    }
  
 +  if (current_os == "linux") {
-+    # Linux/Wayland port: surface_buffer.h from graphic_surface headers
-+    # (graphic_surface:surface external_dep auto-gated off for arkui-x).
++    # Linux/Wayland port: graphic_surface headers (graphic_surface:surface
++    # external_dep auto-gated off for arkui-x). surface_buffer.h ->
++    # buffer_handle_utils.h/buffer_handle.h (inner_api/utils), surface_type.h ->
++    # graphic_common.h (inner_api/common), *_parcel.cpp -> buffer_handle_parcel.h
++    # (inner_api/utils).
 +    include_dirs += [
 +      "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++      "//foundation/graphic/graphic_surface/interfaces/inner_api/utils",
++      "//foundation/graphic/graphic_surface/interfaces/inner_api/common",
 +    ]
 +  }
 +
    if (use_mingw_win) {
      include_dirs +=
          [ "//foundation/multimedia/image_framework/mock/native/include" ]
-@@ -70,7 +77,18 @@ config("image_external_config") {
+@@ -70,6 +82,18 @@ config("image_external_config") {
      include_dirs += [
        "//foundation/multimedia/image_framework/mock/native/include",
        "//third_party/bounds_checking_function/include",
--      "//commonlibrary/c_utils/base/include",
 +      "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
 +    ]
 +  } else if (target_os == "linux") {
-+    # Linux/Wayland native port: there is no foundation/communication/ipc repo
-+    # (which supplies message_parcel.h to iOS/mac via image_native_ios_include_dirs).
-+    # pixel_map.h -> pixel_map_parcel.h -> "message_parcel.h" then fails to resolve.
-+    # Mirror the use_clang_mac branch and add the cross-platform mock include. The
-+    # is_arkui_x block above already adds the real c_utils first, so "parcel.h"
-+    # resolves to c_utils and only message_parcel.h is taken from the mock dir.
++    # Linux/Wayland native port (mirror mac image_external_config): exporting the
++    # full mock/native/include dir on this PUBLIC config put the mock
++    # parcel.h/nocopyable.h/message_parcel.h on every consumer's -I, colliding with
++    # the real c_utils parcel.h -> "redefinition of 'Parcel'/'Parcelable'/'NoCopyable'".
++    # Pull only the non-conflicting mock "log" subdir plus the real c_utils; pixel_map.h
++    # is gated (CROSS_PLATFORM) so it no longer needs the mock message_parcel.h.
 +    include_dirs += [
-+      "//foundation/multimedia/image_framework/mock/native/include",
++      "//foundation/multimedia/image_framework/mock/native/include/log",
 +      "//third_party/bounds_checking_function/include",
+       "//commonlibrary/c_utils/base/include",
        "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
      ]
-   }
-@@ -108,7 +126,7 @@ if (use_clang_android) {
+@@ -108,7 +132,7 @@ if (use_clang_android) {
      sources = image_native_android_sources
      include_dirs = image_native_android_include_dirs
      deps = image_native_android_deps
@@ -801,7 +899,7 @@ index b6ee377..a266ffa 100644
      subsystem_name = "multimedia"
      part_name = "image_framework"
    }
-@@ -128,7 +146,7 @@ if (use_clang_android) {
+@@ -128,7 +152,7 @@ if (use_clang_android) {
      include_dirs = image_native_ios_include_dirs
      sources = image_native_ios_sources
      deps = image_native_ios_deps
@@ -810,7 +908,7 @@ index b6ee377..a266ffa 100644
      external_deps = image_native_ios_external_deps
      subsystem_name = "multimedia"
      part_name = "image_framework"
-@@ -216,9 +234,9 @@ if (use_clang_android) {
+@@ -216,9 +240,9 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils:image_utils_static",
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
@@ -822,7 +920,7 @@ index b6ee377..a266ffa 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -235,9 +253,9 @@ if (use_clang_android) {
+@@ -235,12 +259,24 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_statics",
@@ -834,7 +932,22 @@ index b6ee377..a266ffa 100644
      } else {
        defines = [ "DUAL_ADAPTER" ]
        DUAL_ADAPTER = true
-@@ -255,30 +273,30 @@ if (use_clang_android) {
++      if (target_os == "linux") {
++        # Linux/Wayland native port (mirror mac, adapted with CROSS_PLATFORM):
++        # define CROSS_PLATFORM so image_native's own sources (pixel_map.cpp,
++        # post_proc.cpp, image_source.cpp, auxiliary_generator.cpp ...) take the
++        # cross-platform pixel_map.h path -> skip pixel_map_parcel.h/message_parcel.h
++        # and resolve parcel.h to the real c_utils header (no mock collision). Drop
++        # pixel_map_parcel.cpp, which implements the now gated-out PixelMapRecordParcel.
++        defines += [ "CROSS_PLATFORM" ]
++        sources -= [
++          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/common/src/pixel_map_parcel.cpp",
++        ]
++      }
+       deps = [
+         "${image_subsystem}/frameworks/innerkitsimpl/egl_image:post_proc_gl",
+         "${image_subsystem}/plugins/common/libs/image/libextplugin:heifparser",
+@@ -255,30 +291,30 @@ if (use_clang_android) {
          deps += [ "//third_party/libpng:libpng" ]
        }
        external_deps = [
@@ -876,7 +989,7 @@ index b6ee377..a266ffa 100644
          "skia:skia_canvaskit",
        ]
        if (enable_libexif) {
-@@ -434,7 +452,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -434,7 +470,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        ]
@@ -885,7 +998,7 @@ index b6ee377..a266ffa 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -453,8 +471,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -453,8 +489,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_static",
        ]
@@ -896,7 +1009,7 @@ index b6ee377..a266ffa 100644
      } else if (use_clang_ios) {
        defines = image_decode_ios_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -510,11 +528,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -510,11 +546,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
        }
        external_deps = [
          "c_utils:utils",
@@ -911,6 +1024,28 @@ index b6ee377..a266ffa 100644
          "hilog:libhilog",
          "libpng:libpng",
          "napi:ace_napi",
+diff --git a/interfaces/innerkits/include/pixel_map.h b/interfaces/innerkits/include/pixel_map.h
+index a0107ea..5856815 100644
+--- a/interfaces/innerkits/include/pixel_map.h
++++ b/interfaces/innerkits/include/pixel_map.h
+@@ -31,7 +31,7 @@
+ #include "purgeable_mem_base.h"
+ #include "purgeable_mem_builder.h"
+ #endif
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
+ #include "pixel_map_parcel.h"
+ #endif
+ 
+@@ -127,7 +127,7 @@ class AbsMemory;
+ 
+ class PixelMap : public Parcelable, public PIXEL_MAP_ERR {
+ public:
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
+     friend class PixelMapRecordParcel;
+ #endif
+     static std::atomic<uint32_t> currentId;
 diff --git a/interfaces/kits/js/common/BUILD.gn b/interfaces/kits/js/common/BUILD.gn
 index af8196e..a28197c 100644
 --- a/interfaces/kits/js/common/BUILD.gn

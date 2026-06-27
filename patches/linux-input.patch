@@ -1001,6 +1001,34 @@ index 4e8b850..ac0db84 100644
 +    # [linux-port auto-gate] "samgr:samgr_proxy",
    ]
  }
+diff --git a/frameworks/proxy/events/include/event_log_helper.h b/frameworks/proxy/events/include/event_log_helper.h
+index 19dab4a..4acbc8d 100644
+--- a/frameworks/proxy/events/include/event_log_helper.h
++++ b/frameworks/proxy/events/include/event_log_helper.h
+@@ -16,9 +16,9 @@
+ #ifndef EVENT_LOG_HELPER_H
+ #define EVENT_LOG_HELPER_H
+ 
+-#if !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
++#if !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM) && !defined(IS_ARKUI_X_TARGET)
+ #include "parameters.h"
+-#endif // !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
++#endif // !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM) && !defined(IS_ARKUI_X_TARGET)
+ 
+ #include "key_event.h"
+ #include "mmi_log.h"
+@@ -82,9 +82,9 @@ public:
+ 
+     static void SetBetaUserType()
+     {
+-#if !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
++#if !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM) && !defined(IS_ARKUI_X_TARGET)
+         userType_ = OHOS::system::GetParameter("const.logsystem.versiontype", "default");
+-#endif // !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
++#endif // !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM) && !defined(IS_ARKUI_X_TARGET)
+     }
+ 
+ private:
 diff --git a/frameworks/proxy/events/test/BUILD.gn b/frameworks/proxy/events/test/BUILD.gn
 index 7b46528..3ff5934 100644
 --- a/frameworks/proxy/events/test/BUILD.gn
