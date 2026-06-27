@@ -1,59 +1,19 @@
 diff --git a/ability/ability_runtime/cross_platform/frameworks/native/ability/js_ability.cpp b/ability/ability_runtime/cross_platform/frameworks/native/ability/js_ability.cpp
-index 5e3cf0e..f0b4b8d 100644
+index 5e3cf0e..3b7c1d2 100644
 --- a/ability/ability_runtime/cross_platform/frameworks/native/ability/js_ability.cpp
 +++ b/ability/ability_runtime/cross_platform/frameworks/native/ability/js_ability.cpp
-@@ -94,13 +94,17 @@ void JsAbility::Init(const std::shared_ptr<AppExecFwk::AbilityInfo>& abilityInfo
+@@ -94,9 +94,9 @@ void JsAbility::Init(const std::shared_ptr<AppExecFwk::AbilityInfo>& abilityInfo
          modulePath.erase(modulePath.rfind("."));
          modulePath.append(".abc");
      }
 -    jsAbilityObj_ = jsRuntime_.LoadModule(moduleName, modulePath, abilityBuffer, 
-+    fprintf(stderr, "[DBG js_ability] package='%s' srcEntrance='%s' modulePath='%s' esmodule=%d bufSize=%zu\n",
-+        abilityInfo->package.c_str(), abilityInfo->srcEntrance.c_str(), modulePath.c_str(), esmodule, abilityBuffer.size());
 +    jsAbilityObj_ = jsRuntime_.LoadModule(moduleName, modulePath, abilityBuffer,
      abilityInfo->srcEntrance, abilityInfo->compileMode == AppExecFwk::CompileMode::ES_MODULE);
 -        
 +
      if (jsAbilityObj_ == nullptr) {
-+        fprintf(stderr, "[DBG js_ability] LoadModule returned NULL for modulePath='%s'\n", modulePath.c_str());
          HILOG_ERROR("Failed to get Ability object");
          return;
-     }
-+    fprintf(stderr, "[DBG js_ability] LoadModule OK\n");
- 
-     napi_value obj = jsAbilityObj_->GetNapiValue();
-     if (obj == nullptr) {
-@@ -187,6 +191,7 @@ void JsAbility::CallPostPerformStart()
- void JsAbility::OnCreate(const Want& want)
- {
-     HILOG_INFO("OnCreate begin.");
-+    fprintf(stderr, "[DBG ability] OnCreate ENTER\n");
-     Ability::OnCreate(want);
-     if (windowStage_ == nullptr) {
-         windowStage_ = std::make_shared<Rosen::WindowStage>();
-@@ -202,6 +207,7 @@ void JsAbility::OnCreate(const Want& want)
-             WindowViewAdapter::GetInstance()->GetJniEnv().get());
- #endif
-         isDispatchOnWindowStageCreated_ = true;
-+        fprintf(stderr, "[DBG ability] OnCreate: windowStage created, instanceName=%s\n", GetInstanceName().c_str());
-     }
-     if (!jsAbilityObj_) {
-         HILOG_WARN("Not found Ability.js");
-@@ -291,6 +297,7 @@ void JsAbility::OnNewWant(const Want& want)
- void JsAbility::OnForeground(const Want& want)
- {
-     HILOG_INFO("OnForeground begin.");
-+    fprintf(stderr, "[DBG ability] OnForeground fired, isDispatchOnWindowStageCreated_=%d\n", isDispatchOnWindowStageCreated_);
-     if (isDispatchOnWindowStageCreated_) {
-         OnWindowStageCreated();
-         isDispatchOnWindowStageCreated_ = false;
-@@ -350,6 +357,7 @@ void JsAbility::OnBackground()
- void JsAbility::OnWindowStageCreated()
- {
-     HILOG_INFO("OnWindowStageCreated begin");
-+    fprintf(stderr, "[DBG ability] OnWindowStageCreated fired\n");
-     Ability::OnWindowStageCreated();
-     auto abilityContext = GetAbilityContext();
-     auto jsAppWindowStage = CreateJsWindowStage();
 diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
 index 5107487..8675451 100644
 --- a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
@@ -503,10 +463,10 @@ index 0000000..75b0e3f
 +}
 diff --git a/graphic_2d/macos/render_context.mm b/graphic_2d/macos/render_context.mm
 new file mode 100644
-index 0000000..77c5cd4
+index 0000000..59e97a2
 --- /dev/null
 +++ b/graphic_2d/macos/render_context.mm
-@@ -0,0 +1,432 @@
+@@ -0,0 +1,429 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -716,7 +676,6 @@ index 0000000..77c5cd4
 +
 +bool RenderContextGL::SwapBuffers(EGLSurface surface) const
 +{
-+    { static int n=0; if(n++<4) fprintf(stderr, "[DBG rs] SwapBuffers\n"); }
 +    // Desktop GL offscreen path: flush the GL command stream. Presentation to the
 +    // CALayer is the window layer's job (Phase 2), not the EAGL presentRenderbuffer
 +    // path used on iOS.
@@ -842,7 +801,6 @@ index 0000000..77c5cd4
 +
 +std::shared_ptr<Drawing::Surface> RenderContextGL::AcquireSurface(int width, int height)
 +{
-+    { static int n=0; if(n++<4) fprintf(stderr, "[DBG rs] AcquireSurface %dx%d fbo=%u\n", width, height, framebuffer_); }
 +    if (!SetUpGpuContext()) {
 +        ROSEN_LOGE("GPUContext is not ready!!!");
 +        return nullptr;
@@ -878,7 +836,6 @@ index 0000000..77c5cd4
 +
 +void RenderContextGL::RenderFrame()
 +{
-+    { static int n=0; if(n++<4) fprintf(stderr, "[DBG rs] RenderFrame fbo=%u\n", framebuffer_); }
 +    RS_TRACE_FUNC();
 +    if (surface_ != nullptr && surface_->GetCanvas() != nullptr) {
 +        surface_->GetCanvas()->Flush();

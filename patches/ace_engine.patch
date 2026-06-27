@@ -299,10 +299,10 @@ index 00000000000..2087ccc09db
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_MAC_APP_DELEGATE_H
 diff --git a/adapter/macos/entrance/MacAppDelegate.mm b/adapter/macos/entrance/MacAppDelegate.mm
 new file mode 100644
-index 00000000000..cc6a877f2c6
+index 00000000000..d5d48c3c6e1
 --- /dev/null
 +++ b/adapter/macos/entrance/MacAppDelegate.mm
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,67 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -340,10 +340,8 @@ index 00000000000..cc6a877f2c6
 +- (void)applicationDidFinishLaunching:(NSNotification*)notification
 +{
 +    // 1. Configure the .abc / module bundle and start AbilityRuntime.
-+    fprintf(stderr, "[DBG App] step1 launchApplication begin\n");
 +    [StageApplication configModuleWithBundleDirectory:BUNDLE_DIRECTORY];
 +    [StageApplication launchApplication];
-+    fprintf(stderr, "[DBG App] step1 launchApplication done\n");
 +
 +    // 2. Build the stage view controller for the sample ability.
 +    NSString* instanceName =
@@ -359,13 +357,11 @@ index 00000000000..cc6a877f2c6
 +                                             styleMask:style
 +                                               backing:NSBackingStoreBuffered
 +                                                 defer:NO];
-+    fprintf(stderr, "[DBG App] step3 set contentVC + show window\n");
 +    [self.window setContentViewController:rootVC];
 +    [self.window setTitle:@"ArkUI-X (macOS)"];
 +    [self.window center];
 +    [self.window makeKeyAndOrderFront:nil];
 +    [rootVC loadViewIfNeeded];
-+    fprintf(stderr, "[DBG App] step3 window shown, forced loadViewIfNeeded\n");
 +}
 +
 +- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender
@@ -464,10 +460,10 @@ index 00000000000..cbb5011c9f2
 +#endif  // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_WINDOW_VIEW_H
 diff --git a/adapter/macos/entrance/WindowView.mm b/adapter/macos/entrance/WindowView.mm
 new file mode 100644
-index 00000000000..fbdb3c9c4c5
+index 00000000000..14368490235
 --- /dev/null
 +++ b/adapter/macos/entrance/WindowView.mm
-@@ -0,0 +1,792 @@
+@@ -0,0 +1,786 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -607,7 +603,6 @@ index 00000000000..fbdb3c9c4c5
 +    }
 +    CGLContextObj ctx = nullptr;
 +    CGLError cerr = (shareCgl != nullptr) ? CGLCreateContext(pixelFormat, shareCgl, &ctx) : kCGLBadContext;
-+    fprintf(stderr, "[DBG share] resCtx=%p shareCgl=%p CGLCreateContext err=%d ctx=%p\n", resCtx, (void*)shareCgl, (int)cerr, (void*)ctx);
 +    if (shareCgl != nullptr && cerr == kCGLNoError) {
 +        return ctx;
 +    }
@@ -691,11 +686,6 @@ index 00000000000..fbdb3c9c4c5
 +        }
 +        glBindFramebuffer(GL_READ_FRAMEBUFFER, _blitFbo);
 +        glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorRb);
-+        { static int n=0; if(n++<3) {
-+            unsigned char px[4]={9,9,9,9};
-+            GLenum st = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-+            glReadPixels(dstW/2, dstH/2, 1,1, GL_RGBA, GL_UNSIGNED_BYTE, px);
-+            fprintf(stderr, "[DBG px] colorRb=%u status=0x%x center=%d,%d,%d,%d\n", colorRb, st, px[0],px[1],px[2],px[3]); } }
 +        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo));
 +        // Flip Y: read bottom-to-top of source into top-to-bottom of dest.
 +        glBlitFramebuffer(0, 0, dstW, dstH, 0, dstH, dstW, 0,
@@ -5213,10 +5203,10 @@ index 00000000000..902cfe5dd3a
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_ENTRANCE_VIRTUAL_RS_WINDOW_H
 diff --git a/adapter/macos/entrance/virtual_rs_window.mm b/adapter/macos/entrance/virtual_rs_window.mm
 new file mode 100644
-index 00000000000..f782d3c69c0
+index 00000000000..419e744bb83
 --- /dev/null
 +++ b/adapter/macos/entrance/virtual_rs_window.mm
-@@ -0,0 +1,1696 @@
+@@ -0,0 +1,1688 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6022,12 +6012,9 @@ index 00000000000..f782d3c69c0
 +
 +void Window::RequestVsync(const std::shared_ptr<VsyncCallback>& vsyncCallback)
 +{
-+    static int n=0; if(n++<5) fprintf(stderr, "[DBG vsync] RequestVsync called, receiver_=%p\n", (void*)receiver_.get());
 +    // stage model
 +    if (receiver_) {
-+        if(n<=5) fprintf(stderr, "[DBG vsync] -> RequestNextVSync issued\n");
 +        auto callback = [vsyncCallback](int64_t timestamp, void*) {
-+            static int m=0; if(m++<3) fprintf(stderr, "[DBG vsync] vsync FIRED ts=%lld\n", (long long)timestamp);
 +            vsyncCallback->onCallback(timestamp, 0);
 +        };
 +        OHOS::Rosen::VSyncReceiver::FrameCallback fcb = {
@@ -6044,10 +6031,8 @@ index 00000000000..f782d3c69c0
 +    if (receiver_) {
 +        return true;
 +    }
-+    fprintf(stderr, "[DBG vsync] CreateVSyncReceiver called\n");
 +    auto& rsClient = Rosen::RSInterfaces::GetInstance();
 +    receiver_ = rsClient.CreateVSyncReceiver("Window_IOS", handler);
-+    fprintf(stderr, "[DBG vsync] receiver created=%p\n", (void*)receiver_.get());
 +    VsyncError ret = receiver_->Init();
 +    if (ret) {
 +        LOGE("Window_IOS: vsync receiver init failed: %{public}d", ret);
@@ -6097,8 +6082,6 @@ index 00000000000..f782d3c69c0
 +        }
 +        Rosen::RSRenderThread::Instance().Start();
 +        rsUidriect_->GoForeground();
-+        fprintf(stderr, "[DBG rsinit] renderThreadClient set + RSRenderThread::Start + GoForeground (ctx=%p)\n",
-+            (void*)rsUIContext.get());
 +    }
 +#endif
 +
@@ -6405,7 +6388,6 @@ index 00000000000..f782d3c69c0
 +    AbilityRuntime::Platform::Ability* ability, bool loadContentByName)
 +{
 +    LOGI("Window::SetUIContent : Start");
-+    fprintf(stderr, "[DBG win] SetUIContent ENTER contentInfo=%s\n", contentInfo.c_str());
 +    using namespace OHOS::Ace::Platform;
 +    (void)ability;
 +    if (uiContent_) {
@@ -22416,10 +22398,10 @@ index 00000000000..d2431609c26
 +#endif // FOUNDATION_ACE_ADAPTER_MACOS_STAGE_ABILITY_STAGEVIEWCONTROLLER_H
 diff --git a/adapter/macos/stage/ability/StageViewController.mm b/adapter/macos/stage/ability/StageViewController.mm
 new file mode 100644
-index 00000000000..82a2e402311
+index 00000000000..c5ef1115b96
 --- /dev/null
 +++ b/adapter/macos/stage/ability/StageViewController.mm
-@@ -0,0 +1,224 @@
+@@ -0,0 +1,223 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22546,7 +22528,6 @@ index 00000000000..82a2e402311
 +    [_windowView createSurfaceNode];
 +
 +    std::string paramsString = [self getCPPString:self.params.length ? self.params : @""];
-+    fprintf(stderr, "[DBG VC] viewDidLoad DispatchOnCreate+Foreground instanceName='%s'\n", _cInstanceName.c_str());
 +    AppMain::GetInstance()->DispatchOnCreate(_cInstanceName, paramsString);
 +    AppMain::GetInstance()->DispatchOnForeground(_cInstanceName);
 +}
@@ -24461,10 +24442,10 @@ index 00000000000..4d728b67208
 +}
 diff --git a/adapter/macos/stage/uicontent/ace_container_sg.cpp b/adapter/macos/stage/uicontent/ace_container_sg.cpp
 new file mode 100644
-index 00000000000..f272bb1e22e
+index 00000000000..5e435aa0687
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ace_container_sg.cpp
-@@ -0,0 +1,1498 @@
+@@ -0,0 +1,1497 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25709,7 +25690,6 @@ index 00000000000..f272bb1e22e
 +    auto front = container->GetFrontend();
 +    CHECK_NULL_RETURN(front, false);
 +    LOGI("RunPage content=[%{private}s]", content.c_str());
-+    fprintf(stderr, "[DBG csg] RunPage content=%s front=%p\n", content.c_str(), (void*)front.GetRawPtr());
 +    if (isNamedRouter) {
 +        front->RunPageByNamedRouter(content, params);
 +    } else {
@@ -27170,10 +27150,10 @@ index 00000000000..f7536e2d5ed
 +#endif // FOUNDATION_ACE_ADAPTER_IOS_STAGE_PLATFORM_EVENT_CALLBACK_H
 diff --git a/adapter/macos/stage/uicontent/ui_content_impl.cpp b/adapter/macos/stage/uicontent/ui_content_impl.cpp
 new file mode 100644
-index 00000000000..c6a2099b977
+index 00000000000..ceeb7e1336f
 --- /dev/null
 +++ b/adapter/macos/stage/uicontent/ui_content_impl.cpp
-@@ -0,0 +1,1063 @@
+@@ -0,0 +1,1061 @@
 +/*
 + * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27405,7 +27385,6 @@ index 00000000000..c6a2099b977
 +
 +void UIContentImpl::InitializeInner(OHOS::Rosen::Window* window, const std::string& url, napi_value storage, bool isNamedRouter)
 +{
-+    fprintf(stderr, "[DBG uic] InitializeInner ENTER url=%s\n", url.c_str());
 +    if (window) {
 +        CommonInitialize(window, url, storage);
 +    }
@@ -27413,7 +27392,6 @@ index 00000000000..c6a2099b977
 +
 +    Platform::AceContainerSG::RunPage(
 +        instanceId_, Platform::AceContainerSG::GetContainer(instanceId_)->GeneratePageId(), startUrl_, "", isNamedRouter);
-+    fprintf(stderr, "[DBG uic] InitializeInner RunPage done\n");
 +    LOGI("InitializeInner RunPage UIContentImpl done.");
 +}
 +
@@ -28866,18 +28844,10 @@ index 85895498d4e..c94abc792bd 100644
  template<typename C>
  void JsiClass<C>::Declare(const char* name)
 diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-index 93b946c130b..f98095fe284 100644
+index 93b946c130b..08fa0894b64 100644
 --- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
 +++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-@@ -2138,6 +2138,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
-     std::string& urlName, const std::function<void(const std::string&, int32_t)>& errorCallback)
- {
-     ACE_SCOPED_TRACE("JsiDeclarativeEngine::LoadJsWithModule Execute Page code : %s", urlName.c_str());
-+    fprintf(stderr, "[DBG page] LoadJsWithModule ENTER urlName=%s\n", urlName.c_str());
-     auto container = Container::Current();
-     CHECK_NULL_VOID(container);
-     auto runtime = std::static_pointer_cast<ArkJSRuntime>(engineInstance_->GetJsRuntime());
-@@ -2145,6 +2146,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+@@ -2145,6 +2145,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
      const std::string assetPath = ASSET_PATH_PREFIX + moduleName + "/" + FORM_ES_MODULE_PATH;
      runtime->SetAssetPath(assetPath);
      runtime->SetModuleName(moduleName);
@@ -28890,51 +28860,31 @@ index 93b946c130b..f98095fe284 100644
      if (urlName.substr(0, strlen(BUNDLE_TAG)) != BUNDLE_TAG) {
  #ifdef CROSS_PLATFORM
          std::string moduleNamePath = (moduleName.find_last_of('.') != std::string::npos)
-@@ -2155,7 +2162,9 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+@@ -2155,7 +2161,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
          urlName = container->GetModuleName() + "/ets/" + urlName;
  #endif
      }
 -    runtime->ExecuteJsBin(urlName, errorCallback);
-+    fprintf(stderr, "[DBG page] before ExecuteJsBin urlName=%s\n", urlName.c_str());
 +    bool r = runtime->ExecuteJsBin(urlName, errorCallback);
-+    fprintf(stderr, "[DBG page] ExecuteJsBin returned %d\n", r);
  }
  #endif
  // Load the app.js file of the FA model in NG structure.
-@@ -2174,6 +2183,7 @@ bool JsiDeclarativeEngine::LoadPageSource(
-     const std::string& url, const std::function<void(const std::string&, int32_t)>& errorCallback)
- {
-     ACE_SCOPED_TRACE("JsiDeclarativeEngine::LoadPageSource");
-+    fprintf(stderr, "[DBG page] LoadPageSource ENTER url=%s\n", url.c_str());
-     ACE_DCHECK(engineInstance_);
-     // get js bundle content
-     const char jsExt[] = ".js";
 diff --git a/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp b/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
-index a40c3c217e2..4c40f61e0b8 100644
+index a40c3c217e2..30c68979098 100644
 --- a/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
 +++ b/frameworks/bridge/declarative_frontend/ng/page_router_manager.cpp
-@@ -2173,6 +2173,7 @@ void PageRouterManager::PopPageToIndex(int32_t index, const std::string& params,
- bool PageRouterManager::OnPageReady(const RefPtr<FrameNode>& pageNode, bool needHideLast, bool needTransition,
-     bool isCardRouter, int64_t cardId)
- {
-+    fprintf(stderr, "[DBG ready] OnPageReady ENTER\n");
-     Recorder::NodeDataCache::Get().OnPageReady();
-     auto container = Container::Current();
-     CHECK_NULL_RETURN(container, false);
-@@ -2667,11 +2668,15 @@ bool PageRouterManager::GenerateRouterPageInner(const RouterPageInfo& target)
+@@ -2667,11 +2667,13 @@ bool PageRouterManager::GenerateRouterPageInner(const RouterPageInfo& target)
          auto intentInfo = target.intentInfo;
          return generateIntentPageCallback_(intentInfo.bundleName, intentInfo.moduleName, intentInfo.pagePath);
      }
 -    if (loadNamedRouter_(target.url, target.isNamedRouterMode)) {
 +    bool lnr = loadNamedRouter_(target.url, target.isNamedRouterMode);
-+    fprintf(stderr, "[DBG router] GenerateRouterPageInner url=%s isNamed=%d loadNamedRouter=%d\n", target.url.c_str(), target.isNamedRouterMode, lnr);
 +    if (lnr) {
          return true;
      }
      if (!target.isNamedRouterMode) {
 -        return updateRootComponent_();
 +        bool urc = updateRootComponent_();
-+        fprintf(stderr, "[DBG router] updateRootComponent=%d\n", urc);
 +        return urc;
      }
      if (target.errorCallback) {
@@ -29061,7 +29011,7 @@ index f50650ecfb1..66f62d29723 100644
      }
      stageNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
 diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.cpp b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
-index 086a3e22416..2d9b6c10567 100644
+index 086a3e22416..c3b81968871 100644
 --- a/frameworks/core/components_ng/render/adapter/rosen_window.cpp
 +++ b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
 @@ -25,6 +25,12 @@
@@ -29077,23 +29027,7 @@ index 086a3e22416..2d9b6c10567 100644
  
  namespace {
  constexpr int32_t IDLE_TASK_DELAY_MILLISECOND = 51;
-@@ -64,6 +70,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
-     vsyncCallback_->onCallback = [weakTask = taskExecutor_, id = id_](uint64_t timeStampNanos, uint64_t frameCount) {
-         auto taskExecutor = weakTask.Upgrade();
-         auto onVsync = [id, timeStampNanos, frameCount] {
-+            fprintf(stderr, "[DBG rvsync] onVsync TASK RUNNING\n");
-             int64_t ts = GetSysTimestamp();
-             ArkUIPerfMonitor::GetInstance().StartPerf();
-             if (FrameReport::GetInstance().GetEnable()) {
-@@ -98,6 +105,7 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
-             window->SetLastVsyncEndTimestamp(GetSysTimestamp());
-         };
-         auto uiTaskRunner = SingleTaskExecutor::Make(taskExecutor, TaskExecutor::TaskType::UI);
-+        fprintf(stderr, "[DBG rvsync] onCallback dispatch, onUIthread=%d\n", uiTaskRunner.IsRunOnCurrentThread());
-         if (uiTaskRunner.IsRunOnCurrentThread()) {
-             onVsync();
-             return;
-@@ -129,6 +137,30 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
+@@ -129,6 +135,29 @@ RosenWindow::RosenWindow(const OHOS::sptr<OHOS::Rosen::Window>& window,
              rsUIcontext->AttachFromUI();
              hasTaskRunner = rsUIcontext->HasTaskRunner();
      }
@@ -29118,20 +29052,11 @@ index 086a3e22416..2d9b6c10567 100644
 +            }
 +        }
 +        OHOS::Rosen::RSRenderThread::Instance().Start();
-+        fprintf(stderr, "[DBG rwinit] RosenWindow director renderThreadClient set (ctx=%p)\n", (void*)rsUIcontext.get());
 +    }
 +#endif
      if (!hasTaskRunner) {
          rsUIDirector_->SetUITaskRunner(
                  [taskExecutor, id](const std::function<void()>& task, uint32_t delay) {
-@@ -290,6 +322,7 @@ void RosenWindow::RequestFrame()
- 
- void RosenWindow::OnShow()
- {
-+    fprintf(stderr, "[DBG rw] RosenWindow::OnShow -> GoForeground\n");
-     Window::OnShow();
-     CHECK_NULL_VOID(rsUIDirector_);
-     rsUIDirector_->GoForeground();
 diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.h b/frameworks/core/components_ng/render/adapter/rosen_window.h
 index ae41531d1dd..09ed7274703 100644
 --- a/frameworks/core/components_ng/render/adapter/rosen_window.h
@@ -29148,53 +29073,6 @@ index ae41531d1dd..09ed7274703 100644
  #include "adapter/ios/entrance/virtual_rs_window.h"
  #else
  #include "adapter/android/entrance/java/jni/virtual_rs_window.h"
-diff --git a/frameworks/core/pipeline_ng/pipeline_context.cpp b/frameworks/core/pipeline_ng/pipeline_context.cpp
-index c9066a89552..08767f03646 100755
---- a/frameworks/core/pipeline_ng/pipeline_context.cpp
-+++ b/frameworks/core/pipeline_ng/pipeline_context.cpp
-@@ -1148,6 +1148,7 @@ void PipelineContext::ReloadNodesResource()
- 
- void PipelineContext::FlushVsync(uint64_t nanoTimestamp, uint64_t frameCount)
- {
-+    { static int n=0; if(n++<3) fprintf(stderr, "[DBG pipe] FlushVsync ENTER dirtyNodes\n"); }
-     CHECK_RUN_ON(UI);
-     if (IsDestroyed()) {
-         LOGW("Cannot flush vsync as the pipeline context is destroyed.");
-@@ -2763,6 +2764,7 @@ void PipelineContext::MaximizeInImplictAnimation(int32_t width, int32_t height,
- 
- void PipelineContext::SetRootRect(double width, double height, double offset)
- {
-+    fprintf(stderr, "[DBG srr] SetRootRect %fx%f\n", width, height);
-     CHECK_RUN_ON(UI);
-     UpdateRootSizeAndScale(width, height);
-     CHECK_NULL_VOID(rootNode_);
-@@ -2805,6 +2807,26 @@ void PipelineContext::SetRootRect(double width, double height, double offset)
-         window_->FlushTasks();
-         FlushVsync(GetTimeFromExternalTimer(), 0);
-     }
-+#endif
-+#if defined(MAC_PLATFORM)
-+    {
-+        static int dbgn = 0;
-+        if (dbgn++ < 3 && rootNode_) {
-+            auto sz = rootNode_->GetGeometryNode()->GetFrameSize();
-+            fprintf(stderr, "[DBG geo] root tag=%s %fx%f childCnt=%d\n",
-+                rootNode_->GetTag().c_str(), sz.Width(), sz.Height(), (int)rootNode_->GetChildren().size());
-+            RefPtr<NG::UINode> cur = rootNode_;
-+            for (int d = 0; d < 6; d++) {
-+                auto kids = cur->GetChildren();
-+                if (kids.empty()) break;
-+                auto fn = AceType::DynamicCast<NG::FrameNode>(kids.front());
-+                if (!fn) { cur = kids.front(); continue; }
-+                auto csz = fn->GetGeometryNode()->GetFrameSize();
-+                fprintf(stderr, "[DBG geo]  d%d tag=%s %fx%f\n", d, fn->GetTag().c_str(), csz.Width(), csz.Height());
-+                cur = fn;
-+            }
-+        }
-+    }
- #endif
-     FireLpxUpdateCallbacks();
-     MarkLpxDirtyNodes();
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 index e58f8e0b0a1..0a812c0f2a1 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn

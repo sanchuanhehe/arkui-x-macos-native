@@ -285,32 +285,8 @@ index 985d62ecee..5422001c87 100644
      public_deps = [ "$appframework_root/graphic_2d:platform" ]
    } else if (rosen_is_linux) {
    } else {
-diff --git a/rosen/modules/render_service_base/src/transaction/rs_transaction_handler.cpp b/rosen/modules/render_service_base/src/transaction/rs_transaction_handler.cpp
-index 85c864c7af..9b92c2a296 100644
---- a/rosen/modules/render_service_base/src/transaction/rs_transaction_handler.cpp
-+++ b/rosen/modules/render_service_base/src/transaction/rs_transaction_handler.cpp
-@@ -166,6 +166,7 @@ void RSTransactionHandler::FlushImplicitTransaction(uint64_t timestamp, const st
-         implicitCommonTransactionData_->token_ = token_;
-         implicitCommonTransactionData_->tid_ = tid;
-         implicitCommonTransactionData_->abilityName_ = abilityName;
-+        { static int n=0; if(n++<6) fprintf(stderr, "[DBG commit] hdl CommitTransaction\n"); }
-         renderThreadClient_->CommitTransaction(implicitCommonTransactionData_);
-         implicitCommonTransactionData_ = std::make_unique<RSTransactionData>();
-     } else {
-diff --git a/rosen/modules/render_service_base/src/transaction/rs_transaction_proxy.cpp b/rosen/modules/render_service_base/src/transaction/rs_transaction_proxy.cpp
-index e156c6fd02..7e71b4a376 100644
---- a/rosen/modules/render_service_base/src/transaction/rs_transaction_proxy.cpp
-+++ b/rosen/modules/render_service_base/src/transaction/rs_transaction_proxy.cpp
-@@ -167,6 +167,7 @@ void RSTransactionProxy::FlushImplicitTransaction(uint64_t timestamp, const std:
-         implicitCommonTransactionData_->timestamp_ = timestamp_;
-         implicitCommonTransactionData_->tid_ = tid;
-         implicitCommonTransactionData_->abilityName_ = abilityName;
-+        { static int n=0; if(n++<6) fprintf(stderr, "[DBG commit] pxy CommitTransaction\n"); }
-         renderThreadClient_->CommitTransaction(implicitCommonTransactionData_);
-         implicitCommonTransactionData_ = std::make_unique<RSTransactionData>();
-     } else {
 diff --git a/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp b/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp
-index 8f5c3a5076..bb5cb07d4e 100644
+index 8f5c3a5076..6f45cd26a4 100644
 --- a/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp
 +++ b/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp
 @@ -81,12 +81,14 @@
@@ -344,46 +320,6 @@ index 8f5c3a5076..bb5cb07d4e 100644
      };
      context_ = std::make_shared<RSContext>();
      context_->Initialize();
-@@ -301,6 +310,7 @@ void RSRenderThread::RecvTransactionData(std::unique_ptr<RSTransactionData>& tra
- 
- void RSRenderThread::RequestNextVSync()
- {
-+    { static int n=0; if(n++<8) fprintf(stderr, "[DBG rt] RequestNextVSync\n"); }
-     if (handler_) {
-         RS_TRACE_FUNC();
-         SendFrameEvent(true);
-@@ -431,6 +441,7 @@ void RSRenderThread::OnVsync(uint64_t timestamp, int64_t frameCount)
-     mValue = (mValue + 1) % 2; // 1 and 2 is Calculated parameters
-     RS_TRACE_INT("Vsync-client", mValue);
-     timestamp_ = timestamp;
-+    { static int n=0; if(n++<6) fprintf(stderr, "[DBG rt] OnVsync activeWindowCnt_=%d\n", activeWindowCnt_.load()); }
-     if (activeWindowCnt_.load() > 0) {
-         mainFunc_(); // start render-loop now
-     }
-@@ -442,6 +453,7 @@ void RSRenderThread::OnVsync(uint64_t timestamp, int64_t frameCount)
- 
- void RSRenderThread::UpdateWindowStatus(bool active)
- {
-+    fprintf(stderr, "[DBG rt] UpdateWindowStatus active=%d\n", active);
-     if (active) {
-         activeWindowCnt_++;
-     } else {
-@@ -453,6 +465,7 @@ void RSRenderThread::UpdateWindowStatus(bool active)
- 
- void RSRenderThread::ProcessCommands()
- {
-+    { static int n=0; if(n++<8) fprintf(stderr, "[DBG rt] ProcessCommands cmds=%zu\n", cmds_.size()); }
-     // Attention: there are two situations
-     // 1. when commandTimestamp_ != 0, it means that UIDirector has called
-     // "RSRenderThread::Instance().RequestNextVSync()", which equals there are some commands form UIThread need to be
-@@ -593,6 +606,7 @@ void RSRenderThread::Render()
-     RsFrameReport::RenderStart(timestamp_);
-     std::unique_lock<std::mutex> lock(mutex_);
-     const auto& rootNode = context_->GetGlobalRootRenderNode();
-+    { static int n=0; if(n++<4) fprintf(stderr, "[DBG render] globalRoot=%p children=%d\n", (void*)rootNode.get(), rootNode? (int)rootNode->GetChildrenCount():-1); }
- 
-     if (rootNode == nullptr) {
-         ROSEN_LOGE("RSRenderThread::Render, rootNode is nullptr");
 diff --git a/rosen/modules/render_service_client/core/ui_effect/property/include/rs_ui_template.h b/rosen/modules/render_service_client/core/ui_effect/property/include/rs_ui_template.h
 index 271791c3c2..6d432f5166 100644
 --- a/rosen/modules/render_service_client/core/ui_effect/property/include/rs_ui_template.h
