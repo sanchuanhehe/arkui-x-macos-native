@@ -1,0 +1,52 @@
+diff --git a/interfaces/kits/js/common/BUILD.gn b/interfaces/kits/js/common/BUILD.gn
+index af8196e..7fd8b7b 100644
+--- a/interfaces/kits/js/common/BUILD.gn
++++ b/interfaces/kits/js/common/BUILD.gn
+@@ -151,12 +151,21 @@ if (use_clang_ios) {
+     external_deps = [
+       "c_utils:utils",
+       "graphic_2d:color_manager",
+-      "graphic_surface:surface",
+       "hilog:libhilog",
+-      "ipc:ipc_single",
+       "napi:ace_napi",
+     ]
+ 
++    # Linux/Wayland native port: graphic_surface and ipc are not registered
++    # components in the arkui-x linux build (unlike c_utils/graphic_2d/hilog/napi);
++    # the image JS common module doesn't need them on the desktop client. Keep
++    # them for the platforms that have them.
++    if (current_os != "linux") {
++      external_deps += [
++        "graphic_surface:surface",
++        "ipc:ipc_single",
++      ]
++    }
++
+     output_name = "libimage"
+     relative_install_dir = "module/multimedia"
+     subsystem_name = "multimedia"
+@@ -187,12 +196,21 @@ if (use_clang_ios) {
+     external_deps = [
+       "c_utils:utils",
+       "graphic_2d:color_manager",
+-      "graphic_surface:surface",
+       "hilog:libhilog",
+-      "ipc:ipc_single",
+       "napi:ace_napi",
+     ]
+ 
++    # Linux/Wayland native port: graphic_surface and ipc are not registered
++    # components in the arkui-x linux build (unlike c_utils/graphic_2d/hilog/napi);
++    # the image JS common module doesn't need them on the desktop client. Keep
++    # them for the platforms that have them.
++    if (current_os != "linux") {
++      external_deps += [
++        "graphic_surface:surface",
++        "ipc:ipc_single",
++      ]
++    }
++
+     output_name = "libsendableimage"
+     relative_install_dir = "module/multimedia"
+     subsystem_name = "multimedia"
