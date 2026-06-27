@@ -136,7 +136,7 @@ out/arkui-x/arkui/ace_engine/ace_macos
 ## 已知项 / 下一步
 - **文字渲染 ✅**:`skia_use_fonthost_mac=true` 启用 CoreText 字体端口,中英文 `Text` 正常渲染。打通要点:① skia 的 `fontmgr_symbol_load` 对 OHOS fontconfig 的依赖 mac/arkui-x gate 掉(skia.patch);② link 加 `CoreText`/`CoreGraphics` framework;③ 删掉 `mac_link_stubs` 里与真字体端口冲突的 `SkFontMgr`/`HmSymbol` stub;④ WindowView blit 去掉 Y 翻转(页面正立)。
 - demo 工程关键文件见 `demo/HelloWorld-entry/`;系统模块 abc 见 `assets/systemres_abc/`。
-- **Linux Wayland 移植评估**:见 [`docs/linux-wayland-assessment.md`](docs/linux-wayland-assessment.md)——基于本次 mac 港经验的实证评估,结论是 Linux Wayland 大概率比 mac 更省、更稳(原生 EGL/fontconfig + Android 客户端侧渲染可复用,绕开 mac 的 GL 共享组/CoreText/工具链三大坑)。
+- **Linux Wayland 原生移植(正式工作)**:评估见 [`docs/linux-wayland-assessment.md`](docs/linux-wayland-assessment.md),正式计划见 [`docs/linux-wayland-plan.md`](docs/linux-wayland-plan.md)。最终目标 = M1 对等(Wayland 原生窗口渲染 `.ets`,真 stage app),走路线 A(`adapter/linux` + Android 客户端侧 EGL),适配层独立成子仓 [`arkui_for_linux`](https://github.com/sanchuanhehe/arkui_for_linux)。结论:大概率比 mac 更省、更稳,且**可在 Linux 本机真编真跑真截图**。
 
 ---
 
