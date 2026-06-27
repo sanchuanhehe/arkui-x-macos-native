@@ -7,7 +7,21 @@
 
 | 项 | 决定 |
 |----|------|
-| **最终目标** | **M1 对等**:Wayland 原生窗口里渲染标准 `.ets` 页面(含中英文文字),真 stage app = `ace` 可执行 + 完整 ability 生命周期 + 官方 `ace build bundle`。与 macOS 港同级别。 |
+| **最终目标** | **完整实现**(见 §0.1):ArkUI-X 在 Linux/Wayland 上的**完整可用原生桌面运行时**——渲染 + 输入 + 窗口管理 + 应用模型 + 打包,全部实现并在本机验证。**M1 对等(渲染 `.ets` 页面)是第一个里程碑,不是终点。** |
+
+### 0.1 完整实现目标 · Definition of Done
+
+全部实现并在本机(headless weston + 截图)验证:
+
+1. **渲染**:标准 `.ets`(声明式 ArkUI)→ 方舟 `ets_runtime` → RS 客户端侧渲染树 → EGL window surface → Wayland 窗口。freetype/fontconfig 中英文文字、颜色、圆角、布局、动画。
+2. **输入**:`wl_seat` 键盘(xkbcommon)/ 指针 / 触摸 全链路 → ArkUI 事件,页面有真实交互响应。
+3. **窗口管理**:xdg_shell + libdecor 装饰、resize / 最小最大化、HiDPI + fractional-scale、多窗口(subwindow)。
+4. **应用模型**:`ace` 可执行 + 完整 ability/AbilityStage 生命周期 + 官方 `ace build bundle` 加载标准 stage 工程 + 全套系统模块 `.abc`。
+5. **工程化**:全部以 `linux-*.patch` 补丁集(本仓 `linux` 分支)+ `adapter/linux` 独立子仓([`arkui_for_linux`](https://github.com/sanchuanhehe/arkui_for_linux))落地,`apply_patches.sh` 一键复现。
+6. **CI 回归**:本机/runner 的 headless weston 下**真编 → 真跑 → 截图回归**;`libace_static_linux` 全编通 + `ace_linux` 0 undefined。
+7. **打包**:`.desktop` + AppImage(或 flatpak)可分发桌面应用。
+
+> 任务分解见任务清单(阶段 A→B→C1→C2→D → 输入/窗口管理 → 工程化/CI → 打包)。
 | **技术路线** | **路线 A**:专门 `adapter/linux` + 照 **Android `ROSEN_ARKUI_X` 客户端侧 EGL 渲染**;把 Linux 从 `rosen_preview`(GLFW)路由摘出。不做预览器路线 B。 |
 | **工程仓** | 适配补丁集 + 脚本继续放本仓(`arkui-x-macos-native`),新增 `patches/linux-*.patch` 与 `apply_patches.sh` 的 linux 接线。 |
 | **adapter 子仓** | 新建独立仓 **[`sanchuanhehe/arkui_for_linux`](https://github.com/sanchuanhehe/arkui_for_linux)**,对齐 `arkui_for_macos`/android/ios,克隆到 `ace_engine/adapter/linux/`。 |
