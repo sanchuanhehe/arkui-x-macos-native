@@ -1,13 +1,18 @@
 #!/bin/bash
 # 把 patches/ 下的补丁应用到 ArkUI-X 源码树(15 仓的 mac-port 改动)。
 # 每个仓应用 <name>.patch(单补丁)或 <name>-*.patch(拆分补丁集,按名排序应用)。
-# ace_engine 体量大,已拆为 ace_engine-1-adapter-macos / -2-framework / -3-build 三个子补丁。
+# ace_engine 拆为 ace_engine-2-framework / -3-build 两个子补丁;
+# adapter/macos(原 -1-adapter-macos)已独立成子仓,改为克隆引入(见文件尾部)。
 # 用法: scripts/apply_patches.sh /path/to/arkui-x
 set -e
 SRC="${1:?用法: $0 /path/to/arkui-x}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 PATCHES="$HERE/patches"
 BRANCH="mac-port"
+
+# adapter/macos 不随补丁分发,改为独立子仓克隆(对齐 adapter/android、adapter/ios)
+MACOS_ADAPTER_URL="https://github.com/sanchuanhehe/arkui_for_macos.git"
+MACOS_ADAPTER_REL="foundation/arkui/ace_engine/adapter/macos"
 
 # 仓相对路径 : patch 名
 MAP=(
@@ -62,5 +67,22 @@ for e in "${MAP[@]}"; do
     fi
   done
 done
+
+# === adapter/macos 子仓克隆(对齐 adapter/android、adapter/ios 的独立仓结构)===
+echo "=== ${MACOS_ADAPTER_REL} (子仓) ==="
+macos_dir="$SRC/$MACOS_ADAPTER_REL"
+if [ -d "$macos_dir/.git" ]; then
+  echo "  ⊙ 已是子仓,git pull --ff-only 更新"
+  git -C "$macos_dir" pull --ff-only --quiet || echo "  ⚠ 更新失败,请手动处理"
+elif [ -e "$macos_dir" ] && [ -n "$(ls -A "$macos_dir" 2>/dev/null)" ]; then
+  echo "  ⚠ 目录已存在且非子仓,跳过(请先清理 $macos_dir 后重试)"
+else
+  if git clone --quiet "$MACOS_ADAPTER_URL" "$macos_dir"; then
+    echo "  ✓ 已克隆 adapter/macos ← $MACOS_ADAPTER_URL"
+  else
+    echo "  ✗ 克隆失败: $MACOS_ADAPTER_URL"
+  fi
+fi
+
 echo ""
 echo "完成。构建见 README『构建』节(target_os=mac + use_xcode_clang=true)。"

@@ -43,7 +43,9 @@ scripts/check_patches.sh            # (可选)先自检补丁集完整性,不需
 scripts/apply_patches.sh /path/to/arkui-x
 ```
 各仓基线 commit 见 `patches/BASE_COMMITS.txt`;脚本在 **15 个仓**建 `mac-port` 分支并 `git apply`。
-每个仓应用 `<name>.patch`(单补丁),或 `<name>-*.patch`(拆分补丁集,按名排序)。**ace_engine 体量大,已拆为补丁集**:`ace_engine-1-adapter-macos`(174 文件,macOS 窗口层)、`ace_engine-2-framework`(13 文件,渲染管线 + gate)、`ace_engine-3-build`(5 文件,BUILD.gn/config)。
+每个仓应用 `<name>.patch`(单补丁),或 `<name>-*.patch`(拆分补丁集,按名排序)。**ace_engine 拆为补丁集**:`ace_engine-2-framework`(13 文件,渲染管线 + gate)、`ace_engine-3-build`(5 文件,BUILD.gn/config)。
+
+> **adapter/macos 已独立成子仓**:macOS 窗口层(原 `ace_engine-1-adapter-macos`,174 文件)体量大且自成一体,现拆为独立仓 [`sanchuanhehe/arkui_for_macos`](https://github.com/sanchuanhehe/arkui_for_macos),由 `apply_patches.sh` 末尾自动 `git clone` 到 `foundation/arkui/ace_engine/adapter/macos/`——与 `adapter/android`、`adapter/ios` 的独立仓结构一致(被 ace_engine 的 `.gitignore: adapter/*` 忽略)。
 
 > **幂等可复现**:`apply_patches.sh` 对每个补丁先 `git apply --reverse --check`,已应用则跳过——重复运行安全、不会重复打或报错。复现的三个锚点:① `patches/BASE_COMMITS.txt` 钉死每仓基线 commit;② 上面 `--gn-args` 钉死构建开关;③ CI(`.github/workflows/ci.yml`)每次提交校验补丁集可解析、每仓有补丁与基线、无孤儿补丁、脚本 shellcheck 干净。本地等价校验:`scripts/check_patches.sh`。
 
@@ -117,7 +119,7 @@ out/arkui-x/arkui/ace_engine/ace_macos
 
 | 仓 | 说明 |
 |--|--|
-| **ace_engine**(拆为 3 子补丁) | `-1-adapter-macos` 窗口层 / `-2-framework` 渲染管线+gate / `-3-build` gn(主体) |
+| **ace_engine**(2 子补丁 + 1 子仓) | `-2-framework` 渲染管线+gate / `-3-build` gn(主体);窗口层 `adapter/macos` 独立成子仓 [`arkui_for_macos`](https://github.com/sanchuanhehe/arkui_for_macos),由脚本克隆 |
 | **appframework** | macOS 图形后端(NSOpenGL/CALayer/桌面 FBO)+ window_manager/ability cross-platform mac 化 |
 | **graphic_2d** | 平台路由 / rosen mac / `render_context` 暴露 colorbuffer / RS 渲染线程 mac 持续渲染 |
 | **build / build_plugins** | `BUILDCONFIG` mac 分支 / `toolchain/mac` / `find_sdk` |
