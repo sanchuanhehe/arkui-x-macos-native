@@ -18,3 +18,4 @@ foundation/multimodalinput/input   c82ad85e1
 # c2 内容运行时:
 arkcompiler/ets_runtime           c5f1b0ffd
 base/global/resource_management  7624efe4f6e71ef3502f12c5cbcc71bf949a83e1   # linux-port 基线(is_linux arm64 修复)
+developtools/ace_ets2bundle  156ad12694675504226c141e88ddfac93c702975   # linux-port 基线(libarkts deps 替换修复)

@@ -50,6 +50,7 @@ case "$TARGET" in
       "base/global/resource_management:resmgr"
       "base/hiviewdfx/hilog:hilog"
       "arkcompiler/runtime_core:runtime_core"
+      "developtools/ace_ets2bundle:ace_ets2bundle"
     )
     ;;
   *)

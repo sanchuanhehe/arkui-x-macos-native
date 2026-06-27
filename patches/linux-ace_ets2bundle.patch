@@ -1,0 +1,19 @@
+diff --git a/ets1.2/libarkts/BUILD.gn b/ets1.2/libarkts/BUILD.gn
+index 3853b4e..b9f56cd 100644
+--- a/ets1.2/libarkts/BUILD.gn
++++ b/ets1.2/libarkts/BUILD.gn
+@@ -155,8 +155,12 @@ shared_library("es2panda_lib") {
+     defines += [ "USE_LIBSEC" ]
+   }
+ 
+-  deps = [ ":regenerate" ]
+-  sources += get_target_outputs(deps[0])
++  # Linux/Wayland native port: for is_arkui_x, deps was already set above
++  # ([es2panda, libsec_static]); a bare `deps = [":regenerate"]` here trips
++  # gn's "Replacing nonempty list". Append instead, and take the codegen
++  # outputs from ":regenerate" explicitly (not deps[0], which is no longer it).
++  deps += [ ":regenerate" ]
++  sources += get_target_outputs(":regenerate")
+ 
+   if (!koala_mr.is_rri) {
+     configs -= [ "//build/config/compiler:compiler" ]
