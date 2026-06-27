@@ -37,3 +37,24 @@ jobs:
           # (无 arkui-x 源码,这里只验证脚本在“目标即补丁来源”这种退化场景下不崩、可重复跑。)
           bash -n scripts/apply_patches.sh
           echo "apply_patches.sh 语法 OK;幂等逻辑见脚本内 'apply --reverse --check' 跳过分支"
+
+  linux-render:
+    name: Linux/Wayland 渲染回归(headless weston)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Wayland/EGL/Mesa/weston
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwayland-dev wayland-protocols \
+            libxkbcommon-dev libegl-dev libgles-dev libgbm-dev weston pkg-config
+
+      - name: 渲染 smoketest(真编 + headless weston 真跑 + 帧校验)
+        run: |
+          # 克隆 arkui_for_linux,编译验证过的 Wayland+EGL smoketest,在 headless
+          # weston(Mesa llvmpipe 软渲染)下开窗渲染、glReadPixels 落帧,校验帧里
+          # 出现期望的彩色条带 —— 即 Linux 移植核心出图链路无回归。
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/xdg"
+          mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
+          bash scripts/ci_linux_render_smoketest.sh
