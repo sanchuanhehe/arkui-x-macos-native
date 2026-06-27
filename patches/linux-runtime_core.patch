@@ -1,0 +1,17 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 744ac23d..4bf8e5d6 100755
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -112,7 +112,11 @@ if (!ark_standalone_build) {
+   group("ark_host_ohos_tools_packages") {
+     deps = []
+     if (!is_host_product) {
+-      if (host_os != "mac") {
++      # Linux/Wayland native port: arkui-x cross builds don't build the OHOS
++      # device host tools; pulling ark_disasm with the ohos (musl) toolchain
++      # also evaluates that toolchain, which trips an undefined ark_root on the
++      # stale prebuilt gn. Skip it for is_arkui_x.
++      if (host_os != "mac" && !(defined(is_arkui_x) && is_arkui_x)) {
+         deps += [ "$ark_root/disassembler:ark_disasm($build_root/toolchain/ohos:ohos_clang_arm64)" ]
+       }
+       foreach(plugin, enabled_plugins) {

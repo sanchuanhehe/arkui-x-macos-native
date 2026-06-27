@@ -49,6 +49,7 @@ case "$TARGET" in
       "foundation/graphic/graphic_2d:graphic_2d"
       "base/global/resource_management:resmgr"
       "base/hiviewdfx/hilog:hilog"
+      "arkcompiler/runtime_core:runtime_core"
     )
     ;;
   *)
