@@ -1,0 +1,150 @@
+# ArkUI-X macOS 原生移植 · 路线 B 全量 Roadmap(对齐 iOS/Android)
+
+> **目标**:把 macOS 原生移植从「M1:渲染一帧」推到**与 iOS/Android 成熟 ArkUI-X 平台完全对齐**——`capability/` 能力插件层(12 个)+ `entrance/` 子系统(~10 个)全部落地,去掉所有「先跑起来」的 mac-gate hack,可一键打包成签名 `.app`,有测试与 CI。
+>
+> **完工定义(Definition of Done)**:`adapter/macos` 的能力面 ≈ `adapter/ios`;主流组件 / 动画 / 多页 / Web / Video / XComponent / IME / 无障碍 / i18n 均可用;`ace build mac` 直接产出可分发 `.app`;真构建 + 渲染回归进 CI。
+
+## 基线(已完成)
+- **M0 地基** ✅:GN `target_os=mac` 管线、macOS 图形后端(NSOpenGL/CALayer/桌面 FBO)、`libace` 全编通、`ace_macos` 链出、AppKit 开窗。
+- **M1 渲染** ✅:标准 `.ets` 页面经 `ace build bundle` → 方舟运行时 → RenderService → CAOpenGLLayer 上屏;中英文文字(CoreText)+ 颜色 + 圆角 + 布局。
+
+---
+
+## 阶段总览
+
+| 阶段 | 名称 | Goal(一句话) | 依赖 |
+|--|--|--|--|
+| **M2** | 核心交互 | 页面可交互:点击/滚动/键盘/文本输入(含 IME)都工作 | M1 |
+| **M3** | 窗口/渲染完备 | 窗口像原生 app:resize 重排、暗色模式、子窗口、多屏;渲染脏区驱动(去 CPU 空转) | M2 |
+| **M4** | 核心能力插件 | 日常组件依赖的能力齐活:图片(含 URL)、字体、剪贴板、存储、选择器、下载 | M2 |
+| **M5** | 富媒体与原生载体 | XComponent / Web / Video / Canvas 跑起来 | M4 |
+| **M6** | 组件广度 | 主流组件 + 动画 + 多页导航全部验证可用 | M2, M4 |
+| **M7** | 系统 API / NAPI | 常用 `@ohos.*` 模块工作 + native module 加载 | M2 |
+| **M8** | 无障碍 / i18n / 安全 | 可访问、国际化、安全合规 | M3 |
+| **M9** | 打包与分发 | `ace build mac` → 可分发签名 `.app` | M4 |
+| **M10** | 质量与硬化 | 去 hack、稳定、有测试、CI 跑真构建 | 全部 |
+
+> **跨 Linux 复用**:M2(输入分发)、M3(脏区渲染)、M4/M5/M6(能力与组件,跨平台抽象部分)、M7(NAPI)在 macOS 做一遍,Linux Wayland 大半直接拿。**mac 专属**:NSPasteboard、NSAccessibility、NSTextInputClient IME、WKWebView、`.app` 签名公证、CoreText。详见 [`linux-wayland-assessment.md`](linux-wayland-assessment.md)。
+
+---
+
+## M2 · 核心交互
+**Goal**:页面可交互——点击、滚动、键盘、文本输入(含中日韩 IME)都工作。
+**Tasks**
+- 鼠标事件:`WindowView.mouseDown/mouseDragged/mouseUp` → 建 `AcePointerDataPacket`(位置 × `backingScaleFactor`)→ `window->ProcessPointerEvent`(DOWN/MOVE/UP)。[iOS 参考:`adapter/ios` dispatchTouches] [跨 Linux]
+- 右键 / 多指 / `scrollWheel`(滚动)/ `magnifyWithEvent`(捏合缩放)。[跨 Linux]
+- 键盘:`keyDown/keyUp` → NSEvent keyCode + modifierFlags 映射 `Ace::KeyCode` → `ProcessKeyEvent`。[部分跨 Linux:keycode 映射表]
+- **文本输入 IME**:接 `NSTextInputClient`,把组合输入/候选词喂给 `TextInput`/`TextArea`(中日韩)。[mac 专属;Linux 用 xkbcommon+text-input 协议]
+- 焦点 / 光标 / 命中测试链路打通。
+- **渲染硬化**:`rs_render_thread.cpp` 强制连续 `RequestNextVSync` → 改**脏区驱动**(仅 dirty 时渲),停 CPU 空转。[跨 Linux]
+
+**完成判据**:demo 含可点 `Button`(点了变色/计数)、可滚 `List`、可输中英文的 `TextInput`;空闲时 CPU≈0。
+
+## M3 · 窗口 / 渲染完备
+**Goal**:窗口行为像原生 app。
+**Tasks**
+- 窗口 `resize` → 根 `SetRootRect` 更新 → 布局重排(去掉固定尺寸 hack)。
+- Retina / `backingScaleFactor` 变化(拖到不同 DPI 屏)。
+- **暗色模式**:`SettingDataManager` 接 `NSApp.effectiveAppearance` + `NSAppearance` KVO → 主题切换。
+- **子窗口**:`SubwindowManager` 接 AppKit → `Dialog` / `Menu` / `Popup` / `Toast` / 下拉。
+- 多窗口、多显示器坐标、色彩管理/HDR。
+
+**完成判据**:窗口可拉伸重排;切系统暗色模式页面跟随;弹窗/菜单/Toast 正常。
+
+## M4 · 核心能力插件(`capability/` 大头)
+**Goal**:日常组件依赖的平台能力齐活。
+**Tasks**(新建 `adapter/macos/capability/` + `entrance/` 子系统)
+- **DownloadManager**(`entrance/`,现 stub 返回 nullptr)→ URLSession 实现 → 解锁 **URL 图片 / 远程资源**。[跨 Linux]
+- **Image 完整**:本地解码(`image_source_ios` 复用核对)+ URL + 缓存 + `$r` 资源。
+- **clipboard**:`MultiTypeRecordImpl` + NSPasteboard(文本/图片/HTML)。[mac 专属]
+- **font**:自定义字体注册(`@font-face` / `registerFont`)→ CTFontManager。[mac 专属后端]
+- **storage**:本地存储 / preferences。[跨 Linux 抽象]
+- **picker**:文件/图片/日期选择器 → `NSOpenPanel`/`NSSavePanel`。[mac 专属]
+- **environment** / **resource register**。
+
+**完成判据**:`Image`(本地+URL)显示;复制粘贴可用;自定义字体生效;文件选择器弹出。
+
+## M5 · 富媒体与原生载体
+**Goal**:XComponent / Web / Video / Canvas 可用。
+**Tasks**
+- **surface / texture**:`AceSurfaceHolder` / `AceTextureHolder`(XComponent 的原生 surface/纹理载体)。[mac 专属:IOSurface/CVPixelBuffer]
+- **platformview**:原生视图内嵌。
+- **web**:`Web` 组件 → WKWebView。[mac 专属]
+- **video**:媒体播放 → AVFoundation。[mac 专属]
+- **Canvas** 2D 路径验证。
+
+**完成判据**:`XComponent` 拿到 GL/native surface;`Web` 加载网页;`Video` 播放。
+
+## M6 · 组件广度
+**Goal**:主流组件 + 动画 + 多页全部验证可用。
+**Tasks**
+- `List` / `Grid` / `Scroll` / `Swiper`(依赖 M2 输入 + 脏区渲染)。
+- 动画 / 转场 / 共享元素。
+- `router` 多页导航(`pushUrl`/`back`/`replaceUrl`)。
+- `Dialog` / `Menu` / `Popup` / `Toast`(依赖 M3 子窗口)。
+- 逐组件兼容性扫描,记录差异。
+
+**完成判据**:一个多页 demo(导航 + 列表滚动 + 动画 + 弹窗)端到端跑通。
+
+## M7 · 系统 API / NAPI 覆盖
+**Goal**:常用 `@ohos.*` 模块工作。
+**Tasks**
+- `@ohos.router` / `@ohos.promptAction`(Toast/Dialog/Menu)。
+- `@ohos.data.preferences` / storage。
+- `@ohos.net.http` / connection。
+- 设备 / sensor / 媒体类 API(按需)。
+- native module / plugin 动态加载(`plugin_lifecycle`)。
+
+**完成判据**:demo 调 router/prompt/http/preferences 均成功。
+
+## M8 · 无障碍 / i18n / 安全
+**Goal**:可访问、国际化、安全合规。
+**Tasks**
+- **accessibility**:`ExecuteActionOC`/`UpdateNodesOC`(现 stub)→ NSAccessibility / VoiceOver。[mac 专属]
+- i18n / RTL / 本地化资源。
+- 沙箱 / 权限(相机/麦克风/文件,Info.plist usage descriptions)。
+- 安全存储(Keychain)、UDMF 拖拽数据。
+
+**完成判据**:VoiceOver 可读 UI;RTL 布局正确;权限弹窗合规。
+
+## M9 · 打包与分发
+**Goal**:一键产出可分发签名 `.app`。
+**Tasks**
+- **`ace build mac`**:`ace_tools` 直接产出 `.app`(替掉手动拷 abc + `MacAppDelegate` 硬编码 BUNDLE/MODULE/ABILITY)。
+- `.app` bundle:Info.plist、图标、资源、systemres abc 自动打包。
+- **代码签名 + 公证**(notarization),否则他人下载打不开。
+- 崩溃上报 / 符号化。
+
+**完成判据**:`ace build mac` 一条命令出 `.app`;双击即开;Gatekeeper 放行。
+
+## M10 · 质量与硬化
+**Goal**:去 hack、稳定、有测试、CI 跑真构建。
+**Tasks**
+- 审计并替换**所有 mac-gate hack**(forced FlushVsync / forced mark-dirty / 连续 vsync / mac_link_stubs 残留)为正确实现。
+- 内存 / 生命周期(窗口关闭 teardown)/ 多实例 / 无泄漏。
+- 性能调优(GPU 路径、离屏 FBO 开销、启动时延)。
+- 测试体系:单测 + UI 自动化(合成输入)+ 渲染回归(截图比对)+ 兼容性。
+- **CI 跑真构建**(可能用 macOS runner / 自托管)+ 渲染回归。
+
+**完成判据**:0 mac-gate hack;关窗无泄漏;CI 绿(编译 + 渲染回归)。
+
+---
+
+## 依赖与排期建议
+```
+M2 ──┬─→ M3 ──→ M8
+     ├─→ M4 ──┬─→ M5
+     │        └─→ M6 ──→(并入 M10）
+     └─→ M7
+            M4 ──→ M9
+   全部 ──────────→ M10
+```
+- **先做 M2**(解锁交互 + 给 Linux 留参考)+ 顺手 M2 里的渲染硬化。
+- M3 / M4 / M7 可在 M2 后**并行**。
+- M5 依赖 M4(surface/texture);M6 依赖 M2+M4。
+- M9 在 M4 后可随时做;M10 收尾。
+
+## 规模与现实预期
+- M1 是「点亮」,占完整工作量一小部分;**路线 B 是团队级、季度级工程**(capability ~12 + entrance ~10 + 去 hack + 广度 + 打包 + 测试)。
+- 但**高度可增量、可并行**,每个 capability/entrance 子系统独立可加,有 iOS `.mm` 逐文件参考。
+- 进度在仓内 task 列表跟踪(每阶段一个 task,goal 见上)。
