@@ -52,6 +52,7 @@ case "$TARGET" in
       "arkcompiler/runtime_core:runtime_core"
       "developtools/ace_ets2bundle:ace_ets2bundle"
       "foundation/multimodalinput/input:input"
+      "foundation/multimedia/image_framework:image_framework"
     )
     ;;
   *)
