@@ -1,3 +1,120 @@
+diff --git a/graphic_config.gni b/graphic_config.gni
+index 18125c6..b0406f2 100644
+--- a/graphic_config.gni
++++ b/graphic_config.gni
+@@ -198,11 +198,11 @@ if (graphic_2d_feature_tv_metadata_enable) {
+   gpu_defines += [ "RS_ENABLE_TV_PQ_METADATA" ]
+ }
+ 
+-if (path_exists("//foundation/graphic/graphic_2d_ext/dvsync/BUILD.gn")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/dvsync/BUILD.gn") ], "trim string") == "True") {
+   graphic_2d_feature_enable_dvsync = true
+ }
+ 
+-if (path_exists("//foundation/graphic/graphic_2d_ext/ddgr/config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/ddgr/config.gni") ], "trim string") == "True") {
+   ddgr_ext_configs = {
+     import("//foundation/graphic/graphic_2d_ext/ddgr/config.gni")
+   }
+@@ -217,7 +217,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/ddgr/config.gni")) {
+ 
+ graphic_2d_delegator_configs = {
+ }
+-if (path_exists("//foundation/graphic/graphic_2d_ext/delegator/config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/delegator/config.gni") ], "trim string") == "True") {
+   graphic_2d_delegator_configs = {
+     import("//foundation/graphic/graphic_2d_ext/delegator/config.gni")
+   }
+@@ -225,7 +225,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/delegator/config.gni")) {
+ 
+ graphic_2d_broker_configs = {
+ }
+-if (path_exists("//foundation/graphic/graphic_2d_ext/ohcore/build/broker_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/ohcore/build/broker_config.gni") ], "trim string") == "True") {
+   graphic_2d_broker_configs = {
+     import("//foundation/graphic/graphic_2d_ext/ohcore/build/broker_config.gni")
+   }
+@@ -233,7 +233,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/ohcore/build/broker_config.
+ 
+ graphic_2d_hgm_configs = {
+ }
+-if (path_exists("//foundation/graphic/graphic_2d_ext/hgm_manager/build/hgm_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/hgm_manager/build/hgm_config.gni") ], "trim string") == "True") {
+   graphic_2d_hgm_configs = {
+     import(
+         "//foundation/graphic/graphic_2d_ext/hgm_manager/build/hgm_config.gni")
+@@ -242,7 +242,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/hgm_manager/build/hgm_confi
+ 
+ graphic_2d_math_tools_configs = {
+ }
+-if (path_exists("//foundation/graphic/graphic_2d_ext/math_tools/build/math_tools_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/math_tools/build/math_tools_config.gni") ], "trim string") == "True") {
+   graphic_2d_math_tools_configs = {
+     import(
+         "//foundation/graphic/graphic_2d_ext/math_tools/build/math_tools_config.gni")
+@@ -251,7 +251,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/math_tools/build/math_tools
+ 
+ graphic_2d_frame_stability_configs = {
+ }
+-if (path_exists("//foundation/graphic/graphic_2d_ext/frame_stability/build/frame_stability_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/frame_stability/build/frame_stability_config.gni") ], "trim string") == "True") {
+   graphic_2d_frame_stability_configs = {
+     import(
+         "//foundation/graphic/graphic_2d_ext/frame_stability/build/frame_stability_config.gni")
+@@ -264,7 +264,7 @@ check_platform_ext_file_args = [
+ ]
+ graphic_2d_platform_configs = {
+ }
+-if (path_exists("//foundation/graphic/graphic_2d_ext/platform/config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/platform/config.gni") ], "trim string") == "True") {
+   graphic_2d_platform_configs = {
+     import("//foundation/graphic/graphic_2d_ext/platform/config.gni")
+   }
+@@ -272,7 +272,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/platform/config.gni")) {
+ 
+ graphic_2d_modifiers_draw_configs = {
+ }
+-if (path_exists("//foundation/graphic/graphic_2d_ext/modifiers_draw/build/modifiers_draw_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/modifiers_draw/build/modifiers_draw_config.gni") ], "trim string") == "True") {
+   graphic_2d_modifiers_draw_configs = {
+     import(
+         "//foundation/graphic/graphic_2d_ext/modifiers_draw/build/modifiers_draw_config.gni")
+@@ -281,7 +281,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/modifiers_draw/build/modifi
+ 
+ graphic_2d_subtree_config = {}
+ 
+-if (path_exists("//foundation/graphic/graphic_2d_ext/subtree/build/subtree_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/subtree/build/subtree_config.gni") ], "trim string") == "True") {
+   graphic_2d_subtree_config = {
+     import(
+       "//foundation/graphic/graphic_2d_ext/subtree/build/subtree_config/gni")
+@@ -290,7 +290,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/subtree/build/subtree_confi
+ 
+ graphic_2d_hetero_hdr_configs = {}
+ 
+-if (path_exists("//foundation/graphic/graphic_2d_ext/hetero_hdr/build/hetero_hdr_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/hetero_hdr/build/hetero_hdr_config.gni") ], "trim string") == "True") {
+   graphic_2d_hetero_hdr_configs = {
+     import(
+       "//foundation/graphic/graphic_2d_ext/hetero_hdr/build/hetero_hdr_config.gni")
+@@ -300,7 +300,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/hetero_hdr/build/hetero_hdr
+ 
+ graphic_2d_mhc_configs = {}
+ 
+-if (path_exists("//foundation/graphic/graphic_2d_ext/mhc/build/mhc_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/mhc/build/mhc_config.gni") ], "trim string") == "True") {
+   graphic_2d_mhc_configs = {
+     import(
+       "//foundation/graphic/graphic_2d_ext/mhc/build/mhc_config.gni")
+@@ -308,7 +308,7 @@ if (path_exists("//foundation/graphic/graphic_2d_ext/mhc/build/mhc_config.gni"))
+ }
+ 
+ graphic_2d_car_features_configs = {}
+-if (path_exists("//foundation/graphic/graphic_2d_ext/car_features/build/car_features_config.gni")) {
++if (exec_script("//build/scripts/check_path_exists.py", [ rebase_path("//foundation/graphic/graphic_2d_ext/car_features/build/car_features_config.gni") ], "trim string") == "True") {
+   graphic_2d_car_features_configs = {
+     import(
+       "//foundation/graphic/graphic_2d_ext/car_features/build/car_features_config.gni")
 diff --git a/rosen/modules/render_service_base/config.gni b/rosen/modules/render_service_base/config.gni
 index e0f5123..87324e7 100644
 --- a/rosen/modules/render_service_base/config.gni
