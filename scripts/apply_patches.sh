@@ -51,6 +51,7 @@ case "$TARGET" in
       "base/hiviewdfx/hilog:hilog"
       "arkcompiler/runtime_core:runtime_core"
       "developtools/ace_ets2bundle:ace_ets2bundle"
+      "foundation/multimodalinput/input:input"
     )
     ;;
   *)

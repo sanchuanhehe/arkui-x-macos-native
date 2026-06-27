@@ -1,0 +1,19 @@
+diff --git a/multimodalinput_mini.gni b/multimodalinput_mini.gni
+index 0ae2c92..1c83c02 100644
+--- a/multimodalinput_mini.gni
++++ b/multimodalinput_mini.gni
+@@ -508,7 +508,13 @@ if (input_ext_feature_magiccursor) {
+   ]
+ }
+ 
+-if (defined(global_parts_info.multimedia_player_framework)) {
++# Linux/Wayland native port: arkui-x is UI-only and never builds the multimedia
++# player_framework (media_client pulls access_token/audio/av_codec/drivers — OHOS
++# components absent from the arkui-x component set). The arkui-x linux parts list
++# happens to include multimedia_player_framework (mac's did not); force it off for
++# is_arkui_x so input doesn't drag the whole media stack into the graph.
++if (defined(global_parts_info.multimedia_player_framework) &&
++    !(defined(is_arkui_x) && is_arkui_x)) {
+   enable_player_framework = true
+   input_default_defines += [ "PLAYER_FRAMEWORK_EXISTS" ]
+ } else {
