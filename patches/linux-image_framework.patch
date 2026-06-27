@@ -1,5 +1,5 @@
 diff --git a/interfaces/kits/js/common/BUILD.gn b/interfaces/kits/js/common/BUILD.gn
-index af8196e..7fd8b7b 100644
+index af8196e..f5c6fd2 100644
 --- a/interfaces/kits/js/common/BUILD.gn
 +++ b/interfaces/kits/js/common/BUILD.gn
 @@ -151,12 +151,21 @@ if (use_clang_ios) {
@@ -50,3 +50,18 @@ index af8196e..7fd8b7b 100644
      output_name = "libsendableimage"
      relative_install_dir = "module/multimedia"
      subsystem_name = "multimedia"
+@@ -269,7 +287,13 @@ if (use_clang_ios) {
+       "-DIMAGE_DEBUG_FLAG",
+       "-DIMAGE_COLORSPACE_FLAG",
+     ]
+-    external_deps = [ "skia:libjpegm133", "libjpeg-turbo:turbojpeg"]
++    # Linux/Wayland native port: skia provides the jpeg decoder (libjpegm133) for
++    # the arkui-x build; the standalone libjpeg-turbo:turbojpeg component isn't
++    # registered for linux. Keep it for platforms that have it.
++    external_deps = [ "skia:libjpegm133" ]
++    if (current_os != "linux") {
++      external_deps += [ "libjpeg-turbo:turbojpeg" ]
++    }
+     if (enable_libexif) {
+       external_deps += [ "libexif:libexif" ]
+     }
