@@ -148,3 +148,37 @@ M2 ──┬─→ M3 ──→ M8
 - M1 是「点亮」,占完整工作量一小部分;**路线 B 是团队级、季度级工程**(capability ~12 + entrance ~10 + 去 hack + 广度 + 打包 + 测试)。
 - 但**高度可增量、可并行**,每个 capability/entrance 子系统独立可加,有 iOS `.mm` 逐文件参考。
 - 进度在仓内 task 列表跟踪(每阶段一个 task,goal 见上)。
+
+---
+
+## 实测进度(本会话已实现并验证)
+
+> 以下均在 mac 本地 编→跑→截图/注入输入 自验证,已提交本地 arkui-x。
+
+### M2 核心交互 — 大部分完成
+- **鼠标点击** ✅:NSEvent→AcePointerData→ProcessPointerEvent;注入点击 0→3 计数验证。
+- **坐标修复** ✅(根因):`WindowView.isFlipped=YES`,`inView.y` 已是顶部原点,原代码又 `height-y` **双重翻转** → 点击位置上下颠倒 + 拖动方向反。去掉手动翻转后:上部点击选中 Item 2(原 Item 8)、手指上移露出 Item 10-21。
+- **键盘** ✅:macOS 虚拟键码→HID usage 表→ProcessKeyEvent(+修饰键)。
+- **滚轮/触控板** ✅:`scrollWheel:` 合成触摸 pan(含动量);方向正确(用户确认)。
+- **渲染硬化** ✅:RS 连续 vsync→有界预热(240帧)+提交驱动 re-arm;idle CPU 满速→**1.2%**,交互保留。
+- 待续:**IME**(NSTextInputClient,中日韩组合输入)。
+
+### M3 窗口/渲染完备 — 部分(本就接好)
+- **resize→布局重排** ✅:窗口拉到 760×600,百分比布局自适应(`-layout`→notifySurfaceChanged 已接)。
+- **Retina/scale 变化** ✅:`viewDidChangeBackingProperties` 已接。
+- 待续:暗色模式、子窗口(Dialog/Menu/Popup/Toast)、多窗口/多屏。
+
+### M4 核心能力插件 — 起步
+- **DownloadManager** ✅:NSURLSession 实现 mac 版(替 null stub),修 `GetInstance()` null 解引用,下载 API 可用。
+- 待续:**URL Image 端到端渲染**(DownloadManager 之上,image-provider/napi 路径还有更深的崩溃点,需后续);clipboard / font / storage / picker。
+
+### M6 组件广度 — 关键基础打通
+- **systemres 主题资源修复** ✅(高杠杆):restool 编 `resources.index`(含 dark 暗色)装入运行时 → 主题色解析恢复。**修复前所有默认样式组件渲黑(Button 黑框)**,修复后 Button(蓝底白字)、List/ForEach/ListItem/Text 全部正常渲染。脚本:`scripts/build_systemres.sh`。
+- **List 滚动** ✅:触控板/滚轮 + 拖动均可滚,方向正确。
+- 待续:动画/转场、router 多页导航、Dialog/Menu/Popup、更多组件逐项验证。
+
+### 仍未动 / 受外部限制
+- **M5**(Web/Video/XComponent)、**M7**(系统 API/NAPI)、**M8**(无障碍/i18n/安全)、**M10**(去 hack/测试/CI):大量未动。
+- **M9 打包**:`ace build mac` 集成可做;**代码签名 + 公证需 Apple 开发者证书(外部依赖,本环境无法完成)**。
+
+> 结论保持不变:路线 B 全量是团队级/季度级工程。本会话在 M2/M3/M4/M6 的核心上做出了真实可验证的推进。
