@@ -91,3 +91,47 @@ index 95d3729..8e5f67e 100644
      ohos_ets_ui_plugins_deps = "ace_ets2bundle:ohos_ets_ui_plugins"
  }
  
+diff --git a/toolchain/mingw/BUILD.gn b/toolchain/mingw/BUILD.gn
+index 0bad7aa..f84218b 100755
+--- a/toolchain/mingw/BUILD.gn
++++ b/toolchain/mingw/BUILD.gn
+@@ -48,18 +48,30 @@ template("mingw_toolchain") {
+     rust_abi_target = invoker.rust_abi_target
+     if (rust_abi_target == "x86_64-pc-windows-gnullvm") {
+       cc_command_args = "--target=${rust_abi_target} -Clinker=${_mingw_tool_prefix}/x86_64-w64-mingw32-clang -Clink-arg=-Wl,-Bstatic -Clink-arg=-lunwind -Clink-arg=-fuse-ld=lld -Clink-arg=-Wl,-Bstatic -Clink-arg=-lc++ -Clink-arg=-v -Clink-arg=--target=${rust_abi_target}"
++
++      # Linux/Wayland native port: cc_command_args is an invoker var consumed by
++      # the gcc_toolchain template's rust tool defs; on this old prebuilt gn the
++      # mingw_x86_64 instantiation flags it "assignment had no effect" (the rust
++      # tool path isn't reached here). Mark it intentionally maybe-unused.
++      not_needed([ "cc_command_args" ])
+     }
+   }
+ }
+ 
+-mingw_toolchain("mingw_x86_64") {
+-  toolchain_root = "//prebuilts/mingw-w64/ohos/linux-x86_64/clang-mingw"
+-  rust_abi_target = "x86_64-pc-windows-gnullvm"
+-  toolchain_args = {
+-    current_cpu = "x86_64"
+-    current_os = "mingw"
+-    use_custom_libcxx = false
+-    is_clang = true
+-    remote_execution = false
++# Linux/Wayland native port: the arkui-x linux build never cross-compiles to
++# Windows, so don't instantiate the mingw toolchain. On the stale prebuilt gn its
++# (unused) standard toolchain invoker vars trip "assignment had no effect"; a
++# newer gn wouldn't. Keep it for actual windows/mingw targets.
++if (target_os == "windows" || target_os == "mingw" || current_os == "mingw") {
++  mingw_toolchain("mingw_x86_64") {
++    toolchain_root = "//prebuilts/mingw-w64/ohos/linux-x86_64/clang-mingw"
++    rust_abi_target = "x86_64-pc-windows-gnullvm"
++    toolchain_args = {
++      current_cpu = "x86_64"
++      current_os = "mingw"
++      use_custom_libcxx = false
++      is_clang = true
++      remote_execution = false
++    }
+   }
+ }

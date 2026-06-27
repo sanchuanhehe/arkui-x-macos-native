@@ -47,6 +47,8 @@ case "$TARGET" in
       "build_plugins:build_plugins"
       "foundation/arkui/ace_engine:ace_engine"
       "foundation/graphic/graphic_2d:graphic_2d"
+      "base/global/resource_management:resmgr"
+      "base/hiviewdfx/hilog:hilog"
     )
     ;;
   *)

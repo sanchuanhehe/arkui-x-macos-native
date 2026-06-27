@@ -17,3 +17,4 @@ foundation/arkui/napi              261c6a74
 foundation/multimodalinput/input   c82ad85e1
 # c2 内容运行时:
 arkcompiler/ets_runtime           c5f1b0ffd
+base/global/resource_management  7624efe4f6e71ef3502f12c5cbcc71bf949a83e1   # linux-port 基线(is_linux arm64 修复)

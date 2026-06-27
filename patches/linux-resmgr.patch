@@ -1,0 +1,17 @@
+diff --git a/resmgr.gni b/resmgr.gni
+index 2268214..5b79d9b 100644
+--- a/resmgr.gni
++++ b/resmgr.gni
+@@ -15,7 +15,11 @@
+ is_mingw = "${current_os}_${current_cpu}" == "mingw_x86_64"
+ 
+ # source code for linux.
+-is_linux = "${current_os}_${current_cpu}" == "linux_x64"
++# Linux/Wayland native port: include linux_arm64 too, otherwise on a linux-aarch64
++# host this evaluates false while the global BUILDCONFIG.gn is_linux is true
++# (current_os == "linux"), and importing this .gni triggers a gn "Value collision".
++is_linux = "${current_os}_${current_cpu}" == "linux_x64" ||
++           "${current_os}_${current_cpu}" == "linux_arm64"
+ 
+ # source code for mac.
+ is_mac = "${current_os}_${current_cpu}" == "mac_x64" ||

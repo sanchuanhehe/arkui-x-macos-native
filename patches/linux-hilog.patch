@@ -1,0 +1,18 @@
+diff --git a/frameworks/libhilog/BUILD.gn b/frameworks/libhilog/BUILD.gn
+index 00e5006..cffcfea 100644
+--- a/frameworks/libhilog/BUILD.gn
++++ b/frameworks/libhilog/BUILD.gn
+@@ -116,7 +116,12 @@ template("libhilog_source") {
+ 
+     external_deps = [ "bounds_checking_function:libsec_shared" ]
+ 
+-    if (platform != "windows" && platform != "mac" && platform != "linux" && !is_host_product) {
++    # Linux/Wayland native port: arkui-x cross builds don't include the init
++    # component (libbegetutil) nor sandbox_log; skip them for any is_arkui_x build
++    # (the platforms list can include non-linux items that would otherwise pull
++    # the missing init component and fail gn resolution).
++    if (platform != "windows" && platform != "mac" && platform != "linux" &&
++        !is_host_product && !(defined(is_arkui_x) && is_arkui_x)) {
+       external_deps += [ "init:libbegetutil" ]
+       deps = [ "../../interfaces/sandbox_log:libsandboxlog" ]
+     }
