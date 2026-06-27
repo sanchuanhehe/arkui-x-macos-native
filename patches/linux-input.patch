@@ -1100,6 +1100,58 @@ index 8d4bbb4..aa50d31 100755
  
    part_name = "${mmi_part_name}"
    subsystem_name = "${mmi_subsystem_name}"
+diff --git a/interfaces/native/innerkits/event/include/axis_event.h b/interfaces/native/innerkits/event/include/axis_event.h
+index c690496..e17dd3d 100644
+--- a/interfaces/native/innerkits/event/include/axis_event.h
++++ b/interfaces/native/innerkits/event/include/axis_event.h
+@@ -17,6 +17,8 @@
+ #define AXIS_EVENT_H
+ 
+ #include "input_event.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace MMI {
+diff --git a/interfaces/native/innerkits/event/include/input_event.h b/interfaces/native/innerkits/event/include/input_event.h
+index 53ae180..77ec115 100644
+--- a/interfaces/native/innerkits/event/include/input_event.h
++++ b/interfaces/native/innerkits/event/include/input_event.h
+@@ -17,6 +17,8 @@
+ #define INPUT_EVENT_H
+ 
+ #include "parcel.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace MMI {
+diff --git a/interfaces/native/innerkits/event/include/key_event.h b/interfaces/native/innerkits/event/include/key_event.h
+index be61ceb..115c703 100644
+--- a/interfaces/native/innerkits/event/include/key_event.h
++++ b/interfaces/native/innerkits/event/include/key_event.h
+@@ -20,6 +20,8 @@
+ #include "parcel.h"
+ 
+ #include "input_event.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace MMI {
+diff --git a/interfaces/native/innerkits/event/include/pointer_event.h b/interfaces/native/innerkits/event/include/pointer_event.h
+index 8b808e8..f2de756 100644
+--- a/interfaces/native/innerkits/event/include/pointer_event.h
++++ b/interfaces/native/innerkits/event/include/pointer_event.h
+@@ -25,6 +25,8 @@
+ 
+ #include "input_event.h"
+ #include "input_handler_type.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace MMI {
 diff --git a/libudev/BUILD.gn b/libudev/BUILD.gn
 index 16d2d0b..789061a 100644
 --- a/libudev/BUILD.gn

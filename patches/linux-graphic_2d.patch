@@ -73,6 +73,19 @@ index 2d40b52..962bf00 100644
      "hilog:libhilog",
    ]
  
+diff --git a/frameworks/text/adapter/skia/common_utils/string_util.h b/frameworks/text/adapter/skia/common_utils/string_util.h
+index c2d5fb9..c887c47 100644
+--- a/frameworks/text/adapter/skia/common_utils/string_util.h
++++ b/frameworks/text/adapter/skia/common_utils/string_util.h
+@@ -17,6 +17,8 @@
+ #define SPTEXT_STRING_UTIL_H
+ 
+ #include <string>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace Rosen {
 diff --git a/frameworks/text/interface/mlb/napi/BUILD.gn b/frameworks/text/interface/mlb/napi/BUILD.gn
 index f4e9624..901c0d4 100644
 --- a/frameworks/text/interface/mlb/napi/BUILD.gn
@@ -110,6 +123,19 @@ index 9ad6361..fac4ff3 100644
    ]
  
    configs = [ "$rosen_text_root:rosen_text_config" ]
+diff --git a/frameworks/text/service/texgine/src/opentype_parser/opentype_basic_type.h b/frameworks/text/service/texgine/src/opentype_parser/opentype_basic_type.h
+index 4ffcf13..0bfc455 100644
+--- a/frameworks/text/service/texgine/src/opentype_parser/opentype_basic_type.h
++++ b/frameworks/text/service/texgine/src/opentype_parser/opentype_basic_type.h
+@@ -17,6 +17,8 @@
+ #define ROSEN_MODULES_TEXGINE_SRC_OPENTYPE_PARSER_OPENTYPE_BASIC_TYPE_H
+ 
+ #include <string>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace Rosen {
 diff --git a/graphic_config.gni b/graphic_config.gni
 index 18125c6..f739f5f 100644
 --- a/graphic_config.gni
@@ -264,6 +290,32 @@ index 2bf61ba..ad4e6d5 100755
 +    deps += [ "$drawing_root/drawing_ndk:native_drawing_ndk" ]
 +  }
  }
+diff --git a/rosen/modules/2d_graphics/include/recording/cmd_list.h b/rosen/modules/2d_graphics/include/recording/cmd_list.h
+index 914870a..df1197e 100644
+--- a/rosen/modules/2d_graphics/include/recording/cmd_list.h
++++ b/rosen/modules/2d_graphics/include/recording/cmd_list.h
+@@ -137,7 +137,7 @@ public:
+         if (lastOpItemOffset_.has_value()) {
+ #ifdef CROSS_PLATFORM
+             auto* lastOpItem = static_cast<OpItem*>(
+-                opAllocator_.OffsetToAddr(lastOpItemOffset_.__get(), sizeof(OpItem)));
++                opAllocator_.OffsetToAddr(lastOpItemOffset_.value(), sizeof(OpItem)));
+ #else
+             auto* lastOpItem = static_cast<OpItem*>(
+                 opAllocator_.OffsetToAddr(lastOpItemOffset_.value(), sizeof(OpItem)));
+diff --git a/rosen/modules/2d_graphics/include/recording/draw_cmd_list.h b/rosen/modules/2d_graphics/include/recording/draw_cmd_list.h
+index f32200a..d2ace0b 100644
+--- a/rosen/modules/2d_graphics/include/recording/draw_cmd_list.h
++++ b/rosen/modules/2d_graphics/include/recording/draw_cmd_list.h
+@@ -105,7 +105,7 @@ public:
+         if (lastOpItemOffset_.has_value()) {
+ #ifdef CROSS_PLATFORM
+             auto* lastOpItem = static_cast<OpItem*>(
+-                opAllocator_.OffsetToAddr(lastOpItemOffset_.__get(), sizeof(OpItem)));
++                opAllocator_.OffsetToAddr(lastOpItemOffset_.value(), sizeof(OpItem)));
+ #else
+             auto* lastOpItem = static_cast<OpItem*>(
+                 opAllocator_.OffsetToAddr(lastOpItemOffset_.value(), sizeof(OpItem)));
 diff --git a/rosen/modules/animation/window_animation/BUILD.gn b/rosen/modules/animation/window_animation/BUILD.gn
 index 9569744..79c46d2 100644
 --- a/rosen/modules/animation/window_animation/BUILD.gn
@@ -1127,6 +1179,19 @@ index 5cbfcdd..78ee314 100644
    ]
  
    subsystem_name = "graphic"
+diff --git a/rosen/modules/platform/utils/directory_ex.h b/rosen/modules/platform/utils/directory_ex.h
+index ab24b23..0eab431 100644
+--- a/rosen/modules/platform/utils/directory_ex.h
++++ b/rosen/modules/platform/utils/directory_ex.h
+@@ -19,6 +19,8 @@
+ #include <string>
+ #include <vector>
+ #include <sys/stat.h>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ 
 diff --git a/rosen/modules/render_frame_trace/BUILD.gn b/rosen/modules/render_frame_trace/BUILD.gn
 index 82adadf..8067850 100644
 --- a/rosen/modules/render_frame_trace/BUILD.gn
@@ -1262,6 +1327,19 @@ index e0f5123..87324e7 100644
  
  if (rosen_cross_platform) {
    rs_common_define += [
+diff --git a/rosen/modules/render_service_base/include/animation/rs_frame_rate_range.h b/rosen/modules/render_service_base/include/animation/rs_frame_rate_range.h
+index 8349b7c..e27096f 100644
+--- a/rosen/modules/render_service_base/include/animation/rs_frame_rate_range.h
++++ b/rosen/modules/render_service_base/include/animation/rs_frame_rate_range.h
+@@ -17,6 +17,8 @@
+ #define ROSEN_RENDER_SERVICE_BASE_ANIMATION_RS_FRAME_RATE_RANGE_H
+ #include <string>
+ #include <unordered_map>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ #define RANGE_MAX_REFRESHRATE 144
+ 
 diff --git a/rosen/modules/render_service_base/proxy/BUILD.gn b/rosen/modules/render_service_base/proxy/BUILD.gn
 index 73e61cb..0d6e258 100644
 --- a/rosen/modules/render_service_base/proxy/BUILD.gn
@@ -1410,6 +1488,111 @@ index 74df8bc..d64a94d 100644
    } else if (is_arkui_x) {
      public_deps +=
          [ "//foundation/graphic/graphic_surface/surface:surface_headers" ]
+diff --git a/rosen/modules/render_service_client/core/render_thread/jank_detector/rs_jank_detector.h b/rosen/modules/render_service_client/core/render_thread/jank_detector/rs_jank_detector.h
+index 505fea0..5d7b08b 100644
+--- a/rosen/modules/render_service_client/core/render_thread/jank_detector/rs_jank_detector.h
++++ b/rosen/modules/render_service_client/core/render_thread/jank_detector/rs_jank_detector.h
+@@ -1,49 +1,51 @@
+-/*
+- * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-#ifndef RENDER_SERVICE_CLIENT_CORE_RENDER_THREAD_JANK_DETECTOR_RS_JANK_DETECTOR_H
+-#define RENDER_SERVICE_CLIENT_CORE_RENDER_THREAD_JANK_DETECTOR_RS_JANK_DETECTOR_H
+-
+-#include <mutex>
+-#include <vector>
+-
+-namespace OHOS {
+-namespace Rosen {
+-class RSJankDetector final {
+-public:
+-    RSJankDetector() = default;
+-    ~RSJankDetector() {}
+-
+-    uint64_t GetSysTimeNs();
+-    void SetRefreshPeriod(uint64_t refreshPeriod);
+-    uint64_t GetRefreshPeriod() const;
+-    void UpdateUiDrawFrameMsg(uint64_t startTimeStamp, uint64_t endTimeStamp, const std::string& abilityName);
+-    void CalculateSkippedFrame(uint64_t renderStartTimeStamp, uint64_t renderEndTimeStamp);
+-
+-private:
+-    struct UiDrawFrameMsg {
+-        uint64_t startTimeStamp = 0;
+-        uint64_t endTimeStamp = 0;
+-        std::string abilityName;
+-    };
+-
+-    const int JANK_SKIPPED_THRESHOLD = 5;
+-    const uint64_t NO_DRAW_THRESHOLD = 5000000000; // 5s
+-    uint64_t refreshPeriod_ = 16666667;
+-    std::vector<UiDrawFrameMsg> uiDrawFrames_;
+-};
+-} // namespace Rosen
+-} // namespace OHOS
+-
+-#endif // RENDER_SERVICE_CLIENT_CORE_RENDER_THREAD_JANK_DETECTOR_RS_JANK_DETECTOR_H
++/*
++ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#ifndef RENDER_SERVICE_CLIENT_CORE_RENDER_THREAD_JANK_DETECTOR_RS_JANK_DETECTOR_H
++#define RENDER_SERVICE_CLIENT_CORE_RENDER_THREAD_JANK_DETECTOR_RS_JANK_DETECTOR_H
++
++#include <mutex>
++#include <vector>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <string>
++
++namespace OHOS {
++namespace Rosen {
++class RSJankDetector final {
++public:
++    RSJankDetector() = default;
++    ~RSJankDetector() {}
++
++    uint64_t GetSysTimeNs();
++    void SetRefreshPeriod(uint64_t refreshPeriod);
++    uint64_t GetRefreshPeriod() const;
++    void UpdateUiDrawFrameMsg(uint64_t startTimeStamp, uint64_t endTimeStamp, const std::string& abilityName);
++    void CalculateSkippedFrame(uint64_t renderStartTimeStamp, uint64_t renderEndTimeStamp);
++
++private:
++    struct UiDrawFrameMsg {
++        uint64_t startTimeStamp = 0;
++        uint64_t endTimeStamp = 0;
++        std::string abilityName;
++    };
++
++    const int JANK_SKIPPED_THRESHOLD = 5;
++    const uint64_t NO_DRAW_THRESHOLD = 5000000000; // 5s
++    uint64_t refreshPeriod_ = 16666667;
++    std::vector<UiDrawFrameMsg> uiDrawFrames_;
++};
++} // namespace Rosen
++} // namespace OHOS
++
++#endif // RENDER_SERVICE_CLIENT_CORE_RENDER_THREAD_JANK_DETECTOR_RS_JANK_DETECTOR_H
 diff --git a/utils/scoped_bytrace/BUILD.gn b/utils/scoped_bytrace/BUILD.gn
 index f2ceeee..003a6f0 100644
 --- a/utils/scoped_bytrace/BUILD.gn

@@ -36,6 +36,45 @@ index 8094083..b006e81 100644
    ]
  
    if (has_libtiff) {
+diff --git a/frameworks/innerkitsimpl/accessor/include/dng/dng_exif_metadata.h b/frameworks/innerkitsimpl/accessor/include/dng/dng_exif_metadata.h
+index 4d2f6ab..ee9a449 100644
+--- a/frameworks/innerkitsimpl/accessor/include/dng/dng_exif_metadata.h
++++ b/frameworks/innerkitsimpl/accessor/include/dng/dng_exif_metadata.h
+@@ -17,6 +17,8 @@
+ #define FRAMEWORKS_INNERKITSIMPL_ACCESSOR_INCLUDE_DNG_DNG_EXIF_METADATA_H
+ 
+ #include "exif_metadata.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace ImagePlugin {
+diff --git a/frameworks/innerkitsimpl/accessor/include/dng/dng_sdk_info.h b/frameworks/innerkitsimpl/accessor/include/dng/dng_sdk_info.h
+index 4afc891..5cde667 100644
+--- a/frameworks/innerkitsimpl/accessor/include/dng/dng_sdk_info.h
++++ b/frameworks/innerkitsimpl/accessor/include/dng/dng_sdk_info.h
+@@ -24,6 +24,8 @@
+ #include "dng_info.h"
+ #include "dng_tag_codes.h"
+ #include "image_type.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <functional>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/frameworks/innerkitsimpl/converter/include/image_format_convert_utils.h b/frameworks/innerkitsimpl/converter/include/image_format_convert_utils.h
+index 833748f..a874fbf 100644
+--- a/frameworks/innerkitsimpl/converter/include/image_format_convert_utils.h
++++ b/frameworks/innerkitsimpl/converter/include/image_format_convert_utils.h
+@@ -18,6 +18,8 @@
+ 
+ #include <cinttypes>
+ #include <image_type.h>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace Media {
 diff --git a/frameworks/innerkitsimpl/converter/src/post_proc_slr.cpp b/frameworks/innerkitsimpl/converter/src/post_proc_slr.cpp
 index afcfd33..3bdfa6f 100644
 --- a/frameworks/innerkitsimpl/converter/src/post_proc_slr.cpp
@@ -454,11 +493,76 @@ index e7efb34..e445945 100644
 +} // namespace OHOS
  #endif // FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_COLOR_UTILS_H
 \ No newline at end of file
+diff --git a/frameworks/innerkitsimpl/utils/include/image_data_statistics.h b/frameworks/innerkitsimpl/utils/include/image_data_statistics.h
+index dacfd63..1c3e00c 100644
+--- a/frameworks/innerkitsimpl/utils/include/image_data_statistics.h
++++ b/frameworks/innerkitsimpl/utils/include/image_data_statistics.h
+@@ -17,6 +17,8 @@
+ #define FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_IMAGE_DATA_TRACE_H
+ 
+ #include <string>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/frameworks/innerkitsimpl/utils/include/image_dfx.h b/frameworks/innerkitsimpl/utils/include/image_dfx.h
+index c653b5e..30bd2fb 100644
+--- a/frameworks/innerkitsimpl/utils/include/image_dfx.h
++++ b/frameworks/innerkitsimpl/utils/include/image_dfx.h
+@@ -17,6 +17,8 @@
+ #define FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_IMAGE_DFX_H
+ 
+ #include <string>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/frameworks/innerkitsimpl/utils/include/image_func_timer.h b/frameworks/innerkitsimpl/utils/include/image_func_timer.h
+index 4687505..53955dd 100644
+--- a/frameworks/innerkitsimpl/utils/include/image_func_timer.h
++++ b/frameworks/innerkitsimpl/utils/include/image_func_timer.h
+@@ -17,6 +17,8 @@
+ #define FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_IMAGE_FUNC_TIMER_H
+ 
+ #include <string>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/frameworks/innerkitsimpl/utils/include/image_utils.h b/frameworks/innerkitsimpl/utils/include/image_utils.h
+index 592b035..7840d3e 100644
+--- a/frameworks/innerkitsimpl/utils/include/image_utils.h
++++ b/frameworks/innerkitsimpl/utils/include/image_utils.h
+@@ -24,6 +24,8 @@
+ #include "iosfwd"
+ #if !defined(CROSS_PLATFORM)
+ #include <refbase.h>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ #endif
+ 
+ namespace OHOS { namespace MultimediaPlugin { class PluginServer; } }
+diff --git a/frameworks/innerkitsimpl/utils/include/pixel_yuv_utils.h b/frameworks/innerkitsimpl/utils/include/pixel_yuv_utils.h
+index 48d086a..94aba38 100644
+--- a/frameworks/innerkitsimpl/utils/include/pixel_yuv_utils.h
++++ b/frameworks/innerkitsimpl/utils/include/pixel_yuv_utils.h
+@@ -33,6 +33,8 @@ extern "C" {
+ #include "libavutil/imgutils.h"
+ #include "libavutil/pixfmt.h"
+ #include "libswscale/swscale.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ #ifdef __cplusplus
+ }
+ #endif
 diff --git a/frameworks/innerkitsimpl/utils/include/vpe_utils.h b/frameworks/innerkitsimpl/utils/include/vpe_utils.h
-index 28904e3..07444b3 100644
+index 28904e3..a09210a 100644
 --- a/frameworks/innerkitsimpl/utils/include/vpe_utils.h
 +++ b/frameworks/innerkitsimpl/utils/include/vpe_utils.h
-@@ -1,133 +1,133 @@
+@@ -1,133 +1,135 @@
 -/*
 - * Copyright (C) 2024 Huawei Device Co., Ltd.
 - * Licensed under the Apache License, Version 2.0 (the "License");
@@ -621,6 +725,8 @@ index 28904e3..07444b3 100644
 +#endif
 +
 +#include "hdr_type.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
 +
 +namespace OHOS {
 +namespace Media {
@@ -1024,6 +1130,71 @@ index b6ee377..c96fbda 100644
          "hilog:libhilog",
          "libpng:libpng",
          "napi:ace_napi",
+diff --git a/interfaces/innerkits/include/blob_metadata.h b/interfaces/innerkits/include/blob_metadata.h
+index 1578755..cd27b17 100644
+--- a/interfaces/innerkits/include/blob_metadata.h
++++ b/interfaces/innerkits/include/blob_metadata.h
+@@ -19,6 +19,8 @@
+ #include <atomic>
+ #include "image_type.h"
+ #include "metadata.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/interfaces/innerkits/include/exif_metadata.h b/interfaces/innerkits/include/exif_metadata.h
+index 66e8fba..3420b9d 100644
+--- a/interfaces/innerkits/include/exif_metadata.h
++++ b/interfaces/innerkits/include/exif_metadata.h
+@@ -24,6 +24,8 @@
+ #include "image_type.h"
+ #include "metadata.h"
+ #include "parcel.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/interfaces/innerkits/include/image_type.h b/interfaces/innerkits/include/image_type.h
+index 7f08f7c..de41bac 100644
+--- a/interfaces/innerkits/include/image_type.h
++++ b/interfaces/innerkits/include/image_type.h
+@@ -23,6 +23,8 @@
+ #include <sstream>
+ #include <vector>
+ #include "color_space.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/interfaces/innerkits/include/kv_metadata.h b/interfaces/innerkits/include/kv_metadata.h
+index 902e38a..9d55227 100644
+--- a/interfaces/innerkits/include/kv_metadata.h
++++ b/interfaces/innerkits/include/kv_metadata.h
+@@ -20,6 +20,8 @@
+ #include <mutex>
+ #include "image_type.h"
+ #include "metadata.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace Media {
+diff --git a/interfaces/innerkits/include/metadata.h b/interfaces/innerkits/include/metadata.h
+index 58cef74..e08c762 100644
+--- a/interfaces/innerkits/include/metadata.h
++++ b/interfaces/innerkits/include/metadata.h
+@@ -19,6 +19,8 @@
+ #include <string>
+ #include "parcel.h"
+ #include "image_type.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ namespace Media {
 diff --git a/interfaces/innerkits/include/pixel_map.h b/interfaces/innerkits/include/pixel_map.h
 index a0107ea..5856815 100644
 --- a/interfaces/innerkits/include/pixel_map.h
@@ -1325,6 +1496,32 @@ index 89376c5..89b8abe 100644
      "hilog:libhilog",
    ]
  
+diff --git a/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_constant.h b/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_constant.h
+index bc1c263..04d157d 100644
+--- a/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_constant.h
++++ b/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_constant.h
+@@ -15,6 +15,8 @@
+ 
+ #ifndef PLUGINS_COMMON_LIBS_IMAGE_LIBEXTPLUGIN_INCLUDE_HEIF_PARSER_HEIF_CONSTANT_H
+ #define PLUGINS_COMMON_LIBS_IMAGE_LIBEXTPLUGIN_INCLUDE_HEIF_PARSER_HEIF_CONSTANT_H
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace ImagePlugin {
+diff --git a/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_utils.h b/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_utils.h
+index aafd420..4271243 100644
+--- a/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_utils.h
++++ b/plugins/common/libs/image/libextplugin/include/heif_impl/heif_parser/heif_utils.h
+@@ -18,6 +18,8 @@
+ 
+ #include <string>
+ #include "heif_constant.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace ImagePlugin {
 diff --git a/plugins/common/libs/image/librawplugin/BUILD.gn b/plugins/common/libs/image/librawplugin/BUILD.gn
 index 6ba3fd8..a4566f8 100644
 --- a/plugins/common/libs/image/librawplugin/BUILD.gn
@@ -1343,6 +1540,45 @@ index 6ba3fd8..a4566f8 100644
      ]
    }
    if (image_use_new_skia) {
+diff --git a/plugins/manager/include/attr_data.h b/plugins/manager/include/attr_data.h
+index 90a85bf..2b2b0d7 100644
+--- a/plugins/manager/include/attr_data.h
++++ b/plugins/manager/include/attr_data.h
+@@ -19,6 +19,8 @@
+ #include <set>
+ #include <string>
+ #include "plugin_errors.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace MultimediaPlugin {
+diff --git a/plugins/manager/include/plugin_class_base.h b/plugins/manager/include/plugin_class_base.h
+index 2c83d38..a339761 100644
+--- a/plugins/manager/include/plugin_class_base.h
++++ b/plugins/manager/include/plugin_class_base.h
+@@ -17,6 +17,8 @@
+ #define PLUGIN_CLASS_BASE_H
+ 
+ #include <string>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace MultimediaPlugin {
+diff --git a/plugins/manager/include/plugin_errors.h b/plugins/manager/include/plugin_errors.h
+index e82be27..f7402c3 100644
+--- a/plugins/manager/include/plugin_errors.h
++++ b/plugins/manager/include/plugin_errors.h
+@@ -18,6 +18,8 @@
+ 
+ #include "errors.h"
+ #include "modules.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace MultimediaPlugin {
 diff --git a/test/resource/image/images/test_rfdatab_depthen.jpg b/test/resource/image/images/test_rfdatab_depthen.jpg
 index 73c072c..7459e3f 100644
 Binary files a/test/resource/image/images/test_rfdatab_depthen.jpg and b/test/resource/image/images/test_rfdatab_depthen.jpg differ

@@ -168,6 +168,32 @@ index 78d9304..4d392dc 100644
  #ifdef UTILS_CXX_RUST
  #include <memory>
  #endif
+diff --git a/base/include/directory_ex.h b/base/include/directory_ex.h
+index c71a5e7..017526d 100644
+--- a/base/include/directory_ex.h
++++ b/base/include/directory_ex.h
+@@ -21,6 +21,8 @@
+ #include <sys/stat.h>
+ #ifdef UTILS_CXX_RUST
+ #include "cxx.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ #endif
+ 
+ namespace OHOS {
+diff --git a/base/src/unicode_ex.cpp b/base/src/unicode_ex.cpp
+index 3908eab..00e29c4 100644
+--- a/base/src/unicode_ex.cpp
++++ b/base/src/unicode_ex.cpp
+@@ -17,6 +17,8 @@
+ 
+ #include "utils_log.h"
+ #include <climits>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ using namespace std;
+ /***************************************UTF8 and UTF16 unicode**********************************************
+ UTF8
 diff --git a/base/test/unittest/rust/BUILD.gn b/base/test/unittest/rust/BUILD.gn
 index 8865d0f..f9417c0 100644
 --- a/base/test/unittest/rust/BUILD.gn

@@ -122,6 +122,58 @@ index eb25f004..65cfd67c 100644
      config = {
        import("config_linux.gni")
      }
+diff --git a/frameworks/base/log/ace_scoring_log.h b/frameworks/base/log/ace_scoring_log.h
+index d0a4c8ed..3f64c56e 100644
+--- a/frameworks/base/log/ace_scoring_log.h
++++ b/frameworks/base/log/ace_scoring_log.h
+@@ -20,6 +20,8 @@
+ 
+ #include "base/utils/macros.h"
+ #include "base/utils/noncopyable.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ #define ACE_SCORING_EVENT(event) AceScoringLog AceScoringLog(event)
+ #define ACE_SCORING_COMPONENT(page, component, proc) AceScoringLog AceScoringLog(page, component, proc)
+diff --git a/frameworks/base/log/jank_frame_report.h b/frameworks/base/log/jank_frame_report.h
+index 9094c72b..17f8760f 100644
+--- a/frameworks/base/log/jank_frame_report.h
++++ b/frameworks/base/log/jank_frame_report.h
+@@ -20,6 +20,8 @@
+ 
+ #include <string>
+ #include <vector>
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS::Ace {
+ using JankFrameFlag = uint32_t;
+diff --git a/frameworks/base/utils/feature_param.h b/frameworks/base/utils/feature_param.h
+index 247a32c2..6f278721 100644
+--- a/frameworks/base/utils/feature_param.h
++++ b/frameworks/base/utils/feature_param.h
+@@ -19,6 +19,8 @@
+ #include <string>
+ 
+ #include "ui/base/macros.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS::Ace {
+ class ACE_FORCE_EXPORT FeatureParam {
+diff --git a/frameworks/bridge/common/utils/module_buffer_reader.h b/frameworks/bridge/common/utils/module_buffer_reader.h
+index cdd61e65..29f0f02c 100644
+--- a/frameworks/bridge/common/utils/module_buffer_reader.h
++++ b/frameworks/bridge/common/utils/module_buffer_reader.h
+@@ -20,6 +20,8 @@
+ #include <string>
+ 
+ #include "base/utils/singleton.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS::Ace::Framework {
+ 
 diff --git a/frameworks/bridge/declarative_frontend/BUILD.gn b/frameworks/bridge/declarative_frontend/BUILD.gn
 index a9ff3c0d..58f91e75 100644
 --- a/frameworks/bridge/declarative_frontend/BUILD.gn
@@ -257,6 +309,19 @@ index 11da427d..61bbedd0 100644
      }
    }
  }
+diff --git a/frameworks/core/common/multi_thread_build_manager.h b/frameworks/core/common/multi_thread_build_manager.h
+index 29c1924a..9642cb21 100644
+--- a/frameworks/core/common/multi_thread_build_manager.h
++++ b/frameworks/core/common/multi_thread_build_manager.h
+@@ -22,6 +22,8 @@
+ 
+ #include "base/utils/macros.h"
+ #include "base/utils/noncopyable.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <string>
+ 
+ namespace OHOS::Ace {
+ namespace NG {
 diff --git a/frameworks/core/components/text_overlay/BUILD.gn b/frameworks/core/components/text_overlay/BUILD.gn
 index b5e9bccc..95f36b44 100755
 --- a/frameworks/core/components/text_overlay/BUILD.gn
@@ -273,6 +338,45 @@ index b5e9bccc..95f36b44 100755
 +    # [linux-port auto-gate] "window_manager:libwm",
    ]
  }
+diff --git a/interfaces/inner_api/ace/ace_forward_compatibility.h b/interfaces/inner_api/ace/ace_forward_compatibility.h
+index 19197c09..259b06ec 100644
+--- a/interfaces/inner_api/ace/ace_forward_compatibility.h
++++ b/interfaces/inner_api/ace/ace_forward_compatibility.h
+@@ -18,6 +18,8 @@
+ 
+ #include <string>
+ #include "macros.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS {
+ namespace Ace {
+diff --git a/interfaces/inner_api/ace_kit/include/ui/base/inspector_filter.h b/interfaces/inner_api/ace_kit/include/ui/base/inspector_filter.h
+index c7e1563f..cea0c86e 100644
+--- a/interfaces/inner_api/ace_kit/include/ui/base/inspector_filter.h
++++ b/interfaces/inner_api/ace_kit/include/ui/base/inspector_filter.h
+@@ -22,6 +22,8 @@
+ #include <vector>
+ 
+ #include "ui/base/macros.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS::Ace::NG {
+ namespace TreeKey {
+diff --git a/interfaces/inner_api/ace_kit/include/ui/base/type_info_base.h b/interfaces/inner_api/ace_kit/include/ui/base/type_info_base.h
+index 89b14def..def03a6c 100644
+--- a/interfaces/inner_api/ace_kit/include/ui/base/type_info_base.h
++++ b/interfaces/inner_api/ace_kit/include/ui/base/type_info_base.h
+@@ -20,6 +20,8 @@
+ #include <type_traits>
+ 
+ #include "ui/base/memory_monitor_def.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ // Generate 'TypeInfo' for each classes.
+ // And using hash code of its name for 'TypeId'.
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 index e58f8e0b..160636e6 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
@@ -308,3 +412,16 @@ index e58f8e0b..160636e6 100644
      if (ace_enable_gpu) {
        defines += [ "RS_ENABLE_GPU" ]
      }
+diff --git a/test/mock/ohos_mock/ipc_single/message_parcel.h b/test/mock/ohos_mock/ipc_single/message_parcel.h
+index 28d43f09..f0abbe30 100644
+--- a/test/mock/ohos_mock/ipc_single/message_parcel.h
++++ b/test/mock/ohos_mock/ipc_single/message_parcel.h
+@@ -23,6 +23,8 @@
+ #include "iremote_object.h"
+ #include "parcel.h"
+ #include "refbase.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <memory>
+ 
+ namespace OHOS {
+ class MessageParcel : public Parcel {
