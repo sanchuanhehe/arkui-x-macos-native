@@ -335,6 +335,19 @@ index a1d3b4e9..331217a4 100644
          auto& eventList = pageEvent_[containerId];
          eventList.emplace_back(std::make_tuple(pageId, event, now));
  
+diff --git a/frameworks/core/common/ime/text_input_formatter.h b/frameworks/core/common/ime/text_input_formatter.h
+index 859875c2..92df9f1f 100644
+--- a/frameworks/core/common/ime/text_input_formatter.h
++++ b/frameworks/core/common/ime/text_input_formatter.h
+@@ -18,6 +18,8 @@
+ 
+ #include <regex>
+ #include "base/utils/macros.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
+ 
+ namespace OHOS::Ace {
+ 
 diff --git a/frameworks/core/common/multi_thread_build_manager.h b/frameworks/core/common/multi_thread_build_manager.h
 index 29c1924a..9642cb21 100644
 --- a/frameworks/core/common/multi_thread_build_manager.h
@@ -473,7 +486,7 @@ index 89b14def..def03a6c 100644
  // Generate 'TypeInfo' for each classes.
  // And using hash code of its name for 'TypeId'.
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
-index e58f8e0b..160636e6 100644
+index e58f8e0b..9c10cf95 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
 +++ b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 @@ -14,6 +14,10 @@
@@ -487,22 +500,19 @@ index e58f8e0b..160636e6 100644
  config("drawable_config") {
    visibility = [ ":*" ]
    include_dirs = [
-@@ -64,6 +68,19 @@ if (is_arkui_x) {
+@@ -64,6 +68,16 @@ if (is_arkui_x) {
      if (use_clang_ios) {
        defines = image_decode_ios_defines
      }
 +    if (current_os == "linux") {
-+      # Linux/Wayland native port: defines was only initialized for android/ios,
-+      # so the subsequent `defines +=` (ace_enable_gpu / upgrade_skia) hit an
-+      # undefined identifier on the desktop client. Initialize it here.
-+      defines = []
-+      # No foundation/communication/ipc repo on linux: pixel_map.h ->
-+      # pixel_map_parcel.h -> "message_parcel.h" is unresolved. Add the
-+      # cross-platform mock. Appended after drawable_native_include (which lists
-+      # c_utils) so the real parcel.h wins; only message_parcel.h is from the mock.
-+      include_dirs += [
-+        "//foundation/multimedia/image_framework/mock/native/include",
-+      ]
++      # Linux/Wayland native port: mirror android/ios (ANDROID_PLATFORM/IOS_PLATFORM)
++      # with the generic CROSS_PLATFORM marker. pixel_map.h then skips
++      # pixel_map_parcel.h -> "message_parcel.h" (no foundation/communication/ipc on
++      # linux), so the image mock's parcel.h/nocopyable.h are never pulled in and no
++      # longer collide with c_utils' real parcel.h/nocopyable.h (redefinition of
++      # NoCopyable/Parcelable). Also initializes `defines` (previously only set for
++      # android/ios) for the later `defines +=` (ace_enable_gpu / upgrade_skia).
++      defines = [ "CROSS_PLATFORM" ]
 +    }
      if (ace_enable_gpu) {
        defines += [ "RS_ENABLE_GPU" ]
