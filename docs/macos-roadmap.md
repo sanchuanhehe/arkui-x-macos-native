@@ -114,7 +114,10 @@
 - **ODR**:`i18n`/`intl` 各 fork 一份 `OHOS::Global::I18n::LocaleConfig`(static 成员 `I18N*` vs `INTL*`)——iOS 各自 dylib 隔离,mac 静态链进单 exe 触发 37 dup;解法 intl 复用 i18n 的核心 + i18n 补 intl 特有的 3 个方法(`locale_config_intl_ext.cpp`)。
 - **ICU data**:build 链 ICU stubdata(空 `U_ICUDATA_ENTRY_POINT`)→ 所有 format 返回空;mac 改为运行时 mmap 真实 31MB `icudt74l.dat`(`package_app.sh` 打包进 `Resources/icu/`)喂 `udata_setCommonDataAfterClean`。
 - **关键教训**:dylib + flat-namespace 路线行不通——阻止 dead-strip,强制解析 123 个死引用符号;静态链接 + dead-strip 才是 mac 正道。
-- **余下**:accessibility(NSAccessibility)/ Keychain。
+
+**无障碍(2026-06-28)** ✅:`mac_accessibility_bridge.{h,mm}` 把引擎 `NG::FrameNode` a11y 树(经 `AceEngine` container → `NG::PipelineContext::GetRootElement`)抽成扁平节点(role/label/value/frame/checkable);`WindowView` 实现 `NSAccessibility` 协议——作为容器,`accessibilityChildren` 把树镜像成 `NSAccessibilityElement`,ArkUI tag 映射 AppKit role(Text→StaticText / Button→Button / TextInput→TextField / Toggle→CheckBox),引擎 window-px 矩形转屏幕坐标。`StageViewController` 把 instanceId 传给 WindowView。实证:Text 页暴露 12 节点,label('i18n: OK'/'language=zh-Hans-CN'...)+ 几何正确,VoiceOver/Accessibility Inspector 可读。
+
+**M8 余下**:Keychain 安全存储、UDMF 拖拽数据。
 
 ## M9 · 打包与分发
 **Goal**:一键产出可分发签名 `.app`。
