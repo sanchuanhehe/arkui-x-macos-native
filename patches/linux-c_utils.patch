@@ -186,15 +186,21 @@ index c71a5e7..015c064 100644
  
  namespace OHOS {
 diff --git a/base/include/flat_obj.h b/base/include/flat_obj.h
-index 87596b4..2f2e458 100644
+index 87596b4..7e1928f 100644
 --- a/base/include/flat_obj.h
 +++ b/base/include/flat_obj.h
-@@ -26,7 +26,7 @@
+@@ -26,7 +26,13 @@
  
  #include <sys/types.h>
  
 -#if !defined(IOS_PLATFORM) && !defined(WINDOWS_PLATFORM) && !defined(MAC_PLATFORM)
-+#if defined(LINUX_PLATFORM) || (!defined(IOS_PLATFORM) && !defined(WINDOWS_PLATFORM) && !defined(MAC_PLATFORM))
++// Linux/Wayland native port: on a real linux host, <linux/types.h> already defines
++// __u32/__u64 (as unsigned long long); the arkui-x linux image targets also define
++// IOS_PLATFORM to select the lean image branch, which would otherwise take the
++// fallback typedefs below and clash with the system header. Detect the host via the
++// compiler-defined __linux__ so we always use the system types there.
++#if defined(LINUX_PLATFORM) || defined(__linux__) || \
++    (!defined(IOS_PLATFORM) && !defined(WINDOWS_PLATFORM) && !defined(MAC_PLATFORM))
  #include <linux/types.h>
  #else
      typedef uint32_t __u32;

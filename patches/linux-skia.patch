@@ -1,3 +1,19 @@
+diff --git a/m133/BUILD.gn b/m133/BUILD.gn
+index 42afa0a8..78973a1e 100644
+--- a/m133/BUILD.gn
++++ b/m133/BUILD.gn
+@@ -665,6 +665,11 @@ optional("fontmgr_custom_directory_factory") {
+     defines = [ "SK_BUILD_FONT_MGR_FOR_PREVIEW_LINUX" ]
+   }
+   if (is_arkui_x) {
++    # TODO(linux Stage C): the linux desktop client needs SkFontMgr::Factory().
++    # Re-enabling custom_directory_factory here duplicates SkFontMgr::runtimeOS /
++    # containerFontPath (also emitted by SkFontMgr_config_parser). The proper fix is
++    # to pair a single OHOS/fontconfig factory with config_parser — handled in the
++    # render/font-backend stage, not the compile gate.
+     sources -= [ "src/ports/SkFontMgr_custom_directory_factory.cpp" ]
+   }
+ }
 diff --git a/m133/gn/skia.gni b/m133/gn/skia.gni
 index 2f1df1bc..f1b484c8 100644
 --- a/m133/gn/skia.gni
@@ -22,3 +38,16 @@ index 2f1df1bc..f1b484c8 100644
        skia_use_vulkan = true
        skia_vk_enable_partialrender = true
      }
+diff --git a/m133/src/gpu/ganesh/GrPerfMonitorReporter.h b/m133/src/gpu/ganesh/GrPerfMonitorReporter.h
+index 1beb1939..45b4cfc7 100644
+--- a/m133/src/gpu/ganesh/GrPerfMonitorReporter.h
++++ b/m133/src/gpu/ganesh/GrPerfMonitorReporter.h
+@@ -23,6 +23,8 @@
+ #include <mutex>
+ 
+ #include "include/private/base/SkNoncopyable.h"
++// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <string>
+ 
+ enum COUNTER_TYPE {
+     COUNTER_INVALID_TYPE= -1,

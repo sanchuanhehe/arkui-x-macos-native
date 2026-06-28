@@ -100,7 +100,7 @@ index afcfd33..3bdfa6f 100644
      const int maxThread = 16; // 16 max thread size
      int m = dst.size_.height;
 diff --git a/frameworks/innerkitsimpl/egl_image/BUILD.gn b/frameworks/innerkitsimpl/egl_image/BUILD.gn
-index 1298e9f..2bd8c33 100644
+index 1298e9f..433dfa1 100644
 --- a/frameworks/innerkitsimpl/egl_image/BUILD.gn
 +++ b/frameworks/innerkitsimpl/egl_image/BUILD.gn
 @@ -51,11 +51,11 @@ ohos_shared_library("egl_image") {
@@ -119,7 +119,20 @@ index 1298e9f..2bd8c33 100644
      "skia:skia_canvaskit",
      "egl:libEGL",
      "opengles:libGLES",
-@@ -80,7 +80,25 @@ if (!use_clang_ios && !use_clang_android) {
+@@ -67,7 +67,11 @@ ohos_shared_library("egl_image") {
+   part_name = "image_framework"
+ }
+ 
+-if (!use_clang_ios && !use_clang_android) {
++# Linux/Wayland native port: post_proc_gl (egl GPU post-process) is not built on
++# iOS/android; it pulls graphic_surface external_window.h ("Region" typedef clash)
++# and is unused on the desktop render path. Exclude it on linux too (its only
++# product consumer, image_native, drops the dep for linux).
++if (!use_clang_ios && !use_clang_android && current_os != "linux") {
+   ohos_shared_library("post_proc_gl") {
+     sanitize = {
+       cfi = true
+@@ -80,7 +84,25 @@ if (!use_clang_ios && !use_clang_android) {
        "../../../interfaces/innerkits/include",
        "../../../interfaces/utils/include",
        "../utils/include",
@@ -145,7 +158,7 @@ index 1298e9f..2bd8c33 100644
      sources = [
        "../utils/src/image_trace.cpp",
        "src/pixel_map_gl_context.cpp",
-@@ -92,15 +110,15 @@ if (!use_clang_ios && !use_clang_android) {
+@@ -92,15 +114,15 @@ if (!use_clang_ios && !use_clang_android) {
        defines = [ "USE_M133_SKIA" ]
      }
      external_deps = [
@@ -224,7 +237,7 @@ index 42ee826..c25ca90 100644
      }
      if (!useMmap_) {
 diff --git a/frameworks/innerkitsimpl/utils/BUILD.gn b/frameworks/innerkitsimpl/utils/BUILD.gn
-index 71a4a0a..b6e682c 100644
+index 71a4a0a..056c15d 100644
 --- a/frameworks/innerkitsimpl/utils/BUILD.gn
 +++ b/frameworks/innerkitsimpl/utils/BUILD.gn
 @@ -21,7 +21,6 @@ if (use_clang_ios) {
@@ -271,7 +284,7 @@ index 71a4a0a..b6e682c 100644
      } else if (use_clang_android) {
        defines = image_decode_android_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -132,10 +131,32 @@ if (use_clang_ios) {
+@@ -132,10 +131,45 @@ if (use_clang_ios) {
        ]
        sources += [ "src/image_dfx.cpp" ]
        sources += [ "src/image_data_statistics.cpp" ]
@@ -291,8 +304,21 @@ index 71a4a0a..b6e682c 100644
 +        # compiled out (no arkui-x linux equivalent). The mock log dir supplies the
 +        # lean hitrace_meter.h (real hitrace:hitrace_meter dep gated out for linux).
 +        defines += [ "CROSS_PLATFORM" ]
++
++        # Linux/Wayland native port: mirror the mac image port (image_decode_mac_defines
++        # adds IOS_PLATFORM) so the OHOS-only source guards in vpe_utils.cpp /
++        # pixel_yuv_utils.cpp / memory_manager.cpp / color_utils.cpp
++        # (#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) ...) take the lean
++        # cross-platform branch and stop pulling HDI "v1_0/*" and graphic_surface
++        # "graphic_common.h". The shared headers already gate on CROSS_PLATFORM, so this
++        # only changes this target's .cpp branch selection; no Apple-only code exists
++        # under these guards.
++        defines += [ "IOS_PLATFORM" ]
 +        include_dirs += [
-+          "//foundation/multimedia/image_framework/mock/native/include",
++          # Do NOT add the full mock/native/include here: its parcel.h / nocopyable.h
++          # collide with the real c_utils headers (c_utils:utils external_dep) ->
++          # "redefinition of 'Parcel'/'Parcelable'/'NoCopyable'" (image_utils.o,
++          # hispeed_image_manager.o via pixel_map.h). Only the lean log subdir is safe.
 +          "//foundation/multimedia/image_framework/mock/native/include/log",
 +          "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
 +          # [linux-port] surface.h pulls ipc (iremote_broker.h) + buffer_handle_utils.h;
@@ -305,7 +331,7 @@ index 71a4a0a..b6e682c 100644
        deps = [
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
        ]
-@@ -148,22 +169,22 @@ if (use_clang_ios) {
+@@ -148,22 +182,22 @@ if (use_clang_ios) {
          "src/hispeed_image_manager.cpp",
        ]
        external_deps += [
@@ -340,7 +366,7 @@ index 71a4a0a..b6e682c 100644
          "json:nlohmann_json_static",
        ]
        if (defined(global_parts_info) &&
-@@ -175,7 +196,7 @@ if (use_clang_ios) {
+@@ -175,7 +209,7 @@ if (use_clang_ios) {
        }
  
        if (is_standard_system) {
@@ -349,7 +375,7 @@ index 71a4a0a..b6e682c 100644
        } else {
          external_deps += [ "startup:syspara" ]
        }
-@@ -235,7 +256,7 @@ ohos_static_library("image_utils_static") {
+@@ -235,7 +269,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/mock/native:log_mock_static",
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
      ]
@@ -358,7 +384,7 @@ index 71a4a0a..b6e682c 100644
    } else if (use_clang_mac) {
      defines = image_decode_mac_defines
      include_dirs += [ "//third_party/ffmpeg" ]
-@@ -248,7 +269,7 @@ ohos_static_library("image_utils_static") {
+@@ -248,7 +282,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        "//third_party/bounds_checking_function:libsec_static",
      ]
@@ -367,7 +393,7 @@ index 71a4a0a..b6e682c 100644
    } else if (use_clang_ios) {
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -270,7 +291,7 @@ ohos_static_library("image_utils_static") {
+@@ -270,7 +304,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -376,7 +402,7 @@ index 71a4a0a..b6e682c 100644
    } else if (use_clang_android) {
      defines = image_decode_android_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -292,7 +313,7 @@ ohos_static_library("image_utils_static") {
+@@ -292,7 +326,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -385,7 +411,7 @@ index 71a4a0a..b6e682c 100644
    } else {
      sources += [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
      sources += [
-@@ -308,18 +329,18 @@ ohos_static_library("image_utils_static") {
+@@ -308,18 +342,18 @@ ohos_static_library("image_utils_static") {
  
      external_deps = [
        "c_utils:utils",
@@ -595,10 +621,10 @@ index 48d086a..94aba38 100644
  }
  #endif
 diff --git a/frameworks/innerkitsimpl/utils/include/vpe_utils.h b/frameworks/innerkitsimpl/utils/include/vpe_utils.h
-index 28904e3..a09210a 100644
+index 28904e3..4d0992d 100644
 --- a/frameworks/innerkitsimpl/utils/include/vpe_utils.h
 +++ b/frameworks/innerkitsimpl/utils/include/vpe_utils.h
-@@ -1,133 +1,135 @@
+@@ -1,133 +1,136 @@
 -/*
 - * Copyright (C) 2024 Huawei Device Co., Ltd.
 - * Licensed under the Apache License, Version 2.0 (the "License");
@@ -762,6 +788,7 @@ index 28904e3..a09210a 100644
 +
 +#include "hdr_type.h"
 +// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <functional>
 +#include <memory>
 +
 +namespace OHOS {
@@ -867,6 +894,1491 @@ index 28904e3..a09210a 100644
 +
  #endif // FRAMEWORKS_INNERKITSIMPL_UTILS_INCLUDE_VPE_UTILS_H
 \ No newline at end of file
+diff --git a/frameworks/innerkitsimpl/utils/src/color_utils.cpp b/frameworks/innerkitsimpl/utils/src/color_utils.cpp
+index b21c4b2..95333dc 100644
+--- a/frameworks/innerkitsimpl/utils/src/color_utils.cpp
++++ b/frameworks/innerkitsimpl/utils/src/color_utils.cpp
+@@ -1,740 +1,740 @@
+-/*
+- * Copyright (C) 2024 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-#include "color_utils.h"
+-#include "image_log.h"
+-#include "image_utils.h"
+-
+-#if !defined(CROSS_PLATFORM)
+-using namespace OHOS::HDI::Display::Graphic::Common::V1_0;
+-#endif
+-
+-namespace OHOS {
+-namespace Media {
+-enum CicpColorPrimaries {
+-    CICP_COLORPRIMARIES_UNKNOWN = 0,
+-    CICP_COLORPRIMARIES_SRGB = 1,
+-    CICP_COLORPRIMARIES_BT601_P = 5,
+-    CICP_COLORPRIMARIES_BT601_N = 6,
+-    CICP_COLORPRIMARIES_BT2020 = 9,
+-    CICP_COLORPRIMARIES_BT2100 = 9,
+-    CICP_COLORPRIMARIES_P3_DCI = 11,
+-    CICP_COLORPRIMARIES_P3_D65 = 12,
+-};
+-
+-enum CicpTransfer {
+-    CICP_TRANSFER_UNKNOWN = 2,
+-    CICP_TRANSFER_BT709_1 = 1,
+-    CICP_TRANSFER_BT709_6 = 6,
+-    CICP_TRANSFER_BT709_14 = 14,
+-    CICP_TRANSFER_BT709_15 = 15,
+-    CICP_TRANSFER_SRGB = 13,
+-    CICP_TRANSFER_LINEAR = 8,
+-    CICP_TRANSFER_PQ = 16,
+-    CICP_TRANSFER_HLG = 18,
+-};
+-
+-enum CicpFullRangeFLag {
+-    CICP_FULL_RANGE_UNKNOWN = 2,
+-    CICP_FULL_RANGE_FULL = 1,
+-    CICP_FULL_RANGE_LIMIT = 0,
+-};
+-
+-enum CicpMatrix {
+-    CICP_MATRIX_BT709 = 1,
+-    CICP_MATRIX_BT601_P = 5,
+-    CICP_MATRIX_BT601_N = 6,
+-    CICP_MATRIX_P3 = 6,
+-    CICP_MATRIX_BT2020 = 9,
+-    CICP_MATRIX_BT2100_ICTCP = 14,
+-};
+-
+-#if !defined(CROSS_PLATFORM)
+-std::map<ColorManager::ColorSpaceName, CM_ColorSpaceInfo> ColorUtils::COLORSPACE_NAME_TO_COLORINFO_MAP = {
+-    { ColorManager::BT601_EBU,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_P, TRANSFUNC_BT709, MATRIX_BT601_P, RANGE_FULL} },
+-    { ColorManager::BT601_SMPTE_C,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_N, TRANSFUNC_BT709, MATRIX_BT601_N, RANGE_FULL} },
+-    { ColorManager::BT709, CM_ColorSpaceInfo {COLORPRIMARIES_BT709, TRANSFUNC_BT709, MATRIX_BT709, RANGE_FULL} },
+-    { ColorManager::BT2020_HLG, CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_HLG, MATRIX_BT2020, RANGE_FULL} },
+-    { ColorManager::BT2020_PQ, CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_PQ, MATRIX_BT2020, RANGE_FULL} },
+-    { ColorManager::BT601_EBU_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_P, TRANSFUNC_BT709, MATRIX_BT601_P, RANGE_LIMITED} },
+-    { ColorManager::BT601_SMPTE_C_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_N, TRANSFUNC_BT709, MATRIX_BT601_N, RANGE_LIMITED} },
+-    { ColorManager::BT709_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT709, TRANSFUNC_BT709, MATRIX_BT709, RANGE_LIMITED} },
+-    { ColorManager::BT2020_HLG_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_HLG, MATRIX_BT2020, RANGE_LIMITED} },
+-    { ColorManager::BT2020_PQ_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_PQ, MATRIX_BT2020, RANGE_LIMITED} },
+-    { ColorManager::SRGB, CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_SRGB, MATRIX_BT601_N, RANGE_FULL} },
+-    { ColorManager::DISPLAY_P3,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_SRGB, MATRIX_P3, RANGE_FULL} },
+-    { ColorManager::P3_HLG, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_HLG, MATRIX_P3, RANGE_FULL} },
+-    { ColorManager::P3_PQ, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_PQ, MATRIX_P3, RANGE_FULL} },
+-    { ColorManager::ADOBE_RGB,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_ADOBERGB, TRANSFUNC_ADOBERGB, MATRIX_ADOBERGB, RANGE_FULL} },
+-    { ColorManager::SRGB_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_SRGB, MATRIX_BT601_N, RANGE_LIMITED} },
+-    { ColorManager::DISPLAY_P3_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_SRGB, MATRIX_P3, RANGE_LIMITED} },
+-    { ColorManager::P3_HLG_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_HLG, MATRIX_P3, RANGE_LIMITED} },
+-    { ColorManager::P3_PQ_LIMIT, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_PQ, MATRIX_P3, RANGE_LIMITED} },
+-    { ColorManager::ADOBE_RGB_LIMIT,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_ADOBERGB, TRANSFUNC_ADOBERGB, MATRIX_ADOBERGB, RANGE_LIMITED} },
+-    { ColorManager::LINEAR_SRGB,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
+-    { ColorManager::LINEAR_BT709,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
+-    { ColorManager::LINEAR_P3,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
+-    { ColorManager::LINEAR_BT2020,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
+-    { ColorManager::DISPLAY_SRGB,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_SRGB, MATRIX_BT601_N, RANGE_FULL} },
+-    { ColorManager::DISPLAY_P3_SRGB,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_SRGB, MATRIX_P3, RANGE_FULL} },
+-    { ColorManager::DISPLAY_P3_HLG, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_HLG, MATRIX_P3, RANGE_FULL} },
+-    { ColorManager::DISPLAY_P3_PQ, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_PQ, MATRIX_P3, RANGE_FULL} },
+-    { ColorManager::DISPLAY_BT2020_SRGB,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_SRGB, MATRIX_BT2020, RANGE_FULL} },
+-    { ColorManager::DISPLAY_BT2020_HLG,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_HLG, MATRIX_BT2020, RANGE_FULL} },
+-    { ColorManager::DISPLAY_BT2020_PQ,
+-        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_PQ, MATRIX_BT2020, RANGE_FULL} },
+-};
+-
+-static constexpr uint8_t SIZE_4 = 4;
+-constexpr static uint32_t OFFSET_5 = 5;
+-constexpr static uint32_t DESC_SIGNATURE = 0x64657363;
+-constexpr static uint64_t ICC_HEADER_SIZE = 132;
+-constexpr static uint32_t RXYZ_SIGNATURE = 0x7258595A;  // 'rXYZ'
+-constexpr static uint32_t GXYZ_SIGNATURE = 0x6758595A;  // 'gXYZ'
+-constexpr static uint32_t BXYZ_SIGNATURE = 0x6258595A;  // 'bXYZ'
+-constexpr static uint32_t RTRC_SIGNATURE = 0x72545243;  // 'rTRC'
+-constexpr static uint32_t GTRC_SIGNATURE = 0x67545243;  // 'gTRC'
+-constexpr static uint32_t BTRC_SIGNATURE = 0x62545243;  // 'bTRC'
+-constexpr static uint32_t TERC_TAG = 0x74657263; // 'TERC'
+-constexpr static uint32_t OFFSET_0 = 0;
+-constexpr static uint32_t OFFSET_1 = 1;
+-constexpr static uint32_t OFFSET_2 = 2;
+-constexpr static uint32_t OFFSET_3 = 3;
+-constexpr static uint32_t OFFSET_4 = 4;
+-constexpr static uint32_t OFFSET_12 = 12;
+-constexpr static uint32_t SHIFT_BITS_4 = 4;
+-constexpr static uint32_t SHIFT_BITS_8 = 8;
+-constexpr static uint32_t SHIFT_BITS_9 = 9;
+-constexpr static uint32_t SHIFT_BITS_10 = 10;
+-constexpr static uint32_t SHIFT_BITS_11 = 11;
+-constexpr static uint32_t SHIFT_BITS_12 = 12;
+-constexpr static uint32_t SHIFT_BITS_16 = 16;
+-constexpr static uint32_t SHIFT_BITS_24 = 24;
+-constexpr static uint32_t XYZ_TAG_LENGTH = 20;
+-constexpr static uint32_t TOLERANCE_NUMBER = 3;
+-constexpr static uint32_t MAX_TAG_COUNT = 1000;
+-constexpr static float DEFAULT_SRGB_GAMMA = 2.2f;
+-constexpr static float DEFAULT_XYZ_NUMBER = 0.0f;
+-constexpr static float OVERFLOW_CHECK = 65536.0f;
+-constexpr static float XYZ_EPSILON = 1e-6f;
+-struct ColorSpaceNameEnum {
+-    std::string desc;
+-    OHOS::ColorManager::ColorSpaceName name;
+-};
+-
+-struct ICCTag {
+-    uint8_t signature[SIZE_4];
+-    uint8_t offset[SIZE_4];
+-    uint8_t size[SIZE_4];
+-};
+-
+-struct XYZValues {
+-    float x;
+-    float y;
+-    float z;
+-};
+-
+-static std::vector<ColorSpaceNameEnum> sColorSpaceNamedMap = {
+-    {"Display P3", OHOS::ColorManager::ColorSpaceName::DISPLAY_P3},
+-    {"sRGB EOTF with DCI-P3 Color Gamut", OHOS::ColorManager::ColorSpaceName::DISPLAY_P3},
+-    {"DCI-P3 D65 Gamut with sRGB Transfer", OHOS::ColorManager::ColorSpaceName::DISPLAY_P3},
+-    {"Adobe RGB (1998)", OHOS::ColorManager::ColorSpaceName::ADOBE_RGB},
+-    {"DCI P3", OHOS::ColorManager::ColorSpaceName::DCI_P3},
+-    {"sRGB", OHOS::ColorManager::ColorSpaceName::SRGB},
+-    {"BT.2020", OHOS::ColorManager::ColorSpaceName::BT2020},
+-    {"DCI-P3", OHOS::ColorManager::ColorSpaceName::DCI_P3},
+-    {"Rec2020 Gamut with HLG Transfer", OHOS::ColorManager::ColorSpaceName::BT2020_HLG},
+-    {"REC. 2020", OHOS::ColorManager::ColorSpaceName::BT2020_HLG}
+-};
+-#endif
+-
+-ColorManager::ColorSpaceName P3ToColorSpace(uint16_t transfer, uint8_t range)
+-{
+-    if (transfer == CICP_TRANSFER_PQ) {
+-        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::P3_PQ_LIMIT : ColorManager::P3_PQ;
+-    } else if (transfer == CICP_TRANSFER_HLG) {
+-        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::P3_HLG_LIMIT : ColorManager::P3_HLG;
+-    } else if (transfer == CICP_TRANSFER_SRGB) {
+-        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::DISPLAY_P3_LIMIT : ColorManager::DISPLAY_P3;
+-    }
+-    return ColorManager::NONE;
+-}
+-
+-ColorManager::ColorSpaceName BT2020ToColorSpace(uint16_t transfer, uint8_t range)
+-{
+-    if (transfer == CICP_TRANSFER_PQ) {
+-        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT2020_PQ_LIMIT : ColorManager::BT2020_PQ;
+-    } else if (transfer == CICP_TRANSFER_HLG) {
+-        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT2020_HLG_LIMIT : ColorManager::BT2020_HLG;
+-    }
+-    return ColorManager::NONE;
+-}
+-
+-template <>
+-ColorManager::ColorSpaceName ColorUtils::CicpToColorSpace(uint8_t primaries, uint8_t transfer,
+-    uint8_t matrix, uint8_t range)
+-{
+-    switch (primaries) {
+-        case CICP_COLORPRIMARIES_SRGB:
+-            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::SRGB_LIMIT : ColorManager::SRGB;
+-        case CICP_COLORPRIMARIES_P3_D65:
+-            return P3ToColorSpace(transfer, range);
+-        case CICP_COLORPRIMARIES_BT2020:
+-            return BT2020ToColorSpace(transfer, range);
+-        case CICP_COLORPRIMARIES_BT601_N:
+-            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_SMPTE_C_LIMIT : ColorManager::BT601_SMPTE_C;
+-        case CICP_COLORPRIMARIES_BT601_P:
+-            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_EBU_LIMIT : ColorManager::BT601_EBU;
+-        case CICP_COLORPRIMARIES_P3_DCI:
+-            return ColorManager::DCI_P3;
+-        default:
+-            break;
+-    }
+-    return ColorManager::NONE;
+-}
+-
+-template <>
+-ColorManager::ColorSpaceName ColorUtils::CicpToColorSpace(uint16_t primaries, uint16_t transfer,
+-    uint16_t matrix, uint8_t range)
+-{
+-    switch (primaries) {
+-        case CICP_COLORPRIMARIES_SRGB:
+-            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::SRGB_LIMIT : ColorManager::SRGB;
+-        case CICP_COLORPRIMARIES_P3_D65:
+-            return P3ToColorSpace(transfer, range);
+-        case CICP_COLORPRIMARIES_BT2020:
+-            return BT2020ToColorSpace(transfer, range);
+-        case CICP_COLORPRIMARIES_BT601_N:
+-            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_SMPTE_C_LIMIT : ColorManager::BT601_SMPTE_C;
+-        case CICP_COLORPRIMARIES_BT601_P:
+-            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_EBU_LIMIT : ColorManager::BT601_EBU;
+-        case CICP_COLORPRIMARIES_P3_DCI:
+-            return ColorManager::DCI_P3;
+-        default:
+-            break;
+-    }
+-    return ColorManager::NONE;
+-}
+-
+-uint16_t ColorUtils::GetPrimaries(ColorManager::ColorSpaceName name)
+-{
+-    switch (name) {
+-        case ColorManager::ColorSpaceName::SRGB:
+-        case ColorManager::ColorSpaceName::SRGB_LIMIT:
+-            return CICP_COLORPRIMARIES_SRGB;
+-        case ColorManager::ColorSpaceName::DISPLAY_P3:
+-        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
+-        case ColorManager::ColorSpaceName::DCI_P3:
+-            return CICP_COLORPRIMARIES_P3_D65;
+-        case ColorManager::ColorSpaceName::BT2020:
+-        case ColorManager::ColorSpaceName::BT2020_HLG:
+-        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
+-        case ColorManager::ColorSpaceName::BT2020_PQ:
+-        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
+-            return CICP_COLORPRIMARIES_BT2020;
+-        default:
+-            return CICP_COLORPRIMARIES_UNKNOWN;
+-    }
+-}
+-
+-uint16_t GetTransfer(ColorManager::ColorSpaceName name)
+-{
+-    switch (name) {
+-        case ColorManager::ColorSpaceName::SRGB:
+-        case ColorManager::ColorSpaceName::SRGB_LIMIT:
+-        case ColorManager::ColorSpaceName::DISPLAY_P3:
+-        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
+-        case ColorManager::ColorSpaceName::DCI_P3:
+-            return CICP_TRANSFER_SRGB;
+-        case ColorManager::ColorSpaceName::BT2020:
+-        case ColorManager::ColorSpaceName::BT2020_HLG:
+-        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
+-            return CICP_TRANSFER_HLG;
+-        case ColorManager::ColorSpaceName::BT2020_PQ:
+-        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
+-            return CICP_TRANSFER_PQ;
+-        default:
+-            return CICP_TRANSFER_UNKNOWN;
+-    }
+-}
+-
+-uint16_t GetMatrix(ColorManager::ColorSpaceName name)
+-{
+-    switch (name) {
+-        case ColorManager::ColorSpaceName::SRGB:
+-        case ColorManager::ColorSpaceName::SRGB_LIMIT:
+-            return CICP_MATRIX_BT601_N;
+-        case ColorManager::ColorSpaceName::DISPLAY_P3:
+-        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
+-        case ColorManager::ColorSpaceName::DCI_P3:
+-            return CICP_MATRIX_P3;
+-        case ColorManager::ColorSpaceName::BT2020:
+-        case ColorManager::ColorSpaceName::BT2020_HLG:
+-        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
+-        case ColorManager::ColorSpaceName::BT2020_PQ:
+-        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
+-            return CICP_MATRIX_BT2020;
+-        default:
+-            return CICP_TRANSFER_UNKNOWN;
+-    }
+-}
+-
+-uint16_t GetRangeFlag(ColorManager::ColorSpaceName name)
+-{
+-    switch (name) {
+-        case ColorManager::ColorSpaceName::SRGB:
+-        case ColorManager::ColorSpaceName::DISPLAY_P3:
+-        case ColorManager::ColorSpaceName::DCI_P3:
+-        case ColorManager::ColorSpaceName::BT2020:
+-        case ColorManager::ColorSpaceName::BT2020_HLG:
+-        case ColorManager::ColorSpaceName::BT2020_PQ:
+-            return CICP_FULL_RANGE_FULL;
+-        case ColorManager::ColorSpaceName::SRGB_LIMIT:
+-        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
+-        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
+-        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
+-            return CICP_FULL_RANGE_LIMIT;
+-        default:
+-            return CICP_FULL_RANGE_FULL;
+-    }
+-}
+-
+-template <>
+-void ColorUtils::ColorSpaceGetCicp(ColorManager::ColorSpaceName name, uint8_t& primaries, uint8_t& transfer,
+-    uint8_t& matrix, uint8_t& range)
+-{
+-    primaries = GetPrimaries(name);
+-    transfer = GetTransfer(name);
+-    matrix = GetMatrix(name);
+-    range = GetRangeFlag(name);
+-}
+-
+-template <>
+-void ColorUtils::ColorSpaceGetCicp(ColorManager::ColorSpaceName name, uint16_t& primaries, uint16_t& transfer,
+-    uint16_t& matrix, uint8_t& range)
+-{
+-    primaries = GetPrimaries(name);
+-    transfer = GetTransfer(name);
+-    matrix = GetMatrix(name);
+-    range = GetRangeFlag(name);
+-}
+-
+-#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
+-HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType ColorUtils::ConvertToCMColor(ColorManager::ColorSpaceName name)
+-{
+-    switch (name) {
+-        case ColorManager::ColorSpaceName::ADOBE_RGB :
+-            return HDI::Display::Graphic::Common::V1_0::CM_ADOBERGB_FULL;
+-        case ColorManager::ColorSpaceName::SRGB :
+-            return HDI::Display::Graphic::Common::V1_0::CM_SRGB_FULL;
+-        case ColorManager::ColorSpaceName::SRGB_LIMIT :
+-            return HDI::Display::Graphic::Common::V1_0::CM_SRGB_LIMIT;
+-        case ColorManager::ColorSpaceName::DISPLAY_P3 :
+-        case ColorManager::ColorSpaceName::DCI_P3 :
+-            return HDI::Display::Graphic::Common::V1_0::CM_P3_FULL;
+-        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT :
+-            return HDI::Display::Graphic::Common::V1_0::CM_P3_LIMIT;
+-        case ColorManager::ColorSpaceName::BT2020 :
+-        case ColorManager::ColorSpaceName::BT2020_HLG :
+-            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_HLG_FULL;
+-        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT :
+-            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_HLG_LIMIT;
+-        case ColorManager::ColorSpaceName::BT2020_PQ :
+-            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_PQ_FULL;
+-        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT :
+-            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_PQ_LIMIT;
+-        default:
+-            return HDI::Display::Graphic::Common::V1_0::CM_COLORSPACE_NONE;
+-    }
+-    return HDI::Display::Graphic::Common::V1_0::CM_COLORSPACE_NONE;
+-}
+-
+-HDI::Display::Graphic::Common::V1_0::CM_ColorPrimaries ColorUtils::ConvertCicpToCMColor(uint16_t name)
+-{
+-    switch (name) {
+-        case CICP_COLORPRIMARIES_SRGB:
+-            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_SRGB;
+-        case CICP_COLORPRIMARIES_BT601_P:
+-            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_P;
+-        case CICP_COLORPRIMARIES_BT601_N:
+-            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_N;
+-        case CICP_COLORPRIMARIES_BT2020:
+-            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT2020;
+-        case CICP_COLORPRIMARIES_P3_DCI:
+-            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_DCI;
+-        case CICP_COLORPRIMARIES_P3_D65:
+-            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_D65;
+-        default:
+-            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_SRGB;
+-    }
+-}
+-
+-uint16_t ColorUtils::ConvertCMColorToCicp(uint16_t name)
+-{
+-    switch (name) {
+-        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_SRGB:
+-            return CICP_COLORPRIMARIES_SRGB;
+-        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_P:
+-            return CICP_COLORPRIMARIES_BT601_P;
+-        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_N:
+-            return CICP_COLORPRIMARIES_BT601_N;
+-        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT2020:
+-            return CICP_COLORPRIMARIES_BT2020;
+-        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_DCI:
+-            return CICP_COLORPRIMARIES_P3_DCI;
+-        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_D65:
+-            return CICP_COLORPRIMARIES_P3_D65;
+-        default:
+-            return CICP_COLORPRIMARIES_SRGB;
+-    }
+-}
+-
+-bool ColorUtils::MatchColorSpaceName(const uint8_t* buf, uint32_t size, OHOS::ColorManager::ColorSpaceName &name)
+-{
+-    bool cond = buf == nullptr || size <= OFFSET_5;
+-    CHECK_ERROR_RETURN_RET(cond, false);
+-    std::vector<char> desc;
+-    // We need skip desc type
+-    for (uint32_t i = OFFSET_5; i < size; i++) {
+-        if (buf[i] != '\0') {
+-            desc.push_back(buf[i]);
+-        }
+-    }
+-    cond = desc.size() <= 1;
+-    CHECK_INFO_RETURN_RET_LOG(cond, false, "empty buffer");
+-    std::string descText(desc.begin() + 1, desc.end());
+-    for (auto nameEnum : sColorSpaceNamedMap) {
+-        IMAGE_LOGD("descText is %{public}s.", descText.c_str());
+-        if (descText.find(nameEnum.desc) == std::string::npos) {
+-            continue;
+-        }
+-        name = nameEnum.name;
+-        return true;
+-    }
+-    IMAGE_LOGE("Failed to match desc");
+-    return false;
+-}
+-
+-bool ColorUtils::GetColorSpaceName(const skcms_ICCProfile* profile, OHOS::ColorManager::ColorSpaceName &name)
+-{
+-    if (profile == nullptr || profile->buffer == nullptr || profile->tag_count > MAX_TAG_COUNT) {
+-        IMAGE_LOGD("profile is nullptr or too many tagcount");
+-        return false;
+-    }
+-    auto tags = reinterpret_cast<const ICCTag*>(profile->buffer + ICC_HEADER_SIZE);
+-    for (uint32_t i = 0; i < profile->tag_count; i++) {
+-        uint32_t tmpOffset = 0;
+-        auto signature = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].signature),
+-            tmpOffset, SIZE_4, true);
+-        if (signature != DESC_SIGNATURE) {
+-            continue;
+-        }
+-        tmpOffset = 0;
+-        auto size = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].size),
+-            tmpOffset, SIZE_4, true);
+-        tmpOffset = 0;
+-        auto offset = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].offset),
+-            tmpOffset, SIZE_4, true);
+-        if (size == 0 || offset >= profile->size || offset + size >= profile->size) {
+-            continue;
+-        }
+-        tmpOffset = 0;
+-        auto buffer = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].offset),
+-            tmpOffset, SIZE_4, true) + profile->buffer;
+-        if (MatchColorSpaceName(buffer, size, name)) {
+-            return true;
+-        }
+-    }
+-    return false;
+-}
+-
+-OHOS::ColorManager::ColorSpaceName ColorUtils::GetSrcColorSpace(const skcms_ICCProfile* profile)
+-{
+-    if (profile == nullptr) {
+-        return OHOS::ColorManager::ColorSpaceName::NONE;
+-    }
+-    OHOS::ColorManager::ColorSpaceName name = OHOS::ColorManager::ColorSpaceName::NONE;
+-    OHOS::Media::ColorUtils::GetColorSpaceName(profile, name);
+-    if (profile->has_CICP) {
+-        ColorManager::ColorSpaceName cName = OHOS::Media::ColorUtils::CicpToColorSpace(profile->CICP.color_primaries,
+-            profile->CICP.transfer_characteristics, profile->CICP.matrix_coefficients,
+-            profile->CICP.video_full_range_flag);
+-        if (cName != ColorManager::NONE) {
+-            IMAGE_LOGD("%{public}s profile has CICP, cName: %{public}u", __func__, static_cast<uint32_t>(cName));
+-            return cName;
+-        }
+-    }
+-    IMAGE_LOGD("%{public}s Parse ColorSpaceName is not support.", __func__);
+-    return name;
+-}
+-
+-static uint32_t U8ToU32(const uint8_t* p)
+-{
+-    return (p[OFFSET_0] << SHIFT_BITS_24) | (p[OFFSET_1] << SHIFT_BITS_16) |
+-        (p[OFFSET_2] << SHIFT_BITS_8) | p[OFFSET_3];
+-}
+-
+-static bool GetXYZFromTag(const uint8_t* buffer, uint32_t offset, uint32_t size, XYZValues* xyz)
+-{
+-    CHECK_ERROR_RETURN_RET(buffer == nullptr || xyz == nullptr, false);
+-    CHECK_ERROR_RETURN_RET(offset + XYZ_TAG_LENGTH > size, false);
+-    // s15Fixed16Number to float
+-    auto toFixed16 = [](const uint8_t* p) -> float {
+-        int32_t val = (p[OFFSET_0] << SHIFT_BITS_24) | (p[OFFSET_1] << SHIFT_BITS_16) |
+-            (p[OFFSET_2] << SHIFT_BITS_8) | p[OFFSET_3];
+-        return static_cast<float>(val) / OVERFLOW_CHECK;
+-    };
+-
+-    xyz->x = toFixed16(buffer + offset + SHIFT_BITS_8);
+-    xyz->y = toFixed16(buffer + offset + SHIFT_BITS_12);
+-    xyz->z = toFixed16(buffer + offset + SHIFT_BITS_16);
+-    return true;
+-}
+-
+-static bool GetGammaFromTRCTag(const uint8_t* buffer, uint32_t offset, uint32_t size, float* gamma)
+-{
+-    CHECK_ERROR_RETURN_RET(buffer == nullptr || gamma == nullptr, false);
+-    CHECK_ERROR_RETURN_RET(offset + SHIFT_BITS_4 > size, false);
+-    uint32_t curveType = (buffer[offset] << SHIFT_BITS_24) | (buffer[offset + OFFSET_1] << SHIFT_BITS_16) |
+-        (buffer[offset + OFFSET_2] << SHIFT_BITS_8) | buffer[offset + OFFSET_3];
+-
+-    if (curveType == TERC_TAG) {
+-        CHECK_ERROR_RETURN_RET(offset + OFFSET_12 > size, false);
+-        int32_t val = (buffer[offset + SHIFT_BITS_8] << SHIFT_BITS_24) |
+-            (buffer[offset + SHIFT_BITS_9] << SHIFT_BITS_16) |
+-            (buffer[offset + SHIFT_BITS_10] << SHIFT_BITS_8) | buffer[offset + SHIFT_BITS_11];
+-        *gamma = static_cast<float>(val) / OVERFLOW_CHECK;
+-        return true;
+-    }
+-    *gamma = DEFAULT_SRGB_GAMMA;  // default sRGB gamma
+-    return true;
+-}
+-
+-struct ICCProfileData {
+-    XYZValues rXYZ;
+-    XYZValues gXYZ;
+-    XYZValues bXYZ;
+-    float gamma;
+-    bool hasRXYZ;
+-    bool hasGXYZ;
+-    bool hasBXYZ;
+-    bool hasTRC;
+-};
+-
+-static bool ExtractICCProfileData(const skcms_ICCProfile* profile, ICCProfileData& data)
+-{
+-    CHECK_ERROR_RETURN_RET(profile == nullptr || profile->buffer == nullptr || profile->tag_count == 0, false);
+-    CHECK_ERROR_RETURN_RET(profile->tag_count > MAX_TAG_COUNT, false);
+-    data.rXYZ = {DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER};
+-    data.gXYZ = {DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER};
+-    data.bXYZ = {DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER};
+-    data.gamma = DEFAULT_SRGB_GAMMA;
+-    data.hasRXYZ = false;
+-    data.hasGXYZ = false;
+-    data.hasBXYZ = false;
+-    data.hasTRC = false;
+-
+-    auto tags = reinterpret_cast<const ICCTag*>(profile->buffer + ICC_HEADER_SIZE);
+-    for (uint32_t i = 0; i < profile->tag_count; i++) {
+-        auto signature = U8ToU32(tags[i].signature);
+-        auto size = U8ToU32(tags[i].size);
+-        auto offset = U8ToU32(tags[i].offset);
+-        if (size == 0 || offset >= profile->size) {
+-            continue;
+-        }
+-        if (signature == RXYZ_SIGNATURE) {
+-            data.hasRXYZ = GetXYZFromTag(profile->buffer, offset, profile->size, &data.rXYZ);
+-        } else if (signature == GXYZ_SIGNATURE) {
+-            data.hasGXYZ = GetXYZFromTag(profile->buffer, offset, profile->size, &data.gXYZ);
+-        } else if (signature == BXYZ_SIGNATURE) {
+-            data.hasBXYZ = GetXYZFromTag(profile->buffer, offset, profile->size, &data.bXYZ);
+-        } else if (signature == RTRC_SIGNATURE || signature == GTRC_SIGNATURE || signature == BTRC_SIGNATURE) {
+-            if (!data.hasTRC) {
+-                data.hasTRC = GetGammaFromTRCTag(profile->buffer, offset, profile->size, &data.gamma);
+-            }
+-        }
+-    }
+-
+-    CHECK_DEBUG_RETURN_RET_LOG(!data.hasRXYZ || !data.hasGXYZ || !data.hasBXYZ, false,
+-        "Incomplete primaries data in ICC profile");
+-    return true;
+-}
+-
+-struct PrimariesXY {
+-    float rX;
+-    float rY;
+-    float gX;
+-    float gY;
+-    float bX;
+-    float bY;
+-};
+-
+-static bool CalculatePrimariesXY(const ICCProfileData& data, PrimariesXY& primaries)
+-{
+-    float rSum = data.rXYZ.x + data.rXYZ.y + data.rXYZ.z;
+-    float gSum = data.gXYZ.x + data.gXYZ.y + data.gXYZ.z;
+-    float bSum = data.bXYZ.x + data.bXYZ.y + data.bXYZ.z;
+-    CHECK_ERROR_RETURN_RET(std::abs(rSum) < XYZ_EPSILON, false);
+-    CHECK_ERROR_RETURN_RET(std::abs(gSum) < XYZ_EPSILON, false);
+-    CHECK_ERROR_RETURN_RET(std::abs(bSum) < XYZ_EPSILON, false);
+-    primaries.rX = data.rXYZ.x / rSum;
+-    primaries.rY = data.rXYZ.y / rSum;
+-    primaries.gX = data.gXYZ.x / gSum;
+-    primaries.gY = data.gXYZ.y / gSum;
+-    primaries.bX = data.bXYZ.x / bSum;
+-    primaries.bY = data.bXYZ.y / bSum;
+-    return true;
+-}
+-
+-struct StandardColorSpace {
+-    const char* name;
+-    float rX;
+-    float rY;
+-    float gX;
+-    float gY;
+-    float bX;
+-    float bY;
+-};
+-
+-static const StandardColorSpace STANDARD_COLOR_SPACES[] = {
+-    {"sRGB", 0.64f, 0.33f, 0.30f, 0.60f, 0.15f, 0.06f},
+-    {"Display P3", 0.680f, 0.320f, 0.265f, 0.690f, 0.150f, 0.060f},
+-    {"BT.2020", 0.708f, 0.292f, 0.170f, 0.797f, 0.131f, 0.046f},
+-    {"Adobe RGB", 0.640f, 0.330f, 0.210f, 0.710f, 0.150f, 0.060f},
+-    {"DCI-P3", 0.680f, 0.320f, 0.265f, 0.690f, 0.150f, 0.060f}
+-};
+-
+-static float CalculateColorSpaceDistance(const PrimariesXY& primaries, const StandardColorSpace& standard)
+-{
+-    auto calcDistance = [](float x1, float y1, float x2, float y2) -> float {
+-        return std::sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+-    };
+-
+-    return calcDistance(primaries.rX, primaries.rY, standard.rX, standard.rY) +
+-           calcDistance(primaries.gX, primaries.gY, standard.gX, standard.gY) +
+-           calcDistance(primaries.bX, primaries.bY, standard.bX, standard.bY);
+-}
+-
+-enum class GammaType {
+-    SRGB,
+-    HLG,
+-    UNKNOWN
+-};
+-
+-static GammaType DetermineGammaType(float gamma)
+-{
+-    constexpr float SRGB_GAMMA = 2.2f;
+-    constexpr float LINEAR_GAMMA = 1.0f;
+-    constexpr float HLG_GAMMA = 1.2f;
+-    constexpr float HLG_GAMMA_LOW = 0.5f;
+-    constexpr float GAMMA_TOLERANCE = 0.1f;
+-
+-    if ((std::abs(gamma - SRGB_GAMMA) < GAMMA_TOLERANCE) ||
+-        (std::abs(gamma - LINEAR_GAMMA) < GAMMA_TOLERANCE)) {
+-        return GammaType::SRGB;
+-    }
+-    if ((std::abs(gamma - HLG_GAMMA) < GAMMA_TOLERANCE) ||
+-        (std::abs(gamma - HLG_GAMMA_LOW) < GAMMA_TOLERANCE)) {
+-        return GammaType::HLG;
+-    }
+-    return GammaType::UNKNOWN;
+-}
+-
+-static bool MatchColorSpaceByDistance(const PrimariesXY& primaries, float gamma,
+-    OHOS::ColorManager::ColorSpaceName& name)
+-{
+-    constexpr float TOLERANCE = 0.02f;
+-    constexpr float TOLERANCE_THRESHOLD = TOLERANCE * TOLERANCE_NUMBER;
+-    constexpr int COLORSPACE_NUM = 5;
+-
+-    float distances[COLORSPACE_NUM];
+-    for (int i = 0; i < COLORSPACE_NUM; i++) {
+-        distances[i] = CalculateColorSpaceDistance(primaries, STANDARD_COLOR_SPACES[i]);
+-    }
+-    GammaType gammaType = DetermineGammaType(gamma);
+-    // Match sRGB
+-    if (distances[OFFSET_0] < TOLERANCE_THRESHOLD && gammaType == GammaType::SRGB) {
+-        name = OHOS::ColorManager::ColorSpaceName::SRGB;
+-        IMAGE_LOGD("Matched sRGB by primaries and gamma");
+-        return true;
+-    }
+-
+-    // Match Display P3
+-    if (distances[OFFSET_1] < TOLERANCE_THRESHOLD) {
+-        name = OHOS::ColorManager::ColorSpaceName::DISPLAY_P3;
+-        IMAGE_LOGD("Matched Display P3 by primaries");
+-        return true;
+-    }
+-
+-    // Match BT.2020
+-    if (distances[OFFSET_2] < TOLERANCE_THRESHOLD) {
+-        //The logic for "2020" is relatively complex, so use the original flow for matching.
+-        return false;
+-    }
+-
+-    // Match Adobe RGB
+-    if (distances[OFFSET_3] < TOLERANCE_THRESHOLD) {
+-        name = OHOS::ColorManager::ColorSpaceName::ADOBE_RGB;
+-        IMAGE_LOGD("Matched Adobe RGB by primaries");
+-        return true;
+-    }
+-
+-    // Match DCI-P3
+-    if (distances[OFFSET_4] < TOLERANCE_THRESHOLD) {
+-        name = OHOS::ColorManager::ColorSpaceName::DCI_P3;
+-        IMAGE_LOGD("Matched DCI-P3 by primaries");
+-        return true;
+-    }
+-
+-    IMAGE_LOGI("No standard color space matched by primaries and gamma");
+-    return false;
+-}
+-
+-// Match color space by primaries and gamma
+-bool ColorUtils::MatchColorSpaceByPrimariesAndGamma(const skcms_ICCProfile* profile,
+-    OHOS::ColorManager::ColorSpaceName &name)
+-{
+-    ICCProfileData profileData;
+-    CHECK_ERROR_RETURN_RET(!ExtractICCProfileData(profile, profileData), false);
+-
+-    PrimariesXY primaries;
+-    CHECK_ERROR_RETURN_RET(!CalculatePrimariesXY(profileData, primaries), false);
+-    return MatchColorSpaceByDistance(primaries, profileData.gamma, name);
+-}
+-
+-#endif
+-
+-} // namespace Media
++/*
++ * Copyright (C) 2024 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#include "color_utils.h"
++#include "image_log.h"
++#include "image_utils.h"
++
++#if !defined(CROSS_PLATFORM)
++using namespace OHOS::HDI::Display::Graphic::Common::V1_0;
++#endif
++
++namespace OHOS {
++namespace Media {
++enum CicpColorPrimaries {
++    CICP_COLORPRIMARIES_UNKNOWN = 0,
++    CICP_COLORPRIMARIES_SRGB = 1,
++    CICP_COLORPRIMARIES_BT601_P = 5,
++    CICP_COLORPRIMARIES_BT601_N = 6,
++    CICP_COLORPRIMARIES_BT2020 = 9,
++    CICP_COLORPRIMARIES_BT2100 = 9,
++    CICP_COLORPRIMARIES_P3_DCI = 11,
++    CICP_COLORPRIMARIES_P3_D65 = 12,
++};
++
++enum CicpTransfer {
++    CICP_TRANSFER_UNKNOWN = 2,
++    CICP_TRANSFER_BT709_1 = 1,
++    CICP_TRANSFER_BT709_6 = 6,
++    CICP_TRANSFER_BT709_14 = 14,
++    CICP_TRANSFER_BT709_15 = 15,
++    CICP_TRANSFER_SRGB = 13,
++    CICP_TRANSFER_LINEAR = 8,
++    CICP_TRANSFER_PQ = 16,
++    CICP_TRANSFER_HLG = 18,
++};
++
++enum CicpFullRangeFLag {
++    CICP_FULL_RANGE_UNKNOWN = 2,
++    CICP_FULL_RANGE_FULL = 1,
++    CICP_FULL_RANGE_LIMIT = 0,
++};
++
++enum CicpMatrix {
++    CICP_MATRIX_BT709 = 1,
++    CICP_MATRIX_BT601_P = 5,
++    CICP_MATRIX_BT601_N = 6,
++    CICP_MATRIX_P3 = 6,
++    CICP_MATRIX_BT2020 = 9,
++    CICP_MATRIX_BT2100_ICTCP = 14,
++};
++
++#if !defined(CROSS_PLATFORM)
++std::map<ColorManager::ColorSpaceName, CM_ColorSpaceInfo> ColorUtils::COLORSPACE_NAME_TO_COLORINFO_MAP = {
++    { ColorManager::BT601_EBU,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_P, TRANSFUNC_BT709, MATRIX_BT601_P, RANGE_FULL} },
++    { ColorManager::BT601_SMPTE_C,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_N, TRANSFUNC_BT709, MATRIX_BT601_N, RANGE_FULL} },
++    { ColorManager::BT709, CM_ColorSpaceInfo {COLORPRIMARIES_BT709, TRANSFUNC_BT709, MATRIX_BT709, RANGE_FULL} },
++    { ColorManager::BT2020_HLG, CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_HLG, MATRIX_BT2020, RANGE_FULL} },
++    { ColorManager::BT2020_PQ, CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_PQ, MATRIX_BT2020, RANGE_FULL} },
++    { ColorManager::BT601_EBU_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_P, TRANSFUNC_BT709, MATRIX_BT601_P, RANGE_LIMITED} },
++    { ColorManager::BT601_SMPTE_C_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT601_N, TRANSFUNC_BT709, MATRIX_BT601_N, RANGE_LIMITED} },
++    { ColorManager::BT709_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT709, TRANSFUNC_BT709, MATRIX_BT709, RANGE_LIMITED} },
++    { ColorManager::BT2020_HLG_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_HLG, MATRIX_BT2020, RANGE_LIMITED} },
++    { ColorManager::BT2020_PQ_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_PQ, MATRIX_BT2020, RANGE_LIMITED} },
++    { ColorManager::SRGB, CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_SRGB, MATRIX_BT601_N, RANGE_FULL} },
++    { ColorManager::DISPLAY_P3,
++        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_SRGB, MATRIX_P3, RANGE_FULL} },
++    { ColorManager::P3_HLG, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_HLG, MATRIX_P3, RANGE_FULL} },
++    { ColorManager::P3_PQ, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_PQ, MATRIX_P3, RANGE_FULL} },
++    { ColorManager::ADOBE_RGB,
++        CM_ColorSpaceInfo {COLORPRIMARIES_ADOBERGB, TRANSFUNC_ADOBERGB, MATRIX_ADOBERGB, RANGE_FULL} },
++    { ColorManager::SRGB_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_SRGB, MATRIX_BT601_N, RANGE_LIMITED} },
++    { ColorManager::DISPLAY_P3_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_SRGB, MATRIX_P3, RANGE_LIMITED} },
++    { ColorManager::P3_HLG_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_HLG, MATRIX_P3, RANGE_LIMITED} },
++    { ColorManager::P3_PQ_LIMIT, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_PQ, MATRIX_P3, RANGE_LIMITED} },
++    { ColorManager::ADOBE_RGB_LIMIT,
++        CM_ColorSpaceInfo {COLORPRIMARIES_ADOBERGB, TRANSFUNC_ADOBERGB, MATRIX_ADOBERGB, RANGE_LIMITED} },
++    { ColorManager::LINEAR_SRGB,
++        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
++    { ColorManager::LINEAR_BT709,
++        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
++    { ColorManager::LINEAR_P3,
++        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
++    { ColorManager::LINEAR_BT2020,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_LINEAR, MATRIX_BT709, RANGE_LIMITED} },
++    { ColorManager::DISPLAY_SRGB,
++        CM_ColorSpaceInfo {COLORPRIMARIES_SRGB, TRANSFUNC_SRGB, MATRIX_BT601_N, RANGE_FULL} },
++    { ColorManager::DISPLAY_P3_SRGB,
++        CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_SRGB, MATRIX_P3, RANGE_FULL} },
++    { ColorManager::DISPLAY_P3_HLG, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_HLG, MATRIX_P3, RANGE_FULL} },
++    { ColorManager::DISPLAY_P3_PQ, CM_ColorSpaceInfo {COLORPRIMARIES_P3_D65, TRANSFUNC_PQ, MATRIX_P3, RANGE_FULL} },
++    { ColorManager::DISPLAY_BT2020_SRGB,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_SRGB, MATRIX_BT2020, RANGE_FULL} },
++    { ColorManager::DISPLAY_BT2020_HLG,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_HLG, MATRIX_BT2020, RANGE_FULL} },
++    { ColorManager::DISPLAY_BT2020_PQ,
++        CM_ColorSpaceInfo {COLORPRIMARIES_BT2020, TRANSFUNC_PQ, MATRIX_BT2020, RANGE_FULL} },
++};
++
++static constexpr uint8_t SIZE_4 = 4;
++constexpr static uint32_t OFFSET_5 = 5;
++constexpr static uint32_t DESC_SIGNATURE = 0x64657363;
++constexpr static uint64_t ICC_HEADER_SIZE = 132;
++constexpr static uint32_t RXYZ_SIGNATURE = 0x7258595A;  // 'rXYZ'
++constexpr static uint32_t GXYZ_SIGNATURE = 0x6758595A;  // 'gXYZ'
++constexpr static uint32_t BXYZ_SIGNATURE = 0x6258595A;  // 'bXYZ'
++constexpr static uint32_t RTRC_SIGNATURE = 0x72545243;  // 'rTRC'
++constexpr static uint32_t GTRC_SIGNATURE = 0x67545243;  // 'gTRC'
++constexpr static uint32_t BTRC_SIGNATURE = 0x62545243;  // 'bTRC'
++constexpr static uint32_t TERC_TAG = 0x74657263; // 'TERC'
++constexpr static uint32_t OFFSET_0 = 0;
++constexpr static uint32_t OFFSET_1 = 1;
++constexpr static uint32_t OFFSET_2 = 2;
++constexpr static uint32_t OFFSET_3 = 3;
++constexpr static uint32_t OFFSET_4 = 4;
++constexpr static uint32_t OFFSET_12 = 12;
++constexpr static uint32_t SHIFT_BITS_4 = 4;
++constexpr static uint32_t SHIFT_BITS_8 = 8;
++constexpr static uint32_t SHIFT_BITS_9 = 9;
++constexpr static uint32_t SHIFT_BITS_10 = 10;
++constexpr static uint32_t SHIFT_BITS_11 = 11;
++constexpr static uint32_t SHIFT_BITS_12 = 12;
++constexpr static uint32_t SHIFT_BITS_16 = 16;
++constexpr static uint32_t SHIFT_BITS_24 = 24;
++constexpr static uint32_t XYZ_TAG_LENGTH = 20;
++constexpr static uint32_t TOLERANCE_NUMBER = 3;
++constexpr static uint32_t MAX_TAG_COUNT = 1000;
++constexpr static float DEFAULT_SRGB_GAMMA = 2.2f;
++constexpr static float DEFAULT_XYZ_NUMBER = 0.0f;
++constexpr static float OVERFLOW_CHECK = 65536.0f;
++constexpr static float XYZ_EPSILON = 1e-6f;
++struct ColorSpaceNameEnum {
++    std::string desc;
++    OHOS::ColorManager::ColorSpaceName name;
++};
++
++struct ICCTag {
++    uint8_t signature[SIZE_4];
++    uint8_t offset[SIZE_4];
++    uint8_t size[SIZE_4];
++};
++
++struct XYZValues {
++    float x;
++    float y;
++    float z;
++};
++
++static std::vector<ColorSpaceNameEnum> sColorSpaceNamedMap = {
++    {"Display P3", OHOS::ColorManager::ColorSpaceName::DISPLAY_P3},
++    {"sRGB EOTF with DCI-P3 Color Gamut", OHOS::ColorManager::ColorSpaceName::DISPLAY_P3},
++    {"DCI-P3 D65 Gamut with sRGB Transfer", OHOS::ColorManager::ColorSpaceName::DISPLAY_P3},
++    {"Adobe RGB (1998)", OHOS::ColorManager::ColorSpaceName::ADOBE_RGB},
++    {"DCI P3", OHOS::ColorManager::ColorSpaceName::DCI_P3},
++    {"sRGB", OHOS::ColorManager::ColorSpaceName::SRGB},
++    {"BT.2020", OHOS::ColorManager::ColorSpaceName::BT2020},
++    {"DCI-P3", OHOS::ColorManager::ColorSpaceName::DCI_P3},
++    {"Rec2020 Gamut with HLG Transfer", OHOS::ColorManager::ColorSpaceName::BT2020_HLG},
++    {"REC. 2020", OHOS::ColorManager::ColorSpaceName::BT2020_HLG}
++};
++#endif
++
++ColorManager::ColorSpaceName P3ToColorSpace(uint16_t transfer, uint8_t range)
++{
++    if (transfer == CICP_TRANSFER_PQ) {
++        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::P3_PQ_LIMIT : ColorManager::P3_PQ;
++    } else if (transfer == CICP_TRANSFER_HLG) {
++        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::P3_HLG_LIMIT : ColorManager::P3_HLG;
++    } else if (transfer == CICP_TRANSFER_SRGB) {
++        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::DISPLAY_P3_LIMIT : ColorManager::DISPLAY_P3;
++    }
++    return ColorManager::NONE;
++}
++
++ColorManager::ColorSpaceName BT2020ToColorSpace(uint16_t transfer, uint8_t range)
++{
++    if (transfer == CICP_TRANSFER_PQ) {
++        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT2020_PQ_LIMIT : ColorManager::BT2020_PQ;
++    } else if (transfer == CICP_TRANSFER_HLG) {
++        return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT2020_HLG_LIMIT : ColorManager::BT2020_HLG;
++    }
++    return ColorManager::NONE;
++}
++
++template <>
++ColorManager::ColorSpaceName ColorUtils::CicpToColorSpace(uint8_t primaries, uint8_t transfer,
++    uint8_t matrix, uint8_t range)
++{
++    switch (primaries) {
++        case CICP_COLORPRIMARIES_SRGB:
++            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::SRGB_LIMIT : ColorManager::SRGB;
++        case CICP_COLORPRIMARIES_P3_D65:
++            return P3ToColorSpace(transfer, range);
++        case CICP_COLORPRIMARIES_BT2020:
++            return BT2020ToColorSpace(transfer, range);
++        case CICP_COLORPRIMARIES_BT601_N:
++            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_SMPTE_C_LIMIT : ColorManager::BT601_SMPTE_C;
++        case CICP_COLORPRIMARIES_BT601_P:
++            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_EBU_LIMIT : ColorManager::BT601_EBU;
++        case CICP_COLORPRIMARIES_P3_DCI:
++            return ColorManager::DCI_P3;
++        default:
++            break;
++    }
++    return ColorManager::NONE;
++}
++
++template <>
++ColorManager::ColorSpaceName ColorUtils::CicpToColorSpace(uint16_t primaries, uint16_t transfer,
++    uint16_t matrix, uint8_t range)
++{
++    switch (primaries) {
++        case CICP_COLORPRIMARIES_SRGB:
++            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::SRGB_LIMIT : ColorManager::SRGB;
++        case CICP_COLORPRIMARIES_P3_D65:
++            return P3ToColorSpace(transfer, range);
++        case CICP_COLORPRIMARIES_BT2020:
++            return BT2020ToColorSpace(transfer, range);
++        case CICP_COLORPRIMARIES_BT601_N:
++            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_SMPTE_C_LIMIT : ColorManager::BT601_SMPTE_C;
++        case CICP_COLORPRIMARIES_BT601_P:
++            return range == CICP_FULL_RANGE_LIMIT ? ColorManager::BT601_EBU_LIMIT : ColorManager::BT601_EBU;
++        case CICP_COLORPRIMARIES_P3_DCI:
++            return ColorManager::DCI_P3;
++        default:
++            break;
++    }
++    return ColorManager::NONE;
++}
++
++uint16_t ColorUtils::GetPrimaries(ColorManager::ColorSpaceName name)
++{
++    switch (name) {
++        case ColorManager::ColorSpaceName::SRGB:
++        case ColorManager::ColorSpaceName::SRGB_LIMIT:
++            return CICP_COLORPRIMARIES_SRGB;
++        case ColorManager::ColorSpaceName::DISPLAY_P3:
++        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
++        case ColorManager::ColorSpaceName::DCI_P3:
++            return CICP_COLORPRIMARIES_P3_D65;
++        case ColorManager::ColorSpaceName::BT2020:
++        case ColorManager::ColorSpaceName::BT2020_HLG:
++        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
++        case ColorManager::ColorSpaceName::BT2020_PQ:
++        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
++            return CICP_COLORPRIMARIES_BT2020;
++        default:
++            return CICP_COLORPRIMARIES_UNKNOWN;
++    }
++}
++
++uint16_t GetTransfer(ColorManager::ColorSpaceName name)
++{
++    switch (name) {
++        case ColorManager::ColorSpaceName::SRGB:
++        case ColorManager::ColorSpaceName::SRGB_LIMIT:
++        case ColorManager::ColorSpaceName::DISPLAY_P3:
++        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
++        case ColorManager::ColorSpaceName::DCI_P3:
++            return CICP_TRANSFER_SRGB;
++        case ColorManager::ColorSpaceName::BT2020:
++        case ColorManager::ColorSpaceName::BT2020_HLG:
++        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
++            return CICP_TRANSFER_HLG;
++        case ColorManager::ColorSpaceName::BT2020_PQ:
++        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
++            return CICP_TRANSFER_PQ;
++        default:
++            return CICP_TRANSFER_UNKNOWN;
++    }
++}
++
++uint16_t GetMatrix(ColorManager::ColorSpaceName name)
++{
++    switch (name) {
++        case ColorManager::ColorSpaceName::SRGB:
++        case ColorManager::ColorSpaceName::SRGB_LIMIT:
++            return CICP_MATRIX_BT601_N;
++        case ColorManager::ColorSpaceName::DISPLAY_P3:
++        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
++        case ColorManager::ColorSpaceName::DCI_P3:
++            return CICP_MATRIX_P3;
++        case ColorManager::ColorSpaceName::BT2020:
++        case ColorManager::ColorSpaceName::BT2020_HLG:
++        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
++        case ColorManager::ColorSpaceName::BT2020_PQ:
++        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
++            return CICP_MATRIX_BT2020;
++        default:
++            return CICP_TRANSFER_UNKNOWN;
++    }
++}
++
++uint16_t GetRangeFlag(ColorManager::ColorSpaceName name)
++{
++    switch (name) {
++        case ColorManager::ColorSpaceName::SRGB:
++        case ColorManager::ColorSpaceName::DISPLAY_P3:
++        case ColorManager::ColorSpaceName::DCI_P3:
++        case ColorManager::ColorSpaceName::BT2020:
++        case ColorManager::ColorSpaceName::BT2020_HLG:
++        case ColorManager::ColorSpaceName::BT2020_PQ:
++            return CICP_FULL_RANGE_FULL;
++        case ColorManager::ColorSpaceName::SRGB_LIMIT:
++        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT:
++        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT:
++        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT:
++            return CICP_FULL_RANGE_LIMIT;
++        default:
++            return CICP_FULL_RANGE_FULL;
++    }
++}
++
++template <>
++void ColorUtils::ColorSpaceGetCicp(ColorManager::ColorSpaceName name, uint8_t& primaries, uint8_t& transfer,
++    uint8_t& matrix, uint8_t& range)
++{
++    primaries = GetPrimaries(name);
++    transfer = GetTransfer(name);
++    matrix = GetMatrix(name);
++    range = GetRangeFlag(name);
++}
++
++template <>
++void ColorUtils::ColorSpaceGetCicp(ColorManager::ColorSpaceName name, uint16_t& primaries, uint16_t& transfer,
++    uint16_t& matrix, uint8_t& range)
++{
++    primaries = GetPrimaries(name);
++    transfer = GetTransfer(name);
++    matrix = GetMatrix(name);
++    range = GetRangeFlag(name);
++}
++
++#if !defined(_WIN32) && !defined(_APPLE) && !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM) && !defined(CROSS_PLATFORM)
++HDI::Display::Graphic::Common::V1_0::CM_ColorSpaceType ColorUtils::ConvertToCMColor(ColorManager::ColorSpaceName name)
++{
++    switch (name) {
++        case ColorManager::ColorSpaceName::ADOBE_RGB :
++            return HDI::Display::Graphic::Common::V1_0::CM_ADOBERGB_FULL;
++        case ColorManager::ColorSpaceName::SRGB :
++            return HDI::Display::Graphic::Common::V1_0::CM_SRGB_FULL;
++        case ColorManager::ColorSpaceName::SRGB_LIMIT :
++            return HDI::Display::Graphic::Common::V1_0::CM_SRGB_LIMIT;
++        case ColorManager::ColorSpaceName::DISPLAY_P3 :
++        case ColorManager::ColorSpaceName::DCI_P3 :
++            return HDI::Display::Graphic::Common::V1_0::CM_P3_FULL;
++        case ColorManager::ColorSpaceName::DISPLAY_P3_LIMIT :
++            return HDI::Display::Graphic::Common::V1_0::CM_P3_LIMIT;
++        case ColorManager::ColorSpaceName::BT2020 :
++        case ColorManager::ColorSpaceName::BT2020_HLG :
++            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_HLG_FULL;
++        case ColorManager::ColorSpaceName::BT2020_HLG_LIMIT :
++            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_HLG_LIMIT;
++        case ColorManager::ColorSpaceName::BT2020_PQ :
++            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_PQ_FULL;
++        case ColorManager::ColorSpaceName::BT2020_PQ_LIMIT :
++            return HDI::Display::Graphic::Common::V1_0::CM_BT2020_PQ_LIMIT;
++        default:
++            return HDI::Display::Graphic::Common::V1_0::CM_COLORSPACE_NONE;
++    }
++    return HDI::Display::Graphic::Common::V1_0::CM_COLORSPACE_NONE;
++}
++
++HDI::Display::Graphic::Common::V1_0::CM_ColorPrimaries ColorUtils::ConvertCicpToCMColor(uint16_t name)
++{
++    switch (name) {
++        case CICP_COLORPRIMARIES_SRGB:
++            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_SRGB;
++        case CICP_COLORPRIMARIES_BT601_P:
++            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_P;
++        case CICP_COLORPRIMARIES_BT601_N:
++            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_N;
++        case CICP_COLORPRIMARIES_BT2020:
++            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT2020;
++        case CICP_COLORPRIMARIES_P3_DCI:
++            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_DCI;
++        case CICP_COLORPRIMARIES_P3_D65:
++            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_D65;
++        default:
++            return HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_SRGB;
++    }
++}
++
++uint16_t ColorUtils::ConvertCMColorToCicp(uint16_t name)
++{
++    switch (name) {
++        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_SRGB:
++            return CICP_COLORPRIMARIES_SRGB;
++        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_P:
++            return CICP_COLORPRIMARIES_BT601_P;
++        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT601_N:
++            return CICP_COLORPRIMARIES_BT601_N;
++        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_BT2020:
++            return CICP_COLORPRIMARIES_BT2020;
++        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_DCI:
++            return CICP_COLORPRIMARIES_P3_DCI;
++        case HDI::Display::Graphic::Common::V1_0::COLORPRIMARIES_P3_D65:
++            return CICP_COLORPRIMARIES_P3_D65;
++        default:
++            return CICP_COLORPRIMARIES_SRGB;
++    }
++}
++
++bool ColorUtils::MatchColorSpaceName(const uint8_t* buf, uint32_t size, OHOS::ColorManager::ColorSpaceName &name)
++{
++    bool cond = buf == nullptr || size <= OFFSET_5;
++    CHECK_ERROR_RETURN_RET(cond, false);
++    std::vector<char> desc;
++    // We need skip desc type
++    for (uint32_t i = OFFSET_5; i < size; i++) {
++        if (buf[i] != '\0') {
++            desc.push_back(buf[i]);
++        }
++    }
++    cond = desc.size() <= 1;
++    CHECK_INFO_RETURN_RET_LOG(cond, false, "empty buffer");
++    std::string descText(desc.begin() + 1, desc.end());
++    for (auto nameEnum : sColorSpaceNamedMap) {
++        IMAGE_LOGD("descText is %{public}s.", descText.c_str());
++        if (descText.find(nameEnum.desc) == std::string::npos) {
++            continue;
++        }
++        name = nameEnum.name;
++        return true;
++    }
++    IMAGE_LOGE("Failed to match desc");
++    return false;
++}
++
++bool ColorUtils::GetColorSpaceName(const skcms_ICCProfile* profile, OHOS::ColorManager::ColorSpaceName &name)
++{
++    if (profile == nullptr || profile->buffer == nullptr || profile->tag_count > MAX_TAG_COUNT) {
++        IMAGE_LOGD("profile is nullptr or too many tagcount");
++        return false;
++    }
++    auto tags = reinterpret_cast<const ICCTag*>(profile->buffer + ICC_HEADER_SIZE);
++    for (uint32_t i = 0; i < profile->tag_count; i++) {
++        uint32_t tmpOffset = 0;
++        auto signature = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].signature),
++            tmpOffset, SIZE_4, true);
++        if (signature != DESC_SIGNATURE) {
++            continue;
++        }
++        tmpOffset = 0;
++        auto size = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].size),
++            tmpOffset, SIZE_4, true);
++        tmpOffset = 0;
++        auto offset = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].offset),
++            tmpOffset, SIZE_4, true);
++        if (size == 0 || offset >= profile->size || offset + size >= profile->size) {
++            continue;
++        }
++        tmpOffset = 0;
++        auto buffer = ImageUtils::BytesToUint32(const_cast<uint8_t*>(tags[i].offset),
++            tmpOffset, SIZE_4, true) + profile->buffer;
++        if (MatchColorSpaceName(buffer, size, name)) {
++            return true;
++        }
++    }
++    return false;
++}
++
++OHOS::ColorManager::ColorSpaceName ColorUtils::GetSrcColorSpace(const skcms_ICCProfile* profile)
++{
++    if (profile == nullptr) {
++        return OHOS::ColorManager::ColorSpaceName::NONE;
++    }
++    OHOS::ColorManager::ColorSpaceName name = OHOS::ColorManager::ColorSpaceName::NONE;
++    OHOS::Media::ColorUtils::GetColorSpaceName(profile, name);
++    if (profile->has_CICP) {
++        ColorManager::ColorSpaceName cName = OHOS::Media::ColorUtils::CicpToColorSpace(profile->CICP.color_primaries,
++            profile->CICP.transfer_characteristics, profile->CICP.matrix_coefficients,
++            profile->CICP.video_full_range_flag);
++        if (cName != ColorManager::NONE) {
++            IMAGE_LOGD("%{public}s profile has CICP, cName: %{public}u", __func__, static_cast<uint32_t>(cName));
++            return cName;
++        }
++    }
++    IMAGE_LOGD("%{public}s Parse ColorSpaceName is not support.", __func__);
++    return name;
++}
++
++static uint32_t U8ToU32(const uint8_t* p)
++{
++    return (p[OFFSET_0] << SHIFT_BITS_24) | (p[OFFSET_1] << SHIFT_BITS_16) |
++        (p[OFFSET_2] << SHIFT_BITS_8) | p[OFFSET_3];
++}
++
++static bool GetXYZFromTag(const uint8_t* buffer, uint32_t offset, uint32_t size, XYZValues* xyz)
++{
++    CHECK_ERROR_RETURN_RET(buffer == nullptr || xyz == nullptr, false);
++    CHECK_ERROR_RETURN_RET(offset + XYZ_TAG_LENGTH > size, false);
++    // s15Fixed16Number to float
++    auto toFixed16 = [](const uint8_t* p) -> float {
++        int32_t val = (p[OFFSET_0] << SHIFT_BITS_24) | (p[OFFSET_1] << SHIFT_BITS_16) |
++            (p[OFFSET_2] << SHIFT_BITS_8) | p[OFFSET_3];
++        return static_cast<float>(val) / OVERFLOW_CHECK;
++    };
++
++    xyz->x = toFixed16(buffer + offset + SHIFT_BITS_8);
++    xyz->y = toFixed16(buffer + offset + SHIFT_BITS_12);
++    xyz->z = toFixed16(buffer + offset + SHIFT_BITS_16);
++    return true;
++}
++
++static bool GetGammaFromTRCTag(const uint8_t* buffer, uint32_t offset, uint32_t size, float* gamma)
++{
++    CHECK_ERROR_RETURN_RET(buffer == nullptr || gamma == nullptr, false);
++    CHECK_ERROR_RETURN_RET(offset + SHIFT_BITS_4 > size, false);
++    uint32_t curveType = (buffer[offset] << SHIFT_BITS_24) | (buffer[offset + OFFSET_1] << SHIFT_BITS_16) |
++        (buffer[offset + OFFSET_2] << SHIFT_BITS_8) | buffer[offset + OFFSET_3];
++
++    if (curveType == TERC_TAG) {
++        CHECK_ERROR_RETURN_RET(offset + OFFSET_12 > size, false);
++        int32_t val = (buffer[offset + SHIFT_BITS_8] << SHIFT_BITS_24) |
++            (buffer[offset + SHIFT_BITS_9] << SHIFT_BITS_16) |
++            (buffer[offset + SHIFT_BITS_10] << SHIFT_BITS_8) | buffer[offset + SHIFT_BITS_11];
++        *gamma = static_cast<float>(val) / OVERFLOW_CHECK;
++        return true;
++    }
++    *gamma = DEFAULT_SRGB_GAMMA;  // default sRGB gamma
++    return true;
++}
++
++struct ICCProfileData {
++    XYZValues rXYZ;
++    XYZValues gXYZ;
++    XYZValues bXYZ;
++    float gamma;
++    bool hasRXYZ;
++    bool hasGXYZ;
++    bool hasBXYZ;
++    bool hasTRC;
++};
++
++static bool ExtractICCProfileData(const skcms_ICCProfile* profile, ICCProfileData& data)
++{
++    CHECK_ERROR_RETURN_RET(profile == nullptr || profile->buffer == nullptr || profile->tag_count == 0, false);
++    CHECK_ERROR_RETURN_RET(profile->tag_count > MAX_TAG_COUNT, false);
++    data.rXYZ = {DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER};
++    data.gXYZ = {DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER};
++    data.bXYZ = {DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER, DEFAULT_XYZ_NUMBER};
++    data.gamma = DEFAULT_SRGB_GAMMA;
++    data.hasRXYZ = false;
++    data.hasGXYZ = false;
++    data.hasBXYZ = false;
++    data.hasTRC = false;
++
++    auto tags = reinterpret_cast<const ICCTag*>(profile->buffer + ICC_HEADER_SIZE);
++    for (uint32_t i = 0; i < profile->tag_count; i++) {
++        auto signature = U8ToU32(tags[i].signature);
++        auto size = U8ToU32(tags[i].size);
++        auto offset = U8ToU32(tags[i].offset);
++        if (size == 0 || offset >= profile->size) {
++            continue;
++        }
++        if (signature == RXYZ_SIGNATURE) {
++            data.hasRXYZ = GetXYZFromTag(profile->buffer, offset, profile->size, &data.rXYZ);
++        } else if (signature == GXYZ_SIGNATURE) {
++            data.hasGXYZ = GetXYZFromTag(profile->buffer, offset, profile->size, &data.gXYZ);
++        } else if (signature == BXYZ_SIGNATURE) {
++            data.hasBXYZ = GetXYZFromTag(profile->buffer, offset, profile->size, &data.bXYZ);
++        } else if (signature == RTRC_SIGNATURE || signature == GTRC_SIGNATURE || signature == BTRC_SIGNATURE) {
++            if (!data.hasTRC) {
++                data.hasTRC = GetGammaFromTRCTag(profile->buffer, offset, profile->size, &data.gamma);
++            }
++        }
++    }
++
++    CHECK_DEBUG_RETURN_RET_LOG(!data.hasRXYZ || !data.hasGXYZ || !data.hasBXYZ, false,
++        "Incomplete primaries data in ICC profile");
++    return true;
++}
++
++struct PrimariesXY {
++    float rX;
++    float rY;
++    float gX;
++    float gY;
++    float bX;
++    float bY;
++};
++
++static bool CalculatePrimariesXY(const ICCProfileData& data, PrimariesXY& primaries)
++{
++    float rSum = data.rXYZ.x + data.rXYZ.y + data.rXYZ.z;
++    float gSum = data.gXYZ.x + data.gXYZ.y + data.gXYZ.z;
++    float bSum = data.bXYZ.x + data.bXYZ.y + data.bXYZ.z;
++    CHECK_ERROR_RETURN_RET(std::abs(rSum) < XYZ_EPSILON, false);
++    CHECK_ERROR_RETURN_RET(std::abs(gSum) < XYZ_EPSILON, false);
++    CHECK_ERROR_RETURN_RET(std::abs(bSum) < XYZ_EPSILON, false);
++    primaries.rX = data.rXYZ.x / rSum;
++    primaries.rY = data.rXYZ.y / rSum;
++    primaries.gX = data.gXYZ.x / gSum;
++    primaries.gY = data.gXYZ.y / gSum;
++    primaries.bX = data.bXYZ.x / bSum;
++    primaries.bY = data.bXYZ.y / bSum;
++    return true;
++}
++
++struct StandardColorSpace {
++    const char* name;
++    float rX;
++    float rY;
++    float gX;
++    float gY;
++    float bX;
++    float bY;
++};
++
++static const StandardColorSpace STANDARD_COLOR_SPACES[] = {
++    {"sRGB", 0.64f, 0.33f, 0.30f, 0.60f, 0.15f, 0.06f},
++    {"Display P3", 0.680f, 0.320f, 0.265f, 0.690f, 0.150f, 0.060f},
++    {"BT.2020", 0.708f, 0.292f, 0.170f, 0.797f, 0.131f, 0.046f},
++    {"Adobe RGB", 0.640f, 0.330f, 0.210f, 0.710f, 0.150f, 0.060f},
++    {"DCI-P3", 0.680f, 0.320f, 0.265f, 0.690f, 0.150f, 0.060f}
++};
++
++static float CalculateColorSpaceDistance(const PrimariesXY& primaries, const StandardColorSpace& standard)
++{
++    auto calcDistance = [](float x1, float y1, float x2, float y2) -> float {
++        return std::sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
++    };
++
++    return calcDistance(primaries.rX, primaries.rY, standard.rX, standard.rY) +
++           calcDistance(primaries.gX, primaries.gY, standard.gX, standard.gY) +
++           calcDistance(primaries.bX, primaries.bY, standard.bX, standard.bY);
++}
++
++enum class GammaType {
++    SRGB,
++    HLG,
++    UNKNOWN
++};
++
++static GammaType DetermineGammaType(float gamma)
++{
++    constexpr float SRGB_GAMMA = 2.2f;
++    constexpr float LINEAR_GAMMA = 1.0f;
++    constexpr float HLG_GAMMA = 1.2f;
++    constexpr float HLG_GAMMA_LOW = 0.5f;
++    constexpr float GAMMA_TOLERANCE = 0.1f;
++
++    if ((std::abs(gamma - SRGB_GAMMA) < GAMMA_TOLERANCE) ||
++        (std::abs(gamma - LINEAR_GAMMA) < GAMMA_TOLERANCE)) {
++        return GammaType::SRGB;
++    }
++    if ((std::abs(gamma - HLG_GAMMA) < GAMMA_TOLERANCE) ||
++        (std::abs(gamma - HLG_GAMMA_LOW) < GAMMA_TOLERANCE)) {
++        return GammaType::HLG;
++    }
++    return GammaType::UNKNOWN;
++}
++
++static bool MatchColorSpaceByDistance(const PrimariesXY& primaries, float gamma,
++    OHOS::ColorManager::ColorSpaceName& name)
++{
++    constexpr float TOLERANCE = 0.02f;
++    constexpr float TOLERANCE_THRESHOLD = TOLERANCE * TOLERANCE_NUMBER;
++    constexpr int COLORSPACE_NUM = 5;
++
++    float distances[COLORSPACE_NUM];
++    for (int i = 0; i < COLORSPACE_NUM; i++) {
++        distances[i] = CalculateColorSpaceDistance(primaries, STANDARD_COLOR_SPACES[i]);
++    }
++    GammaType gammaType = DetermineGammaType(gamma);
++    // Match sRGB
++    if (distances[OFFSET_0] < TOLERANCE_THRESHOLD && gammaType == GammaType::SRGB) {
++        name = OHOS::ColorManager::ColorSpaceName::SRGB;
++        IMAGE_LOGD("Matched sRGB by primaries and gamma");
++        return true;
++    }
++
++    // Match Display P3
++    if (distances[OFFSET_1] < TOLERANCE_THRESHOLD) {
++        name = OHOS::ColorManager::ColorSpaceName::DISPLAY_P3;
++        IMAGE_LOGD("Matched Display P3 by primaries");
++        return true;
++    }
++
++    // Match BT.2020
++    if (distances[OFFSET_2] < TOLERANCE_THRESHOLD) {
++        //The logic for "2020" is relatively complex, so use the original flow for matching.
++        return false;
++    }
++
++    // Match Adobe RGB
++    if (distances[OFFSET_3] < TOLERANCE_THRESHOLD) {
++        name = OHOS::ColorManager::ColorSpaceName::ADOBE_RGB;
++        IMAGE_LOGD("Matched Adobe RGB by primaries");
++        return true;
++    }
++
++    // Match DCI-P3
++    if (distances[OFFSET_4] < TOLERANCE_THRESHOLD) {
++        name = OHOS::ColorManager::ColorSpaceName::DCI_P3;
++        IMAGE_LOGD("Matched DCI-P3 by primaries");
++        return true;
++    }
++
++    IMAGE_LOGI("No standard color space matched by primaries and gamma");
++    return false;
++}
++
++// Match color space by primaries and gamma
++bool ColorUtils::MatchColorSpaceByPrimariesAndGamma(const skcms_ICCProfile* profile,
++    OHOS::ColorManager::ColorSpaceName &name)
++{
++    ICCProfileData profileData;
++    CHECK_ERROR_RETURN_RET(!ExtractICCProfileData(profile, profileData), false);
++
++    PrimariesXY primaries;
++    CHECK_ERROR_RETURN_RET(!CalculatePrimariesXY(profileData, primaries), false);
++    return MatchColorSpaceByDistance(primaries, profileData.gamma, name);
++}
++
++#endif
++
++} // namespace Media
+ } // namespace OHOS
+\ No newline at end of file
 diff --git a/frameworks/innerkitsimpl/utils/src/image_dfx.cpp b/frameworks/innerkitsimpl/utils/src/image_dfx.cpp
 index 20422ac..cf89a66 100644
 --- a/frameworks/innerkitsimpl/utils/src/image_dfx.cpp
@@ -954,17 +2466,33 @@ index ceb1e5f..816f470 100644
  extern char* __progname;
  }
 diff --git a/frameworks/innerkitsimpl/utils/src/image_utils.cpp b/frameworks/innerkitsimpl/utils/src/image_utils.cpp
-index a0b730c..f765048 100644
+index a0b730c..02d1637 100644
 --- a/frameworks/innerkitsimpl/utils/src/image_utils.cpp
 +++ b/frameworks/innerkitsimpl/utils/src/image_utils.cpp
-@@ -27,7 +27,6 @@
+@@ -27,7 +27,7 @@
  #include <chrono>
  #include <atomic>
  
 -#include "__config"
++#include <iomanip>
  #include "image_log.h"
  #include "ios"
  #include "istream"
+@@ -1389,7 +1389,14 @@ std::string ImageUtils::GetPixelMapName(PixelMap* pixelMap)
+         "_pixelFormat" + std::to_string((int32_t)pixelMap->GetPixelFormat()) +
+         "_total" + std::to_string(pixelMap->GetRowStride() * pixelMap->GetHeight()) +
+         "_pid" + std::to_string(getpid()) +
++        // Linux/Wayland native port: IOS_PLATFORM is defined to reuse the lean image
++        // branch, but SYS_thread_selfid is Darwin-only; use the linux thread-id
++        // syscall on a real linux host.
++#if defined(__APPLE__)
+         "_tid" + std::to_string(syscall(SYS_thread_selfid)) +
++#else
++        "_tid" + std::to_string(syscall(SYS_gettid)) +
++#endif
+         "_uniqueId" + std::to_string(pixelMap->GetUniqueId());
+ #else
+     std::string yuvInfoStr = "";
 diff --git a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn b/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
 index 47c0ecc..e092124 100644
 --- a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
@@ -1031,7 +2559,7 @@ index 7ee671c..3bb9de9 100644
      "runtime_core:ani_helpers",
      "egl:libEGL",
 diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
-index b6ee377..f3178c0 100644
+index b6ee377..78b6635 100644
 --- a/interfaces/innerkits/BUILD.gn
 +++ b/interfaces/innerkits/BUILD.gn
 @@ -55,7 +55,6 @@ config("image_external_config") {
@@ -1115,7 +2643,7 @@ index b6ee377..f3178c0 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -235,12 +263,24 @@ if (use_clang_android) {
+@@ -235,12 +263,44 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_statics",
@@ -1135,14 +2663,46 @@ index b6ee377..f3178c0 100644
 +        # and resolve parcel.h to the real c_utils header (no mock collision). Drop
 +        # pixel_map_parcel.cpp, which implements the now gated-out PixelMapRecordParcel.
 +        defines += [ "CROSS_PLATFORM" ]
++
++        # Mirror the mac image port (image_decode_mac_defines adds IOS_PLATFORM):
++        # make the kept cross-platform sources (pixel_map.cpp, image_source.cpp,
++        # image_format_convert.cpp, pixel_convert.cpp, pixel_yuv.cpp, post_proc.cpp,
++        # memory_manager.cpp) take the lean iOS source branches so they stop pulling
++        # HDI "v1_0/*", "ipc_file_descriptor.h", "astcenc.h" and the gated-out
++        # VpeUtils/ImageUtils YUV helpers. pixel_map.h etc. already gate on
++        # CROSS_PLATFORM; no Apple-only code exists under these guards.
++        defines += [ "IOS_PLATFORM" ]
 +        sources -= [
 +          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/common/src/pixel_map_parcel.cpp",
++          # Mirror the iOS image_native source set, which omits these OHOS-only files
++          # (no IOS/CROSS guard; they pull ipc_file_descriptor.h / metadata_helper.h /
++          # graphic_surface surface_type.h). Drop them on linux too.
++          "${image_subsystem}/frameworks/innerkitsimpl/accessor/src/blob_metadata.cpp",
++          "${image_subsystem}/frameworks/innerkitsimpl/picture/auxiliary_generator.cpp",
++          "${image_subsystem}/frameworks/innerkitsimpl/picture/auxiliary_picture.cpp",
++          "${image_subsystem}/frameworks/innerkitsimpl/picture/picture.cpp",
++          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/creator/src/image_creator.cpp",
++          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/creator/src/image_creator_manager.cpp",
++          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/receiver/src/image_receiver.cpp",
++          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/receiver/src/image_receiver_manager.cpp",
 +        ]
 +      }
        deps = [
          "${image_subsystem}/frameworks/innerkitsimpl/egl_image:post_proc_gl",
          "${image_subsystem}/plugins/common/libs/image/libextplugin:heifparser",
-@@ -255,30 +295,30 @@ if (use_clang_android) {
+@@ -249,36 +309,42 @@ if (use_clang_android) {
+         "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
+         "${image_subsystem}/frameworks/innerkitsimpl/accessor:image_accessor",
+       ]
++      if (target_os == "linux") {
++        # post_proc_gl (egl GPU post-process) is not built on iOS/android
++        # (egl_image/BUILD.gn) and pulls graphic_surface external_window.h whose
++        # "Region" typedef clashes; drop the dep on linux to mirror the lean variant.
++        deps -= [ "${image_subsystem}/frameworks/innerkitsimpl/egl_image:post_proc_gl" ]
++      }
+ 
+       if (DUAL_ADAPTER) {
+       } else {
          deps += [ "//third_party/libpng:libpng" ]
        }
        external_deps = [
@@ -1184,7 +2744,7 @@ index b6ee377..f3178c0 100644
          "skia:skia_canvaskit",
        ]
        if (enable_libexif) {
-@@ -434,7 +474,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -434,7 +500,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        ]
@@ -1193,7 +2753,7 @@ index b6ee377..f3178c0 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -453,8 +493,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -453,8 +519,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_static",
        ]
@@ -1204,7 +2764,7 @@ index b6ee377..f3178c0 100644
      } else if (use_clang_ios) {
        defines = image_decode_ios_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -510,11 +550,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -510,11 +576,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
        }
        external_deps = [
          "c_utils:utils",
