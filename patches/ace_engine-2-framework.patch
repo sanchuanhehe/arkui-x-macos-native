@@ -434,6 +434,22 @@ index 55b8cefe9e4..03fc6ef9a85 100644
  #endif
  private:
      InputMethodManager() = default;
+diff --git a/frameworks/core/components_ng/layout/utils.h b/frameworks/core/components_ng/layout/utils.h
+index 02ec84ad704..6be91ef9eef 100644
+--- a/frameworks/core/components_ng/layout/utils.h
++++ b/frameworks/core/components_ng/layout/utils.h
+@@ -21,7 +21,10 @@
+ #include "core/components/common/properties/alignment.h"
+ 
+ namespace OHOS::Ace::NG {
+-Alignment ConvertStringToAlignment(std::string localizedAlignment)
++// Header-defined function must be `inline`, else every TU including this header
++// emits a strong definition → duplicate symbol when statically linking the macOS
++// single binary (iOS avoids this via per-component dylibs). `inline` coalesces them.
++inline Alignment ConvertStringToAlignment(std::string localizedAlignment)
+ {
+     static const std::unordered_map<std::string, Alignment> alignmentMap = {
+         {"top_start", Alignment::TOP_LEFT}, {"top", Alignment::TOP_CENTER}, {"top_end", Alignment::TOP_RIGHT},
 diff --git a/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp
 index afef4922b2c..11b3640d1dd 100644
 --- a/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp
@@ -456,6 +472,19 @@ index afef4922b2c..11b3640d1dd 100644
  {
      return nullptr;
  }
+diff --git a/frameworks/core/components_ng/pattern/data_panel/bridge/data_panel_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/data_panel/bridge/data_panel_dynamic_modifier.cpp
+index 08e5148d8cc..0aaaa96ee3a 100644
+--- a/frameworks/core/components_ng/pattern/data_panel/bridge/data_panel_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/data_panel/bridge/data_panel_dynamic_modifier.cpp
+@@ -850,7 +850,7 @@ void SetDataPanelStrokeWidthNewImpl(
+ {}
+ #endif
+ 
+-ArkUINodeHandle CreateFrameNode(ArkUI_Int32 nodeId)
++static ArkUINodeHandle CreateFrameNode(ArkUI_Int32 nodeId)
+ {
+     return nullptr;
+ }
 diff --git a/frameworks/core/components_ng/pattern/gauge/bridge/gauge_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/gauge/bridge/gauge_dynamic_modifier.cpp
 index b06ed9fc164..0d75c84ec31 100644
 --- a/frameworks/core/components_ng/pattern/gauge/bridge/gauge_dynamic_modifier.cpp
@@ -471,6 +500,55 @@ index b06ed9fc164..0d75c84ec31 100644
  {
      return nullptr;
  }
+diff --git a/frameworks/core/components_ng/pattern/indexer/bridge/indexer_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/indexer/bridge/indexer_dynamic_modifier.cpp
+index 83bdda8c2fb..181bb8a8b38 100644
+--- a/frameworks/core/components_ng/pattern/indexer/bridge/indexer_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/indexer/bridge/indexer_dynamic_modifier.cpp
+@@ -295,7 +295,7 @@ void SetSelectedBackgroundColor(ArkUINodeHandle node, uint32_t color)
+     IndexerModelNG::SetSelectedBGColorByUser(frameNode, true);
+ }
+ 
+-void ResetSelectedBackgroundColor(ArkUINodeHandle node)
++static void ResetSelectedBackgroundColor(ArkUINodeHandle node)
+ {
+     auto* frameNode = GetFrameNode(node);
+     CHECK_NULL_VOID(frameNode);
+@@ -574,14 +574,14 @@ void ResetAutoCollapse(ArkUINodeHandle node)
+     IndexerModelNG::SetAutoCollapse(frameNode, true);
+ }
+ 
+-void SetEnableHapticFeedback(ArkUINodeHandle node, ArkUI_Bool value)
++static void SetEnableHapticFeedback(ArkUINodeHandle node, ArkUI_Bool value)
+ {
+     auto* frameNode = GetFrameNode(node);
+     CHECK_NULL_VOID(frameNode);
+     IndexerModelNG::SetEnableHapticFeedback(frameNode, value);
+ }
+ 
+-void ResetEnableHapticFeedback(ArkUINodeHandle node)
++static void ResetEnableHapticFeedback(ArkUINodeHandle node)
+ {
+     auto* frameNode = GetFrameNode(node);
+     CHECK_NULL_VOID(frameNode);
+diff --git a/frameworks/core/components_ng/pattern/patternlock/bridge/patternlock_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/patternlock/bridge/patternlock_dynamic_modifier.cpp
+index 7157de17677..6d55e85cce5 100644
+--- a/frameworks/core/components_ng/pattern/patternlock/bridge/patternlock_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/patternlock/bridge/patternlock_dynamic_modifier.cpp
+@@ -37,12 +37,12 @@ FrameNode* GetFrameNode(ArkUINodeHandle node)
+     return node ? reinterpret_cast<FrameNode*>(node) : ViewStackProcessor::GetInstance()->GetMainFrameNode();
+ }
+ 
+-ArkUINodeHandle CreateFrameNode(int32_t nodeId)
++static ArkUINodeHandle CreateFrameNode(int32_t nodeId)
+ {
+     return nullptr;
+ }
+ 
+-void CreateModel(ArkUI_Bool isObject, void* controller)
++static void CreateModel(ArkUI_Bool isObject, void* controller)
+ {
+     static PatternLockModelNG model;
+     auto controllers = model.Create();
 diff --git a/frameworks/core/components_ng/pattern/rating/bridge/arkts_native_rating_bridge.cpp b/frameworks/core/components_ng/pattern/rating/bridge/arkts_native_rating_bridge.cpp
 index f346de52885..d8c95a56d87 100644
 --- a/frameworks/core/components_ng/pattern/rating/bridge/arkts_native_rating_bridge.cpp
