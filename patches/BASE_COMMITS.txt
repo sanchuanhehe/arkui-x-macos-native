@@ -24,3 +24,4 @@ base/hiviewdfx/hitrace               be065784e592   # rust target 桩 + hitrace 
 foundation/distributeddatamgr/preferences  6f41a99e70a8   # native_preferences 补 linux 分支
 foundation/filemanagement/file_api   a69be23cecc5   # rust_file 桩 + ani/fs deps gate
 third_party/ffmpeg                   2d8688f8c88d   # 唯一 third_party 例外:sysroot 空 fallback
+foundation/resourceschedule/qos_manager  650a008ae1242fa0f11543482245a2965013e08e   # concurrent_task_client/qos linux 桩 + BUILD gate

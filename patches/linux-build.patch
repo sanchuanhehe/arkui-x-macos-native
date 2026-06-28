@@ -23,6 +23,38 @@ index 83aa942..84c1896 100644
  group("musl_install") {
    deps = [
      ":musl-libcxx.so",
+diff --git a/config/compiler/BUILD.gn b/config/compiler/BUILD.gn
+index 5a1c128..62e0d65 100755
+--- a/config/compiler/BUILD.gn
++++ b/config/compiler/BUILD.gn
+@@ -341,10 +341,23 @@ config("compiler") {
+     # Compiler instrumentation can introduce dependencies in DSOs to symbols in
+     # the executable they are loaded into, so they are unresolved at link-time.
+     if (is_ohos || (!using_sanitizer && !is_safestack)) {
+-      ldflags += [
+-        "-Wl,-z,defs",
+-        "-Wl,--as-needed",
+-      ]
++      # Linux/Wayland native port: the arkui-x cross-platform .so (librender_service_
++      # base, libtext_napi_impl, ...) deliberately leave a set of symbols undefined
++      # to be resolved at load time from the host executable (ace_linux) — the same
++      # way the android/ios arkui-x .so do: the hitrace osal (StartTrace/FinishTrace/
++      # HitraceMeterFmtScoped), panda (libpandabase/file) and RS symbol-config
++      # (Custom/DefaultSymbolConfig) all live in the executable, not each .so. -z,defs
++      # rejects those as link-time-undefined, so omit it for arkui-x linux and keep
++      # only --as-needed. Duplicate-symbol errors are still caught (they don't depend
++      # on -z,defs).
++      if (is_arkui_x && target_os == "linux") {
++        ldflags += [ "-Wl,--as-needed" ]
++      } else {
++        ldflags += [
++          "-Wl,-z,defs",
++          "-Wl,--as-needed",
++        ]
++      }
+     }
+ 
+     # Change default thread stack size to 2MB for asan.
 diff --git a/config/components/idl_tool/idl.gni b/config/components/idl_tool/idl.gni
 index 72427f9..90e461f 100644
 --- a/config/components/idl_tool/idl.gni
