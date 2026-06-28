@@ -51,6 +51,8 @@
 
 **完成判据**:窗口可拉伸重排;切系统暗色模式页面跟随;弹窗/菜单/Toast 正常。
 
+**实测(2026-06-28)** 🔶 暗色模式 ✅:`WindowView -viewDidChangeEffectiveAppearance` 把 `NSApp.effectiveAppearance`(Aqua/DarkAqua)映射成 `ohos.system.colorMode` 配置 → `window->UpdateConfiguration` 实时切换;`StageViewController initColorMode` 启动时也改为读 `currentColorMode`(原硬编码 Light,Dark 下启动会渲成浅色)。端到端实证:Light 截图(白底/colorMode=LIGHT/☀️)vs Dark 截图(深底 #1E1E1E/colorMode=DARK/🌙),`@ohos.mediaquery '(dark-mode: true)'` 正确匹配。**余**:resize 重排、Retina DPI 变化、子窗口 Dialog/Menu/Popup、多屏 待验证。
+
 ## M4 · 核心能力插件(`capability/` 大头)
 **Goal**:日常组件依赖的平台能力齐活。
 **Tasks**(新建 `adapter/macos/capability/` + `entrance/` 子系统)
