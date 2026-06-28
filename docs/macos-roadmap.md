@@ -53,7 +53,9 @@
 
 **实测(2026-06-28)** 🔶 暗色模式 ✅:`WindowView -viewDidChangeEffectiveAppearance` 把 `NSApp.effectiveAppearance`(Aqua/DarkAqua)映射成 `ohos.system.colorMode` 配置 → `window->UpdateConfiguration` 实时切换;`StageViewController initColorMode` 启动时也改为读 `currentColorMode`(原硬编码 Light,Dark 下启动会渲成浅色)。端到端实证:Light 截图(白底/colorMode=LIGHT/☀️)vs Dark 截图(深底 #1E1E1E/colorMode=DARK/🌙),`@ohos.mediaquery '(dark-mode: true)'` 正确匹配。
 
-**实测(2026-06-28)** 🔶 resize ✅:窗口拉伸链路 `WindowView -layout` → `NotifySurfaceChanged` → `Window::NotifySurfaceChanged` → `uiContent_->UpdateViewportConfig(RESIZE)` 已通。端到端实证:窗口从 1024×768 拉到 1500×950,`onAreaChange` 报 `view 1024×768 → 1370×844 vp`,`width('80%')`/`width('50%')` 的色条同步变宽(截图前后对比)。**余**:Retina DPI 变化、子窗口 Dialog/Menu/Popup、多屏 待验证。
+**实测(2026-06-28)** 🔶 resize ✅:窗口拉伸链路 `WindowView -layout` → `NotifySurfaceChanged` → `Window::NotifySurfaceChanged` → `uiContent_->UpdateViewportConfig(RESIZE)` 已通。端到端实证:窗口从 1024×768 拉到 1500×950,`onAreaChange` 报 `view 1024×768 → 1370×844 vp`,`width('80%')`/`width('50%')` 的色条同步变宽(截图前后对比)。
+
+**实测(2026-06-28)** 🔶 子窗口 NSPanel 框架(WIP):**根因**——`Window::ShowWindow` 原先对子窗口也走 `[windowView_ showOnView:mainWindowView.superview]`,把子窗口 addSubview 进**主窗口 view 层级**,所以 Menu/Popup/Dialog 全困在主窗口边界内(桌面上不合理)。**已改**:`WINDOW_TYPE_APP_SUB_WINDOW` 走独立 `NSPanel`(borderless + `addChildWindow` 挂主窗口,可超出边界);Move/Resize/Hide 映射到 panel 屏幕坐标;未定尺寸时 fallback 全屏(引擎按全屏透明容器建模,iOS 同)。框架实证:panel 全屏创建成功(`frame=(0,0 1470x956) childOf main`),主窗口路径不变且稳定。**剩(渲染管线级)**:全屏透明子窗口需第二个 `CAOpenGLLayer` surface + alpha-clear 背景;当前单一全局 `RenderContextGL`(共享 color renderbuffer)使打包 .app 跑子窗口时不稳定;`SubwindowIos::ShowWindow` 需先 `ResizeWindow`。与 M5(XComponent/Web 也需原生子 surface)同源,一并攻。**余**:Retina DPI、多屏 待验证。
 
 ## M4 · 核心能力插件(`capability/` 大头)
 **Goal**:日常组件依赖的平台能力齐活。
