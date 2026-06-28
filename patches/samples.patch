@@ -14,11 +14,23 @@ index a26322be..d904a950 100644
        }
      ],
      "buildModeSet": [
+diff --git a/BasicFeature/HelloWorld/entry/src/main/ets/entryability/EntryAbility.ets b/BasicFeature/HelloWorld/entry/src/main/ets/entryability/EntryAbility.ets
+index c6621661..6d61450b 100644
+--- a/BasicFeature/HelloWorld/entry/src/main/ets/entryability/EntryAbility.ets
++++ b/BasicFeature/HelloWorld/entry/src/main/ets/entryability/EntryAbility.ets
+@@ -31,6 +31,7 @@ export default class EntryAbility extends UIAbility {
+   onWindowStageCreate(windowStage: window.WindowStage) {
+     // Main window is created, set main page for this ability
+     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
++    AppStorage.setOrCreate('windowStage', windowStage);
+     windowStage.loadContent('pages/Index', (err, data) => {
+       if (err.code) {
+         hilog.error(0x0000, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
 diff --git a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
-index 61af322f..270ed264 100644
+index 61af322f..6ccbe119 100644
 --- a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
 +++ b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
-@@ -1,45 +1,53 @@
+@@ -1,45 +1,55 @@
 -/*
 - * Copyright (c) 2023 Huawei Device Co., Ltd.
 - * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,42 +45,14 @@ index 61af322f..270ed264 100644
 - * See the License for the specific language governing permissions and
 - * limitations under the License.
 - */
-+import I18n from '@ohos.i18n'
-+import intl from '@ohos.intl'
++import window from '@ohos.window'
++import hilog from '@ohos.hilog'
  
  @Entry
  @Component
  struct Index {
 -  @State message:string = 'World'
-+  @State lang: string = '?'
-+  @State region: string = '?'
-+  @State locale: string = '?'
-+  @State dateStr: string = '?'
-+  @State numStr: string = '?'
-+  @State i18nOk: string = 'pending'
-+  @State intlOk: string = 'pending'
-+
-+  aboutToAppear() {
-+    try {
-+      this.lang = I18n.System.getSystemLanguage()
-+      this.region = I18n.System.getSystemRegion()
-+      this.locale = I18n.System.getSystemLocale()
-+      this.i18nOk = 'OK'
-+    } catch (e) {
-+      this.i18nOk = 'ERR: ' + JSON.stringify(e)
-+    }
-+    try {
-+      let dtf = new intl.DateTimeFormat('zh-CN', { dateStyle: 'full', timeStyle: 'short' })
-+      this.dateStr = dtf.format(new Date(2026, 5, 28, 14, 30))
-+      let nf = new intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
-+      this.numStr = nf.format(123456.789)
-+      this.intlOk = 'OK'
-+    } catch (e) {
-+      this.intlOk = 'ERR: ' + JSON.stringify(e)
-+    }
-+  }
-+
-   build() {
+-  build() {
 -    Row() {
 -      Column() {
 -        Text('Hello ' + this.message)
@@ -88,26 +72,67 @@ index 61af322f..270ed264 100644
 -        .onClick(() => {
 -          this.message = 'ArkUI'
 -        })
--      }
++  @State msg: string = '点击①创建可拖动子窗口'
++  private sub: window.Window | null = null
++
++  async createSub() {
++    try {
++      const stage = AppStorage.get<window.WindowStage>('windowStage')
++      if (!stage) {
++        this.msg = '无 windowStage'
++        return
++      }
++      this.sub = await stage.createSubWindow('movableSub')
++      await this.sub.resize(360, 240)
++      await this.sub.moveWindowTo(320, 320)
++      await this.sub.setUIContent('pages/SubPage')
++      await this.sub.showWindow()
++      this.msg = '子窗口已显示 — 直接拖动它可移动'
++      hilog.info(0x0000, 'movableDemo', '%{public}s', 'subwindow shown')
++    } catch (e) {
++      this.msg = 'err: ' + JSON.stringify(e)
++      hilog.error(0x0000, 'movableDemo', 'createSub failed: %{public}s', JSON.stringify(e) ?? '')
++    }
++  }
++
++  async moveIt() {
++    try {
++      if (this.sub) {
++        await this.sub.moveWindowTo(680, 220)
++        this.msg = '已 moveWindowTo(680,220)'
++      } else {
++        this.msg = '先点①创建子窗口'
+       }
 -      .width('100%')
-+    Column({ space: 12 }) {
-+      Text('@ohos.i18n / @ohos.intl 验证')
-+        .fontSize(20).fontColor(Color.Black)
-+      Text('i18n: ' + this.i18nOk)
-+        .fontSize(16).fontColor(this.i18nOk == 'OK' ? Color.Green : Color.Red)
-+      Text('intl: ' + this.intlOk)
-+        .fontSize(16).fontColor(this.intlOk == 'OK' ? Color.Green : Color.Red)
-+      Text('language=' + this.lang).fontSize(15)
-+      Text('region=' + this.region).fontSize(15)
-+      Text('locale=' + this.locale).fontSize(15)
-+      Text('date=' + this.dateStr).fontSize(15).fontColor(Color.Blue)
-+      Text('currency=' + this.numStr).fontSize(15).fontColor(Color.Blue)
++    } catch (e) {
++      this.msg = 'move err: ' + JSON.stringify(e)
++    }
++  }
++
++  build() {
++    Column({ space: 18 }) {
++      Text('可拖动子窗口 Demo').fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.Black)
++      Text(this.msg).fontSize(13).fontColor('#FF666666')
++      Button('① 创建可拖动子窗口').fontSize(16).width(220).height(44).onClick(() => this.createSub())
++      Button('② moveWindowTo(680,220)').fontSize(16).width(220).height(44).onClick(() => this.moveIt())
      }
--    .height('100%')
-+    .width('100%').height('100%')
++    .width('100%')
+     .height('100%')
 +    .justifyContent(FlexAlign.Center)
 +    .backgroundColor(Color.White)
    }
 -}
 \ No newline at end of file
 +}
+diff --git a/BasicFeature/HelloWorld/entry/src/main/resources/base/profile/main_pages.json b/BasicFeature/HelloWorld/entry/src/main/resources/base/profile/main_pages.json
+index 1898d94f..e5c253d7 100644
+--- a/BasicFeature/HelloWorld/entry/src/main/resources/base/profile/main_pages.json
++++ b/BasicFeature/HelloWorld/entry/src/main/resources/base/profile/main_pages.json
+@@ -1,5 +1,6 @@
+ {
+   "src": [
+-    "pages/Index"
++    "pages/Index",
++    "pages/SubPage"
+   ]
+ }

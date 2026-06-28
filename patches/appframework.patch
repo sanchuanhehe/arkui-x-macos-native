@@ -463,10 +463,10 @@ index 0000000..75b0e3f
 +}
 diff --git a/graphic_2d/macos/render_context.mm b/graphic_2d/macos/render_context.mm
 new file mode 100644
-index 0000000..59e97a2
+index 0000000..465f409
 --- /dev/null
 +++ b/graphic_2d/macos/render_context.mm
-@@ -0,0 +1,429 @@
+@@ -0,0 +1,478 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -571,8 +571,17 @@ index 0000000..59e97a2
 +    NSOpenGLContext* ctx = static_cast<NSOpenGLContext*>(eglContext_);
 +    [ctx makeCurrentContext];
 +
-+    glDeleteFramebuffers(1, &framebuffer_);
-+    glDeleteRenderbuffers(1, &colorbuffer_);
++    // Delete every window's per-layer FBO + renderbuffer (framebuffer_/colorbuffer_ are
++    // just mirrors of a layerTargets_ entry, so don't double-delete them).
++    for (auto& kv : layerTargets_) {
++        if (kv.second.framebuffer != 0) {
++            glDeleteFramebuffers(1, &kv.second.framebuffer);
++        }
++        if (kv.second.colorbuffer != 0) {
++            glDeleteRenderbuffers(1, &kv.second.colorbuffer);
++        }
++    }
++    layerTargets_.clear();
 +
 +    [prev makeCurrentContext];
 +}
@@ -614,13 +623,8 @@ index 0000000..59e97a2
 +        return false;
 +    }
 +
-+    glGenFramebuffers(1, &framebuffer_);
-+    currentFramebuffer_ = framebuffer_;
-+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
-+    glGenRenderbuffers(1, &colorbuffer_);
-+    currentColorbuffer_ = colorbuffer_;
-+    glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer_);
-+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorbuffer_);
++    // The FBO + color renderbuffer are created lazily per-window in MakeCurrent()
++    // (see layerTargets_), not once here, so each window gets an isolated target.
 +    valid_ = true;
 +    return true;
 +}
@@ -637,21 +641,41 @@ index 0000000..59e97a2
 +    const GLint size_width = static_cast<GLint>(layer_size.width * contents_scale);
 +    const GLint size_height = static_cast<GLint>(layer_size.height * contents_scale);
 +
-+    if (layer == layer_ && size_width == storage_width_ && size_height == storage_height_) {
-+        return;
++    // Per-layer render target: each window (main + sub-windows) renders into its OWN
++    // FBO + color renderbuffer on this single shared GL context, keyed by its CALayer*.
++    // (A single shared framebuffer_/colorbuffer_ made every window blit the same buffer
++    // and thrashed one renderbuffer between window sizes every frame -> bleed + flicker.)
++    // No early-return on layer==layer_: another window may have been made current since,
++    // so we must rebind THIS layer's FBO and re-mirror the instance/static fields every
++    // call. Storage is only reallocated when THIS layer's own size actually changes.
++    LayerTarget& target = layerTargets_[static_cast<void*>(layer)];
++    if (target.framebuffer == 0) {
++        glGenFramebuffers(1, &target.framebuffer);
++        glGenRenderbuffers(1, &target.colorbuffer);
++        target.width = 0;
++        target.height = 0;
 +    }
-+    ROSEN_LOGD("renderbufferStorage(desktop GL): %d x %d", size_width, size_height);
 +
-+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
-+    glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer_);
-+    // Desktop GL: allocate offscreen renderbuffer storage of the layer size.
-+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, size_width, size_height);
-+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorbuffer_);
-+    currentFramebuffer_ = framebuffer_;
-+    currentColorbuffer_ = colorbuffer_;
++    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
++    glBindRenderbuffer(GL_RENDERBUFFER, target.colorbuffer);
++    if (size_width != target.width || size_height != target.height) {
++        ROSEN_LOGD("renderbufferStorage(desktop GL): %d x %d", size_width, size_height);
++        // Desktop GL: allocate offscreen renderbuffer storage of the layer size.
++        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, size_width, size_height);
++        target.width = size_width;
++        target.height = size_height;
++    }
++    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, target.colorbuffer);
 +
-+    storage_width_ = size_width;
-+    storage_height_ = size_height;
++    // Mirror the current layer's target so AcquireSurface() (binds framebuffer_) and the
++    // window layer's per-frame GetInstanceColorbuffer() push pick up THIS window's buffer.
++    framebuffer_ = target.framebuffer;
++    colorbuffer_ = target.colorbuffer;
++    storage_width_ = target.width;
++    storage_height_ = target.height;
++    currentFramebuffer_ = target.framebuffer;
++    currentColorbuffer_ = target.colorbuffer;
++
 +    if (layer_ != layer) {
 +        [static_cast<CALayer*>(layer_) release];
 +        layer_ = [layer retain];
@@ -707,13 +731,33 @@ index 0000000..59e97a2
 +
 +void RenderContextGL::DestroyEGLSurface(EGLSurface surface)
 +{
-+    if (layer_ != nullptr) {
++    // Tear down only THIS window's per-layer FBO + renderbuffer, leaving other windows'
++    // targets intact (one shared RenderContext serves every window).
++    CALayer* layer = static_cast<CALayer*>(surface);
++    auto it = layerTargets_.find(static_cast<void*>(layer));
++    if (it != layerTargets_.end()) {
++        if (eglContext_ != nullptr) {
++            [static_cast<NSOpenGLContext*>(eglContext_) makeCurrentContext];
++            if (it->second.colorbuffer != 0) {
++                glDeleteRenderbuffers(1, &it->second.colorbuffer);
++            }
++            if (it->second.framebuffer != 0) {
++                glDeleteFramebuffers(1, &it->second.framebuffer);
++            }
++        }
++        if (framebuffer_ == it->second.framebuffer) {
++            framebuffer_ = 0;
++            colorbuffer_ = 0;
++            storage_width_ = 0;
++            storage_height_ = 0;
++        }
++        layerTargets_.erase(it);
++    }
++    if (layer_ == layer) {
 +        [static_cast<CALayer*>(layer_) release];
 +        layer_ = nullptr;
 +    }
 +    ROSEN_LOGD("DestroyEGLSurface");
-+    storage_width_ = 0;
-+    storage_height_ = 0;
 +    DeleteSurface();
 +}
 +
@@ -737,14 +781,19 @@ index 0000000..59e97a2
 +    if (eglContext_ != nullptr) {
 +        [static_cast<NSOpenGLContext*>(eglContext_) makeCurrentContext];
 +
-+        if (colorbuffer_ != 0) {
-+            glDeleteRenderbuffers(1, &colorbuffer_);
-+            colorbuffer_ = 0;
++        // Delete every window's per-layer FBO + renderbuffer (framebuffer_/colorbuffer_
++        // are only mirrors of an entry owned by layerTargets_, so don't delete them too).
++        for (auto& kv : layerTargets_) {
++            if (kv.second.colorbuffer != 0) {
++                glDeleteRenderbuffers(1, &kv.second.colorbuffer);
++            }
++            if (kv.second.framebuffer != 0) {
++                glDeleteFramebuffers(1, &kv.second.framebuffer);
++            }
 +        }
-+        if (framebuffer_ != 0) {
-+            glDeleteFramebuffers(1, &framebuffer_);
-+            framebuffer_ = 0;
-+        }
++        layerTargets_.clear();
++        colorbuffer_ = 0;
++        framebuffer_ = 0;
 +        [NSOpenGLContext clearCurrentContext];
 +        glFinish();
 +        [static_cast<NSOpenGLContext*>(eglContext_) release];

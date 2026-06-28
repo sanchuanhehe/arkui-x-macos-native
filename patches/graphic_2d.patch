@@ -34,10 +34,16 @@ index 5b13b75c75..26e99626cd 100755
 +  }
  }
 diff --git a/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h b/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
-index 77462ad90e..75fa5380a4 100644
+index 77462ad90e..1875c37c01 100644
 --- a/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
 +++ b/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
-@@ -22,7 +22,7 @@
+@@ -17,12 +17,13 @@
+ #define RENDER_CONTEXT_GL_H
+ 
+ #include <memory>
++#include <unordered_map>
+ 
+ 
  #include "common/rs_rect.h"
  #include "render_context/render_context.h"
  
@@ -46,7 +52,7 @@ index 77462ad90e..75fa5380a4 100644
  #include "render_context/render_context_egl_defines.h"
  #else
  #include "EGL/egl.h"
-@@ -79,19 +79,38 @@ public:
+@@ -79,25 +80,62 @@ public:
          return eglDisplay_;
      }
  
@@ -85,9 +91,33 @@ index 77462ad90e..75fa5380a4 100644
 +    static uint32_t currentFramebuffer_;
 +    static uint32_t currentColorbuffer_;
  
++    // framebuffer_/colorbuffer_/storage_* mirror the CURRENT layer's per-layer target
++    // (see layerTargets_). AcquireSurface() binds framebuffer_ and the window layer
++    // blits GetInstanceColorbuffer(); both must point at the window made current LAST.
      uint32_t framebuffer_ = 0;
      uint32_t colorbuffer_ = 0;
-@@ -107,7 +126,7 @@ private:
+     int32_t storage_width_ = 0;
+     int32_t storage_height_ = 0;
+     bool valid_ = false;
++
++    // ArkUI-X macOS: one shared RenderContext is assigned to EVERY window's RSSurface
++    // (rs_render_thread_visitor sets the single RSRenderThread render context on all
++    // surfaces). A single framebuffer_/colorbuffer_ therefore made every window blit
++    // the same renderbuffer (sub-window content leaked onto the main window) and the
++    // lone renderbuffer was reallocated to each window's size every frame (flicker).
++    // Give each window (keyed by its backing CALayer*) its own FBO + color renderbuffer
++    // so they render to isolated offscreen targets on this single shared GL context.
++    struct LayerTarget {
++        uint32_t framebuffer = 0;
++        uint32_t colorbuffer = 0;
++        int32_t width = 0;
++        int32_t height = 0;
++    };
++    std::unordered_map<void*, LayerTarget> layerTargets_;
+ #endif
+ 
+ private:
+@@ -107,7 +145,7 @@ private:
      }
  
      void CreatePbufferSurface();
