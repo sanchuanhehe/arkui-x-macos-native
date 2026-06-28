@@ -83,6 +83,8 @@
 
 **完成判据**:`XComponent` 拿到 GL/native surface;`Web` 加载网页;`Video` 播放。
 
+**实测(2026-06-29)**:🟢 **Canvas 2D ✅ 端到端可用**——`fillRect` / `createLinearGradient`+`arc`+`fill`(线性渐变圆) / `strokeRect` / `fillText`(含中文,CoreText) / `moveTo`+`lineTo`+`stroke`(折线)全部正确渲染(截图实证)。Canvas 走标准 Skia 管线,在新 per-layer surface 上直接可用,无需原生子 surface。🟢 **Retina 高 DPI ✅ 隐式验证**——全程 2x backingScale 锐利渲染。🔶 **Web / Video / XComponent**:跨平台抽象层齐全,iOS 适配完整(`adapter/ios/capability/web` WKWebView 138KB、`video` AVPlayer、`texture` XComponent),但 **mac adapter 完全缺这三个 capability 目录**;`graphic_2d/macos/rs_surface_gpu.mm` 的 `CreateSurfaceExt` 明确返回 nullptr(XComponent 图形层未实现)。Web/Video 可移植(WKWebView/AVPlayer 在 mac 同样可用,UIKit→AppKit),XComponent 需补图形层 SurfaceExt。
+
 ## M6 · 组件广度
 **Goal**:主流组件 + 动画 + 多页全部验证可用。
 **Tasks**
@@ -93,6 +95,10 @@
 - 逐组件兼容性扫描,记录差异。
 
 **完成判据**:一个多页 demo(导航 + 列表滚动 + 动画 + 弹窗)端到端跑通。
+
+**实测(2026-06-29)**:🟢 **非动态组件广度 ✅**——`Button` / `Image` / `Progress`(Linear+Ring) / `LoadingProgress` / `List`+`ForEach`+`ListItem` / `Column`/`Row`/`Stack`/`Flex` / `Text` / `Canvas` 全部渲染正常(截图实证);叠加既往已验证的 `animateTo` / `Dialog`(独立 NSPanel)/ 多页导航。🔴 **动态模块组件(~22 个)被刻意桩成 null**——`Slider`/`Checkbox`/`Toggle`/`Rating`/`Radio`/`Stepper`/`Gauge`/`WaterFlow`/`QRCode`/`Search`/`TimePicker`/`Richeditor` 等走 `DynamicModuleHelper::GetDynamicModule()` 懒加载,iOS 编成 per-component dylib framework,**mac 在 `mac_link_stubs.cpp` 把 `OHOS_ACE_DynamicModule_Create_Slider()` 等全返回 nullptr 仅为链接通过**(同 Menu/MenuItem)。要真用需把每个组件的 `*_dynamic_module.cpp` + `arkts_native_*_bridge.cpp` + `node_*_modifier.cpp`(arkoala 层,与已静态化的 Text/Button bridge 同源)编进 ace_macos 并在 `dynamic_module_helper.mm` 返回真实模块——较大但路径明确(arkoala bridge 在 mac 已可编,Text/Button 即证)。
+
+**框架级修复(2026-06-29)** ✅ **preload abc 双重执行**:跨平台共享 runtime 下 `InitAceModule`(页面引擎)与 `PreloadAceModule`(全局 runtime)对同一 runtime 各跑一遍 preload,而 `arkCommon.abc`(`const arkUINativeModule`)/`stateMgmt.abc`(`class stateMgmtConsole`)/`jsEnumStyle.abc` 等有顶层 lexical 声明,第二次 "Duplicate identifier" 中断 `func_main_0` → `LogTag` 等全局半初始化 → 表单组件创建崩,且被 `LogTag` undefined 的二次错误掩盖成 "Cannot read property STATE_MGMT of undefined"(即 memory 记的「LogTag 掩盖崩」)。**修复**:`jsi_declarative_engine.cpp` 加 `PreloadAbcOnce` 模板(global 上哨兵属性,**每 runtime 只执行一次**),套用全部 6 个 preload。实测:所有 `Cannot execute ark buffer` 归零、掩盖消失、真错误现形(揭示动态模块桩问题)。这是 M6 调试硬化 + M10 去 hack 的实质改进。
 
 ## M7 · 系统 API / NAPI 覆盖
 **Goal**:常用 `@ohos.*` 模块工作。

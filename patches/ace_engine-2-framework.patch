@@ -153,10 +153,114 @@ index 85895498d4e..c94abc792bd 100644
  template<typename C>
  void JsiClass<C>::Declare(const char* name)
 diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-index 93b946c130b..3f93491e747 100644
+index 93b946c130b..ad097cb1d81 100644
 --- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
 +++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-@@ -1123,6 +1123,13 @@ void JsiDeclarativeEngineInstance::DestroyAllRootViewHandle()
+@@ -242,49 +242,87 @@ bool EvaluateAbcFile(const shared_ptr<JsRuntime>& runtime, const std::string& fi
+     return arkRuntime->EvaluateJsCode(content.data(), static_cast<int32_t>(content.size()), filePath);
+ }
+ 
++// Run a preload-abc evaluation at most once per runtime. These framework abc modules
++// (stateMgmt / jsEnumStyle / arkCommon / arkComponent / ...) declare top-level lexical
++// bindings (const / class). On the cross-platform shared-runtime path the preload
++// helpers are reachable more than once for a single runtime (InitAceModule from a page
++// engine + PreloadAceModule on the shared global runtime). Re-evaluating then throws
++// "Duplicate identifier ..." which aborts func_main_0 and leaves the module's globals
++// (e.g. LogTag, stateMgmtConsole) half-initialized, later crashing form components in
++// observeComponentCreation2. Guard with a per-runtime sentinel on the global object
++// (each runtime has its own global, so a freshly created runtime still loads normally).
++template<typename EvalFn>
++inline bool PreloadAbcOnce(const shared_ptr<JsRuntime>& runtime, const char* sentinel, EvalFn&& evalFn)
++{
++    shared_ptr<JsValue> global = runtime->GetGlobal();
++    if (global != nullptr) {
++        shared_ptr<JsValue> loaded = global->GetProperty(runtime, sentinel);
++        if (loaded != nullptr && loaded->IsBoolean(runtime) && loaded->ToBoolean(runtime)) {
++            return true;
++        }
++    }
++    bool result = evalFn();
++    if (result && global != nullptr) {
++        global->SetProperty(runtime, sentinel, runtime->NewBoolean(true));
++    }
++    return result;
++}
++
+ inline bool PreloadJsEnums(const shared_ptr<JsRuntime>& runtime)
+ {
+-    return EvaluateAbcFile(runtime, NG::GetSystemPath("jsEnumStyle.abc"));
++    return PreloadAbcOnce(runtime, "__jsEnumsLoaded__",
++        [&]() { return EvaluateAbcFile(runtime, NG::GetSystemPath("jsEnumStyle.abc")); });
+ }
+ 
+ inline bool PreloadStateManagement(const shared_ptr<JsRuntime>& runtime)
+ {
+     // set __hasUIFramework__
+     runtime->GetGlobal()->SetProperty(runtime, "__hasUIFramework__", runtime->NewBoolean(true));
++    return PreloadAbcOnce(runtime, "__stateMgmtLoaded__", [&]() {
+ #ifdef STATE_MGMT_USE_AOT
+-    return runtime->ExecuteJsBinForAOT("/etc/abc/framework/stateMgmt.abc");
++        return runtime->ExecuteJsBinForAOT("/etc/abc/framework/stateMgmt.abc");
+ #else
+-    std::string str("arkui_binary_stateMgmt_abc_loadFile");
+-    return runtime->EvaluateJsCode(
+-        reinterpret_cast<const uint8_t*>(_binary_stateMgmt_abc_start),
+-        _binary_stateMgmt_abc_end - _binary_stateMgmt_abc_start, str);
++        std::string str("arkui_binary_stateMgmt_abc_loadFile");
++        return runtime->EvaluateJsCode(
++            reinterpret_cast<const uint8_t*>(_binary_stateMgmt_abc_start),
++            _binary_stateMgmt_abc_end - _binary_stateMgmt_abc_start, str);
+ #endif
++    });
+ }
+ 
+ inline bool PreloadUIContent(const shared_ptr<JsRuntime>& runtime)
+ {
+-    uint8_t* codeStart = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(_binary_jsPreload_abc_start));
+-    int32_t codeLength = _binary_jsPreload_abc_end - _binary_jsPreload_abc_start;
+-    return runtime->EvaluateJsCode(codeStart, codeLength);
++    return PreloadAbcOnce(runtime, "__uiContentPreloaded__", [&]() {
++        uint8_t* codeStart = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(_binary_jsPreload_abc_start));
++        int32_t codeLength = _binary_jsPreload_abc_end - _binary_jsPreload_abc_start;
++        return runtime->EvaluateJsCode(codeStart, codeLength);
++    });
+ }
+ 
+ inline bool PreloadArkCommon(const shared_ptr<JsRuntime>& runtime)
+ {
+-    std::string str("arkui_binary_arkCommon_abc_loadFile");
+-    return runtime->EvaluateJsCode(
+-        (uint8_t*)_binary_arkCommon_abc_start, _binary_arkCommon_abc_end - _binary_arkCommon_abc_start, str);
++    // arkCommon.abc has a top-level `const arkUINativeModule`; double-execution is the case
++    // that surfaced the "Duplicate identifier" crash. See PreloadAbcOnce.
++    return PreloadAbcOnce(runtime, "__arkCommonLoaded__", [&]() {
++        std::string str("arkui_binary_arkCommon_abc_loadFile");
++        return runtime->EvaluateJsCode(
++            (uint8_t*)_binary_arkCommon_abc_start, _binary_arkCommon_abc_end - _binary_arkCommon_abc_start, str);
++    });
+ }
+ 
+ inline bool PreloadArkDynamicComponent(const shared_ptr<JsRuntime>& runtime)
+ {
+-    std::string str("arkui_binary_arkDynamicComponent_abc_loadFile");
+-    return runtime->EvaluateJsCode((uint8_t*)_binary_arkDynamicComponent_abc_start,
+-        _binary_arkDynamicComponent_abc_end - _binary_arkDynamicComponent_abc_start, str);
++    return PreloadAbcOnce(runtime, "__arkDynamicComponentLoaded__", [&]() {
++        std::string str("arkui_binary_arkDynamicComponent_abc_loadFile");
++        return runtime->EvaluateJsCode((uint8_t*)_binary_arkDynamicComponent_abc_start,
++            _binary_arkDynamicComponent_abc_end - _binary_arkDynamicComponent_abc_start, str);
++    });
+ }
+ 
+ inline bool PreloadArkComponent(const shared_ptr<JsRuntime>& runtime)
+ {
+-    return EvaluateAbcFile(runtime, NG::GetSystemPath("arkComponent.abc"));
++    return PreloadAbcOnce(runtime, "__arkComponentLoaded__",
++        [&]() { return EvaluateAbcFile(runtime, NG::GetSystemPath("arkComponent.abc")); });
+ }
+ 
+ bool PreloadConsole(const shared_ptr<JsRuntime>& runtime, const shared_ptr<JsValue>& global)
+@@ -1123,6 +1161,13 @@ void JsiDeclarativeEngineInstance::DestroyAllRootViewHandle()
  void JsiDeclarativeEngineInstance::FlushReload()
  {
      CHECK_RUN_ON(JS);
@@ -170,7 +274,7 @@ index 93b946c130b..3f93491e747 100644
      JAVASCRIPT_EXECUTION_SCOPE_STATIC;
      if (rootViewMap_.empty()) {
          return;
-@@ -2145,6 +2152,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+@@ -2145,6 +2190,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
      const std::string assetPath = ASSET_PATH_PREFIX + moduleName + "/" + FORM_ES_MODULE_PATH;
      runtime->SetAssetPath(assetPath);
      runtime->SetModuleName(moduleName);
@@ -183,7 +287,7 @@ index 93b946c130b..3f93491e747 100644
      if (urlName.substr(0, strlen(BUNDLE_TAG)) != BUNDLE_TAG) {
  #ifdef CROSS_PLATFORM
          std::string moduleNamePath = (moduleName.find_last_of('.') != std::string::npos)
-@@ -2155,7 +2168,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+@@ -2155,7 +2206,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
          urlName = container->GetModuleName() + "/ets/" + urlName;
  #endif
      }
