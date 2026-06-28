@@ -109,7 +109,12 @@
 
 **完成判据**:VoiceOver 可读 UI;RTL 布局正确;权限弹窗合规。
 
-**实测(2026-06-28)** 🔶 i18n 打通:`@ohos.i18n` / `@ohos.intl` 静态链接进 `ace_macos`。两个 plugin 的 mac 平台层复用 iOS 的 Foundation-only impl(`NSLocale`/`NSTimeZone`,`intl` 的 `UIDevice`/`getDeviceType` 用 `MAC_PLATFORM` 守卫返回 `"pc"`)。关键难点是 `i18n`/`intl` 各 fork 了一份 `OHOS::Global::I18n::LocaleConfig`(static plugin 成员类型不同:`I18N*` vs `INTL*`)——iOS 各自 dylib 隔离不冲突,mac 静态链进单一 exe 触发 37 个 duplicate symbol;解法:intl 丢弃重复核心、复用 i18n 的 `LocaleConfig`,i18n 在 mac 补上 intl 特有的 3 个方法(`locale_config_intl_ext.cpp`)。**注**:dylib + flat-namespace 路线行不通——它阻止 dead-strip,强制解析 123 个死引用符号(`RSRenderServiceClient`/`ImageAnalyzerMgr` 等移植未链全的);静态链接 + dead-strip 才是 mac 正道。accessibility(NSAccessibility)/ Keychain 待做。
+**实测(2026-06-28)** ✅ i18n 完全打通:`@ohos.i18n` / `@ohos.intl` 静态链接进 `ace_macos`,系统 API + ICU 格式化全部工作。截图实证:i18n:OK intl:OK language=zh-Hans-CN region=CN locale=zh-Hans-CN **date=2026年6月28日星期日 14:30**(DateTimeFormat)**currency=¥123,456.79**(NumberFormat)。
+- **平台层**:两个 plugin 的 mac 实现复用 iOS Foundation-only impl(`NSLocale`/`NSTimeZone`,`intl` 的 `UIDevice`/`getDeviceType` 用 `MAC_PLATFORM` 守卫返回 `"pc"`)。
+- **ODR**:`i18n`/`intl` 各 fork 一份 `OHOS::Global::I18n::LocaleConfig`(static 成员 `I18N*` vs `INTL*`)——iOS 各自 dylib 隔离,mac 静态链进单 exe 触发 37 dup;解法 intl 复用 i18n 的核心 + i18n 补 intl 特有的 3 个方法(`locale_config_intl_ext.cpp`)。
+- **ICU data**:build 链 ICU stubdata(空 `U_ICUDATA_ENTRY_POINT`)→ 所有 format 返回空;mac 改为运行时 mmap 真实 31MB `icudt74l.dat`(`package_app.sh` 打包进 `Resources/icu/`)喂 `udata_setCommonDataAfterClean`。
+- **关键教训**:dylib + flat-namespace 路线行不通——阻止 dead-strip,强制解析 123 个死引用符号;静态链接 + dead-strip 才是 mac 正道。
+- **余下**:accessibility(NSAccessibility)/ Keychain。
 
 ## M9 · 打包与分发
 **Goal**:一键产出可分发签名 `.app`。

@@ -25,6 +25,67 @@ index 3c57ece7..92be41fd 100644
      }
  
      subsystem_name = "plugins"
+diff --git a/i18n/framework/icu_data.cpp b/i18n/framework/icu_data.cpp
+index 086e9a36..190c7fe0 100644
+--- a/i18n/framework/icu_data.cpp
++++ b/i18n/framework/icu_data.cpp
+@@ -18,8 +18,16 @@
+ #include "ucmndata.h"
+ #include "unicode/utypes.h"
+ #include "unicode/udata.h"
++#include "unicode/putil.h"
+ 
+ #include <mutex>
++#if defined(MAC_PLATFORM)
++#include <string>
++#include <unistd.h>
++#include <fcntl.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
++#endif
+ 
+ extern "C" const DataHeader U_DATA_API U_ICUDATA_ENTRY_POINT;
+ 
+@@ -37,7 +45,38 @@ void InitIcuData()
+     if (status != 0) {
+         return;
+     }
+-	UErrorCode err;
++    // Must be U_ZERO_ERROR on entry: ICU APIs no-op when handed a UErrorCode that
++    // is already a failure. Leaving it uninitialised (garbage) made
++    // udata_setCommonDataAfterClean silently skip.
++    UErrorCode err = U_ZERO_ERROR;
++#if defined(MAC_PLATFORM)
++    // On mac the build links ICU's stubdata (an empty U_ICUDATA_ENTRY_POINT, 0
++    // bytes), so handing it to ICU leaves it with no locale data and every
++    // DateTimeFormat/NumberFormat comes back empty. u_setDataDirectory alone is
++    // too late — libace touches ICU during startup, which locks the (stub) data
++    // source. Instead mmap the real 31MB icudt<ver>l.dat shipped next to the app
++    // (cwd is the resource root after the constructor chdir; package_app.sh stages
++    // it under ./icu/) and hand it to udata_setCommonDataAfterClean, whose
++    // AfterClean resets ICU's earlier binding before installing the real data.
++    char cwd[PATH_MAX] = {0};
++    if (getcwd(cwd, sizeof(cwd)) != nullptr) {
++        std::string path = std::string(cwd) + "/icu/icudt74l.dat";
++        int fd = open(path.c_str(), O_RDONLY);
++        if (fd >= 0) {
++            struct stat st {};
++            if (fstat(fd, &st) == 0 && st.st_size > 0) {
++                // Kept mapped for the process lifetime; ICU holds the pointer.
++                void* data = mmap(nullptr, static_cast<size_t>(st.st_size), PROT_READ,
++                    MAP_PRIVATE, fd, 0);
++                if (data != MAP_FAILED) {
++                    udata_setCommonDataAfterClean(data, &err);
++                }
++            }
++            close(fd);
++        }
++    }
++#else
+     udata_setCommonDataAfterClean(&U_ICUDATA_ENTRY_POINT, &err);
++#endif
+     status = 1;
+ }
 diff --git a/i18n/include/locale_config.h b/i18n/include/locale_config.h
 index c5b34bb2..2c1f7deb 100644
 --- a/i18n/include/locale_config.h
@@ -293,6 +354,23 @@ index 4ed6cd4b..ce32426c 100644
      }
  
      subsystem_name = "plugins"
+diff --git a/intl/framework/icu_data.cpp b/intl/framework/icu_data.cpp
+index 086e9a36..1356f4f7 100644
+--- a/intl/framework/icu_data.cpp
++++ b/intl/framework/icu_data.cpp
+@@ -37,7 +37,11 @@ void InitIcuData()
+     if (status != 0) {
+         return;
+     }
+-	UErrorCode err;
++    // Must be U_ZERO_ERROR on entry: ICU APIs no-op when handed a UErrorCode that
++    // is already a failure. Leaving it uninitialised (garbage) made
++    // udata_setCommonDataAfterClean silently skip, so the embedded icudt*_dat was
++    // never registered and every DateTimeFormat/NumberFormat came back empty.
++    UErrorCode err = U_ZERO_ERROR;
+     udata_setCommonDataAfterClean(&U_ICUDATA_ENTRY_POINT, &err);
+     status = 1;
+ }
 diff --git a/intl/include/intl_addon.h b/intl/include/intl_addon.h
 index 1f98c978..77f476a0 100644
 --- a/intl/include/intl_addon.h
