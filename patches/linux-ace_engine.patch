@@ -334,6 +334,32 @@ index 11da427d..61bbedd0 100644
      }
    }
  }
+diff --git a/frameworks/core/BUILD.gn b/frameworks/core/BUILD.gn
+index ed12a492..67028750 100644
+--- a/frameworks/core/BUILD.gn
++++ b/frameworks/core/BUILD.gn
+@@ -1035,6 +1035,21 @@ template("ace_core_ng_source_set") {
+       ]
+     }
+ 
++    # Linux/Wayland native port: scroll_bar.cpp (cherry-picked above) references
++    # ScrollBarController (Initialize/Reset/SetIsHover/HandleScrollBarEnd + vtable),
++    # whose definition lives in the legacy scroll component that ace_core_ng does not
++    # otherwise pull. Cherry-pick the controller too, linux only — mac/ohos/android/ios
++    # output is unchanged.
++    if (platform == "linux") {
++      sources += [
++        "components/scroll/scroll_bar_controller.cpp",
++        # Inert defs for the few legacy RenderScroll/RenderNode methods
++        # scroll_bar_controller.cpp calls (dead on the NG pipeline); avoids cascading
++        # the whole legacy render-node tree.
++        "components/scroll/scroll_render_link_stubs_linux.cpp",
++      ]
++    }
++
+     if (platform == "ohos" || platform == "ohos_ng") {
+       sources -= [ "common/anr_thread.cpp" ]
+     }
 diff --git a/frameworks/core/accessibility/utils/accessibility_manager_utils.h b/frameworks/core/accessibility/utils/accessibility_manager_utils.h
 index a1d3b4e9..331217a4 100644
 --- a/frameworks/core/accessibility/utils/accessibility_manager_utils.h
@@ -373,6 +399,51 @@ index 29c1924a..9642cb21 100644
  
  namespace OHOS::Ace {
  namespace NG {
+diff --git a/frameworks/core/components/scroll/scroll_render_link_stubs_linux.cpp b/frameworks/core/components/scroll/scroll_render_link_stubs_linux.cpp
+new file mode 100644
+index 00000000..187a6d5e
+--- /dev/null
++++ b/frameworks/core/components/scroll/scroll_render_link_stubs_linux.cpp
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Linux/Wayland native port (M1 link): scroll_bar_controller.cpp (cherry-picked into
++// ace_core_ng for linux) calls a few methods of the legacy RenderScroll/RenderNode
++// (MarkNeedRender / GetEstimatedHeight / HandleScrollOverByBar) via an AceType
++// DynamicCast. The cast uses AceType's header-based RTTI (no vtable emission), and on
++// the NG pipeline the legacy `scroll_` weak ref is never populated, so these calls are
++// dead at runtime — but still referenced at link time. The full legacy render_scroll
++// compilation would cascade the entire legacy render-node tree, so provide inert
++// out-of-line definitions instead (none are virtual, so no vtable is emitted here, and
++// no legacy RenderScroll/RenderNode TU is compiled for linux to collide with).
++
++#include "core/components/scroll/render_scroll.h"
++
++namespace OHOS::Ace {
++
++void RenderNode::MarkNeedRender(bool overlay) {}
++
++double RenderScroll::GetEstimatedHeight()
++{
++    return 0.0;
++}
++
++void RenderScroll::HandleScrollOverByBar(double velocity) {}
++
++} // namespace OHOS::Ace
 diff --git a/frameworks/core/components/text_overlay/BUILD.gn b/frameworks/core/components/text_overlay/BUILD.gn
 index b5e9bccc..95f36b44 100755
 --- a/frameworks/core/components/text_overlay/BUILD.gn
@@ -498,7 +569,7 @@ index 89b14def..def03a6c 100644
  // Generate 'TypeInfo' for each classes.
  // And using hash code of its name for 'TypeId'.
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
-index e58f8e0b..9c10cf95 100644
+index e58f8e0b..aa99abe1 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
 +++ b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 @@ -14,6 +14,10 @@
@@ -512,7 +583,7 @@ index e58f8e0b..9c10cf95 100644
  config("drawable_config") {
    visibility = [ ":*" ]
    include_dirs = [
-@@ -64,6 +68,16 @@ if (is_arkui_x) {
+@@ -64,6 +68,21 @@ if (is_arkui_x) {
      if (use_clang_ios) {
        defines = image_decode_ios_defines
      }
@@ -525,10 +596,75 @@ index e58f8e0b..9c10cf95 100644
 +      # NoCopyable/Parcelable). Also initializes `defines` (previously only set for
 +      # android/ios) for the later `defines +=` (ace_enable_gpu / upgrade_skia).
 +      defines = [ "CROSS_PLATFORM" ]
++
++      # js_drawable_descriptor.cpp's `#ifndef PREVIEW` PixelMapNapi marshaling calls
++      # are active on linux (not a preview build) but the real image js napi impl is
++      # not linked; provide inert PixelMapNapi::{CreatePixelMap,GetPixelMap,GetPixelMaps}.
++      sources += [ "pixel_map_napi_stub_linux.cpp" ]
 +    }
      if (ace_enable_gpu) {
        defines += [ "RS_ENABLE_GPU" ]
      }
+diff --git a/interfaces/inner_api/drawable_descriptor/pixel_map_napi_stub_linux.cpp b/interfaces/inner_api/drawable_descriptor/pixel_map_napi_stub_linux.cpp
+new file mode 100644
+index 00000000..f2269b6b
+--- /dev/null
++++ b/interfaces/inner_api/drawable_descriptor/pixel_map_napi_stub_linux.cpp
+@@ -0,0 +1,54 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Linux/Wayland native port (M1 link): js_drawable_descriptor.cpp marshals PixelMaps
++// to/from JS via Media::PixelMapNapi::{CreatePixelMap,GetPixelMap,GetPixelMaps} inside
++// its `#ifndef PREVIEW` block. mac is a preview build (PREVIEW defined) so those calls
++// are gated out there; linux is not a preview build, so they are active but the real
++// impl (image_framework js common pixel_map_napi.cpp) is not linked into ace_linux.
++// Provide inert definitions so it links — JS<->native PixelMap marshaling is not on
++// the .ets render-open path. Defined exactly once for the linux drawable module.
++
++#include "pixel_map_napi.h"
++
++namespace OHOS {
++namespace Media {
++
++napi_value PixelMapNapi::CreatePixelMap(napi_env /* env */, std::shared_ptr<PixelMap> /* pixelmap */)
++{
++    return nullptr;
++}
++
++std::shared_ptr<PixelMap> PixelMapNapi::GetPixelMap(napi_env /* env */, napi_value /* pixelmap */)
++{
++    return nullptr;
++}
++
++std::shared_ptr<std::vector<std::shared_ptr<PixelMap>>> PixelMapNapi::GetPixelMaps(
++    napi_env /* env */, napi_value /* pixelmaps */)
++{
++    return nullptr;
++}
++
++} // namespace Media
++} // namespace OHOS
++
++// js_engine.cpp declares extern "C" OHOS_MEDIA_GetPixelMap and references it (its
++// IOS_PLATFORM/ANDROID_PLATFORM guard leaks to the linux bridge TU); the real impl is
++// in image_framework's js pixel_map_napi.cpp, not linked into ace_linux. Inert here.
++extern "C" void* OHOS_MEDIA_GetPixelMap(napi_env /* env */, napi_value /* value */)
++{
++    return nullptr;
++}
 diff --git a/test/mock/ohos_mock/ipc_single/iremote_object.h b/test/mock/ohos_mock/ipc_single/iremote_object.h
 index 3895109e..804605d3 100644
 --- a/test/mock/ohos_mock/ipc_single/iremote_object.h

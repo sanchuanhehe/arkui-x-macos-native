@@ -64,6 +64,26 @@ index 65a22cd..0a99283 100644
  
  namespace OHOS {
  namespace AppExecFwk {
+diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
+index 8675451..4b4555b 100644
+--- a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
++++ b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/BUILD.gn
+@@ -72,6 +72,15 @@ template("ability_runtime_event_handler") {
+       ]
+     } else {
+       sources += [ "${ability_runtime_cross_platform_path}/frameworks/native/base/event_handler/src/epoll_io_waiter.cpp" ]
++
++      # Linux/Wayland native port: the desktop client drives the ArkUI EventQueue with
++      # the epoll IoWaiter above; provide the matching main-thread PlatformEventRunner
++      # (event_runner.cpp's EventRunner::Current references PlatformEventRunner::{
++      # CheckCurrent, ctor, Init, dtor}). android uses ALooper and ios uses CFRunLoop,
++      # neither of which fits linux.
++      if (target_os == "linux") {
++        sources += [ "${ability_runtime_cross_platform_path}/frameworks/native/base/event_handler/src/platform/linux/platform_event_runner.cpp" ]
++      }
+     }
+   }
+ }
 diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/event_queue.h b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/event_queue.h
 index 203d932..f0c8eeb 100644
 --- a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/event_queue.h
@@ -89,6 +109,119 @@ index 1727fef..8d62303 100644
  
  namespace OHOS {
  namespace HiviewDFX {
+diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/src/platform/linux/platform_event_runner.cpp b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/src/platform/linux/platform_event_runner.cpp
+new file mode 100644
+index 0000000..71747f4
+--- /dev/null
++++ b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/src/platform/linux/platform_event_runner.cpp
+@@ -0,0 +1,107 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// Linux/Wayland native port (Route A): the main-thread PlatformEventRunner for the
++// desktop client. iOS/android integrate with CFRunLoop/ALooper; on linux we drive
++// the ArkUI EventQueue with the standard epoll IoWaiter (epoll_io_waiter.cpp, already
++// compiled for linux). The Wayland display fd is added to the same epoll set by the
++// linux entrance, so UI events and ArkUI tasks share one loop. This mirrors the
++// device EventRunnerImpl blocking-drain loop and resolves PlatformEventRunner::{ctor,
++// dtor, Init, CheckCurrent} for ace_linux.
++
++#include "platform_event_runner.h"
++
++#include <sys/syscall.h>
++#include <thread>
++#include <unistd.h>
++
++#include "epoll_io_waiter.h"
++#include "event_handler.h"
++#include "event_queue.h"
++#include "event_runner.h"
++#include "hilog.h"
++
++namespace OHOS {
++namespace AppExecFwk {
++
++// On linux the main (initial) thread's kernel tid equals the process pid; this is the
++// thread that owns the platform (Wayland) message loop.
++bool PlatformEventRunner::CheckCurrent()
++{
++    return static_cast<pid_t>(syscall(SYS_gettid)) == getpid();
++}
++
++PlatformEventRunner::PlatformEventRunner(const std::shared_ptr<EventRunner>& runner)
++    : EventInnerRunner(runner)
++{
++    auto epollWaiter = std::make_shared<EpollIoWaiter>();
++    if (epollWaiter->Init()) {
++        queue_ = std::make_shared<EventQueue>(epollWaiter);
++    } else {
++        // Fall back to a queue with the default (none) io waiter so the runner is
++        // still usable for posted tasks even if epoll could not be set up.
++        HILOG_ERROR("PlatformEventRunner: EpollIoWaiter init failed, using default queue");
++        queue_ = std::make_shared<EventQueue>();
++    }
++    currentEventRunner = owner_;
++}
++
++PlatformEventRunner::~PlatformEventRunner()
++{
++    if (queue_) {
++        queue_->Finish();
++    }
++}
++
++void PlatformEventRunner::Run()
++{
++    queue_->Prepare();
++
++    if (owner_.expired()) {
++        return;
++    }
++
++    threadId_ = std::this_thread::get_id();
++
++    std::weak_ptr<EventRunner> oldRunner = currentEventRunner;
++    currentEventRunner = owner_;
++
++    for (auto event = queue_->GetEvent(); event; event = queue_->GetEvent()) {
++        std::shared_ptr<EventHandler> handler = event->GetOwner();
++        if (handler) {
++            handler->DistributeEvent(event);
++        }
++        event.reset();
++    }
++
++    currentEventRunner = oldRunner;
++}
++
++void PlatformEventRunner::Stop()
++{
++    if (queue_) {
++        queue_->Finish();
++    }
++}
++
++bool PlatformEventRunner::Init()
++{
++    threadId_ = std::this_thread::get_id();
++    queue_->Prepare();
++    return true;
++}
++
++} // namespace AppExecFwk
++} // namespace OHOS
 diff --git a/ability/ability_runtime/cross_platform/interfaces/inner_api/bundle/ability_info.h b/ability/ability_runtime/cross_platform/interfaces/inner_api/bundle/ability_info.h
 index e35f63c..98b6434 100644
 --- a/ability/ability_runtime/cross_platform/interfaces/inner_api/bundle/ability_info.h
