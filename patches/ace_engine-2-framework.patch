@@ -153,10 +153,24 @@ index 85895498d4e..c94abc792bd 100644
  template<typename C>
  void JsiClass<C>::Declare(const char* name)
 diff --git a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-index 93b946c130b..08fa0894b64 100644
+index 93b946c130b..3f93491e747 100644
 --- a/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
 +++ b/frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.cpp
-@@ -2145,6 +2145,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+@@ -1123,6 +1123,13 @@ void JsiDeclarativeEngineInstance::DestroyAllRootViewHandle()
+ void JsiDeclarativeEngineInstance::FlushReload()
+ {
+     CHECK_RUN_ON(JS);
++    // Guard before JAVASCRIPT_EXECUTION_SCOPE_STATIC, which dereferences
++    // GetCurrentRuntime()->GetEcmaVm(). A configuration change (e.g. color mode)
++    // broadcasts UpdateConfiguration -> SetColor -> FlushReload to every container,
++    // including a sub-window (Dialog/Menu/Popup) container that has no current JS
++    // runtime on this thread, so GetCurrentRuntime() is null and the macro would
++    // crash (EXC_BAD_ACCESS in GetEcmaVm on a null this).
++    CHECK_JAVASCRIPT_SCOPE_AND_RETURN;
+     JAVASCRIPT_EXECUTION_SCOPE_STATIC;
+     if (rootViewMap_.empty()) {
+         return;
+@@ -2145,6 +2152,12 @@ void JsiDeclarativeEngine::LoadJsWithModule(
      const std::string assetPath = ASSET_PATH_PREFIX + moduleName + "/" + FORM_ES_MODULE_PATH;
      runtime->SetAssetPath(assetPath);
      runtime->SetModuleName(moduleName);
@@ -169,7 +183,7 @@ index 93b946c130b..08fa0894b64 100644
      if (urlName.substr(0, strlen(BUNDLE_TAG)) != BUNDLE_TAG) {
  #ifdef CROSS_PLATFORM
          std::string moduleNamePath = (moduleName.find_last_of('.') != std::string::npos)
-@@ -2155,7 +2161,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
+@@ -2155,7 +2168,7 @@ void JsiDeclarativeEngine::LoadJsWithModule(
          urlName = container->GetModuleName() + "/ets/" + urlName;
  #endif
      }
