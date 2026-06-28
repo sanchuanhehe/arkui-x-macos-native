@@ -2428,10 +2428,10 @@ index 0000000..e06bb2d
 +#endif // RENDER_SERVICE_BASE_SRC_PLATFORM_IOS_RS_SURFACE_GPU_H
 diff --git a/graphic_2d/macos/rs_surface_gpu.mm b/graphic_2d/macos/rs_surface_gpu.mm
 new file mode 100644
-index 0000000..5bf872f
+index 0000000..6d2f332
 --- /dev/null
 +++ b/graphic_2d/macos/rs_surface_gpu.mm
-@@ -0,0 +1,159 @@
+@@ -0,0 +1,168 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -2520,6 +2520,15 @@ index 0000000..5bf872f
 +    renderContext_->SwapBuffers(nullptr);
 +    if (auto grContext = renderContext_->GetDrGPUContext()) {
 +        grContext->PurgeUnlockedResources(true);
++    }
++    // Push THIS surface's own colorbuffer to its window layer (a WindowGLLayer in
++    // adapter/macos). The layer blits this instead of the global
++    // RenderContextGL::GetCurrentColorbuffer(), which is "last MakeCurrent wins" and
++    // would make a second window (sub-window) show the wrong window's content.
++    // KVC keeps graphic_2d decoupled from the ace_engine WindowGLLayer type.
++    id glLayer = static_cast<CALayer*>(layer_);
++    if ([glLayer respondsToSelector:@selector(setSourceColorbuffer:)]) {
++        [glLayer setValue:@(renderContext_->GetInstanceColorbuffer()) forKey:@"sourceColorbuffer"];
 +    }
 +    return true;
 +}

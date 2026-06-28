@@ -34,7 +34,7 @@ index 5b13b75c75..26e99626cd 100755
 +  }
  }
 diff --git a/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h b/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
-index 77462ad90e..fd9da99373 100644
+index 77462ad90e..75fa5380a4 100644
 --- a/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
 +++ b/rosen/modules/2d_graphics/src/render_context/new_render_context/render_context_gl.h
 @@ -22,7 +22,7 @@
@@ -46,7 +46,7 @@ index 77462ad90e..fd9da99373 100644
  #include "render_context/render_context_egl_defines.h"
  #else
  #include "EGL/egl.h"
-@@ -79,19 +79,29 @@ public:
+@@ -79,19 +79,38 @@ public:
          return eglDisplay_;
      }
  
@@ -64,6 +64,15 @@ index 77462ad90e..fd9da99373 100644
 +    // attachment is (same share group). The window layer rebinds this renderbuffer into its
 +    // own FBO to blit, instead of using framebuffer_ (which is invalid in the layer's context).
 +    static uint32_t GetCurrentColorbuffer();
++    // Per-instance accessors. The static current* above is "last MakeCurrent wins",
++    // which is wrong once a second window (sub-window) exists: its MakeCurrent would
++    // overwrite the global and the main window's layer would blit the sub-window's
++    // buffer (and vice versa). A window layer that knows its owning context blits
++    // THIS instance's colorbuffer at THIS instance's size instead.
++    uint32_t GetInstanceColorbuffer() const { return colorbuffer_; }
++    uint32_t GetInstanceFramebuffer() const { return framebuffer_; }
++    int32_t GetStorageWidth() const { return storage_width_; }
++    int32_t GetStorageHeight() const { return storage_height_; }
  #endif
  
  protected:
@@ -78,7 +87,7 @@ index 77462ad90e..fd9da99373 100644
  
      uint32_t framebuffer_ = 0;
      uint32_t colorbuffer_ = 0;
-@@ -107,7 +117,7 @@ private:
+@@ -107,7 +126,7 @@ private:
      }
  
      void CreatePbufferSurface();
