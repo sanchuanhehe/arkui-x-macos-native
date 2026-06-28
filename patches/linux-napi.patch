@@ -46,3 +46,16 @@ index d9aca5b..f5f854f 100644
  #include <uv.h>
  #endif
  #ifdef OHOS_STANDARD_PLATFORM
+diff --git a/native_engine/native_engine.cpp b/native_engine/native_engine.cpp
+index 84ededc..5cc47e8 100644
+--- a/native_engine/native_engine.cpp
++++ b/native_engine/native_engine.cpp
+@@ -17,7 +17,7 @@
+ #include <cstdint>
+ #include <memory>
+ 
+-#if !defined(WINDOWS_PLATFORM) && !defined(MAC_PLATFORM) && !defined(IOS_PLATFORM) && !defined(LINUX_PLATFORM)
++#if !defined(WINDOWS_PLATFORM) && !defined(MAC_PLATFORM) && !defined(IOS_PLATFORM)
+ #include <sys/epoll.h>
+ #endif
+ #ifdef IOS_PLATFORM

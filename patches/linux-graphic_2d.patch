@@ -269,6 +269,18 @@ index 18125c6..f739f5f 100644
    graphic_2d_car_features_configs = {
      import(
        "//foundation/graphic/graphic_2d_ext/car_features/build/car_features_config.gni")
+diff --git a/interfaces/kits/napi/graphic/color_manager/color_space_object_convertor/js_color_space_utils.h b/interfaces/kits/napi/graphic/color_manager/color_space_object_convertor/js_color_space_utils.h
+index 32672a3..1a07679 100644
+--- a/interfaces/kits/napi/graphic/color_manager/color_space_object_convertor/js_color_space_utils.h
++++ b/interfaces/kits/napi/graphic/color_manager/color_space_object_convertor/js_color_space_utils.h
+@@ -17,6 +17,7 @@
+ #define OHOS_JS_COLOR_SPACE_UTILS_H
+ 
+ #include <map>
++#include <memory>
+ #include <string>
+ #include <hilog/log.h>
+ 
 diff --git a/rosen/modules/2d_graphics/BUILD.gn b/rosen/modules/2d_graphics/BUILD.gn
 index 2bf61ba..ad4e6d5 100755
 --- a/rosen/modules/2d_graphics/BUILD.gn
@@ -1356,10 +1368,10 @@ index 73e61cb..0d6e258 100644
      "c_utils:utils",
    ]
 diff --git a/rosen/modules/render_service_base/src/platform/windows/BUILD.gn b/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
-index 867c084..1e61424 100644
+index 867c084..fba8c28 100644
 --- a/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
 +++ b/rosen/modules/render_service_base/src/platform/windows/BUILD.gn
-@@ -38,7 +38,14 @@ ohos_source_set("windows") {
+@@ -38,7 +38,19 @@ ohos_source_set("windows") {
      "rs_vsync_client_windows.cpp",
    ]
  
@@ -1371,11 +1383,16 @@ index 867c084..1e61424 100644
 +    # graphic_surface headers; graphic_surface:surface_headers is auto-gated off
 +    # for arkui-x, so add the header dir explicitly.
 +    "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++
++    # Linux/Wayland port: rs_surface_windows.cpp includes <glfw_render_context.h>;
++    # the libglfw_render_context public include is not propagated for arkui-x, so
++    # add the export dir explicitly (mirrors the surface_headers workaround above).
++    "$rosen_root/modules/glfw_render_context/export",
 +  ]
  
    defines += [ "MODULE_RSB" ]
    if (enable_glfw_window) {
-@@ -62,7 +69,7 @@ ohos_source_set("windows") {
+@@ -62,7 +74,7 @@ ohos_source_set("windows") {
  
    external_deps = [
      "egl:libEGL",
@@ -1384,7 +1401,7 @@ index 867c084..1e61424 100644
      "hilog:libhilog",
    ]
  
-@@ -70,7 +77,13 @@ ohos_source_set("windows") {
+@@ -70,7 +82,13 @@ ohos_source_set("windows") {
      defines += [ "USE_ROSEN_DRAWING" ]
      public_deps += [ "$rosen_root/modules/2d_graphics:2d_graphics" ]
  

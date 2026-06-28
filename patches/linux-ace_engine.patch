@@ -148,6 +148,19 @@ index 9094c72b..17f8760f 100644
  
  namespace OHOS::Ace {
  using JankFrameFlag = uint32_t;
+diff --git a/frameworks/base/thread/background_task_executor.cpp b/frameworks/base/thread/background_task_executor.cpp
+index 670e7114..bbcec9b7 100644
+--- a/frameworks/base/thread/background_task_executor.cpp
++++ b/frameworks/base/thread/background_task_executor.cpp
+@@ -32,7 +32,7 @@ void SetThreadName(uint32_t threadNo)
+ {
+     std::string name("ace.bg.");
+     name.append(std::to_string(threadNo));
+-#if defined(MAC_PLATFORM) || defined(IOS_PLATFORM)
++#if (defined(MAC_PLATFORM) || defined(IOS_PLATFORM)) && !defined(LINUX_PLATFORM)
+     pthread_setname_np(name.c_str());
+ #else
+     pthread_setname_np(pthread_self(), name.c_str());
 diff --git a/frameworks/base/utils/feature_param.h b/frameworks/base/utils/feature_param.h
 index 247a32c2..6f278721 100644
 --- a/frameworks/base/utils/feature_param.h
@@ -309,6 +322,19 @@ index 11da427d..61bbedd0 100644
      }
    }
  }
+diff --git a/frameworks/core/accessibility/utils/accessibility_manager_utils.h b/frameworks/core/accessibility/utils/accessibility_manager_utils.h
+index a1d3b4e9..331217a4 100644
+--- a/frameworks/core/accessibility/utils/accessibility_manager_utils.h
++++ b/frameworks/core/accessibility/utils/accessibility_manager_utils.h
+@@ -183,7 +183,7 @@ public:
+ 
+     void AddAccessibilityEvent(const int32_t containerId, const int32_t pageId, AccessibilityEvent& event)
+     {
+-        TimeStamp now = std::chrono::steady_clock::now();
++        TimeStamp now = std::chrono::high_resolution_clock::now();
+         auto& eventList = pageEvent_[containerId];
+         eventList.emplace_back(std::make_tuple(pageId, event, now));
+ 
 diff --git a/frameworks/core/common/multi_thread_build_manager.h b/frameworks/core/common/multi_thread_build_manager.h
 index 29c1924a..9642cb21 100644
 --- a/frameworks/core/common/multi_thread_build_manager.h
@@ -338,6 +364,61 @@ index b5e9bccc..95f36b44 100755
 +    # [linux-port auto-gate] "window_manager:libwm",
    ]
  }
+diff --git a/frameworks/core/components_ng/render/adapter/rosen_render_context.cpp b/frameworks/core/components_ng/render/adapter/rosen_render_context.cpp
+index 6b419089..c016777d 100644
+--- a/frameworks/core/components_ng/render/adapter/rosen_render_context.cpp
++++ b/frameworks/core/components_ng/render/adapter/rosen_render_context.cpp
+@@ -7718,7 +7718,7 @@ void RosenRenderContext::MarkNewFrameAvailable(void* nativeWindow)
+ #if defined(ANDROID_PLATFORM)
+     rsSurfaceNode->MarkUiFrameAvailable(true);
+ #endif
+-#if defined(IOS_PLATFORM)
++#if defined(IOS_PLATFORM) && !defined(LINUX_PLATFORM)
+ #if defined(PLATFORM_VIEW_SUPPORTED)
+     if (patternType_ == PatternType::PLATFORM_VIEW || patternType_ == PatternType::XCOM) {
+         RSSurfaceExtConfig config = {
+@@ -7742,7 +7742,7 @@ void RosenRenderContext::AddAttachCallBack(const std::function<void(int64_t, boo
+ {
+     FREE_RS_CONTEXT_CHECK(AddAttachCallBack, attachCallback);
+     CHECK_NULL_VOID(rsNode_);
+-#if defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
++#if (defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)) && !defined(LINUX_PLATFORM)
+     auto rsSurfaceNode = rsNode_->ReinterpretCastTo<Rosen::RSSurfaceNode>();
+     CHECK_NULL_VOID(rsSurfaceNode);
+     rsSurfaceNode->SetSurfaceTextureAttachCallBack(attachCallback);
+@@ -7753,7 +7753,7 @@ void RosenRenderContext::AddUpdateCallBack(const std::function<void(std::vector<
+ {
+     FREE_RS_CONTEXT_CHECK(AddUpdateCallBack, updateCallback);
+     CHECK_NULL_VOID(rsNode_);
+-#if defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
++#if (defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)) && !defined(LINUX_PLATFORM)
+     auto rsSurfaceNode = rsNode_->ReinterpretCastTo<Rosen::RSSurfaceNode>();
+     CHECK_NULL_VOID(rsSurfaceNode);
+     rsSurfaceNode->SetSurfaceTextureUpdateCallBack(updateCallback);
+@@ -7764,7 +7764,7 @@ void RosenRenderContext::AddInitTypeCallBack(const std::function<void(int32_t&)>
+ {
+     FREE_RS_CONTEXT_CHECK(AddInitTypeCallBack, initTypeCallback);
+     CHECK_NULL_VOID(rsNode_);
+-#if defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
++#if (defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)) && !defined(LINUX_PLATFORM)
+     auto rsSurfaceNode = rsNode_->ReinterpretCastTo<Rosen::RSSurfaceNode>();
+     CHECK_NULL_VOID(rsSurfaceNode);
+     rsSurfaceNode->SetSurfaceTextureInitTypeCallBack(initTypeCallback);
+diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.h b/frameworks/core/components_ng/render/adapter/rosen_window.h
+index ae41531d..b116643f 100644
+--- a/frameworks/core/components_ng/render/adapter/rosen_window.h
++++ b/frameworks/core/components_ng/render/adapter/rosen_window.h
+@@ -23,7 +23,9 @@
+ #include "wm/window.h"
+ #elif VIRTUAL_RS_WINDOW
+ // use real rs window later
+-#ifdef IOS_PLATFORM
++#if defined(LINUX_PLATFORM)
++#include "adapter/linux/entrance/virtual_rs_window.h"
++#elif defined(IOS_PLATFORM)
+ #include "adapter/ios/entrance/virtual_rs_window.h"
+ #else
+ #include "adapter/android/entrance/java/jni/virtual_rs_window.h"
 diff --git a/interfaces/inner_api/ace/ace_forward_compatibility.h b/interfaces/inner_api/ace/ace_forward_compatibility.h
 index 19197c09..259b06ec 100644
 --- a/interfaces/inner_api/ace/ace_forward_compatibility.h
@@ -351,6 +432,20 @@ index 19197c09..259b06ec 100644
  
  namespace OHOS {
  namespace Ace {
+diff --git a/interfaces/inner_api/ace_kit/BUILD.gn b/interfaces/inner_api/ace_kit/BUILD.gn
+index ae417bc2..53349bc1 100644
+--- a/interfaces/inner_api/ace_kit/BUILD.gn
++++ b/interfaces/inner_api/ace_kit/BUILD.gn
+@@ -30,6 +30,9 @@ ohos_source_set("ace_kit") {
+     "USE_ARK_ENGINE",
+     "NOGDI",
+   ]
++  if (use_linux) {
++    defines += [ "LINUX_PLATFORM" ]
++  }
+ 
+   cflags_cc = [ "-Wno-macro-redefined" ]
+ 
 diff --git a/interfaces/inner_api/ace_kit/include/ui/base/inspector_filter.h b/interfaces/inner_api/ace_kit/include/ui/base/inspector_filter.h
 index c7e1563f..cea0c86e 100644
 --- a/interfaces/inner_api/ace_kit/include/ui/base/inspector_filter.h
@@ -412,6 +507,29 @@ index e58f8e0b..160636e6 100644
      if (ace_enable_gpu) {
        defines += [ "RS_ENABLE_GPU" ]
      }
+diff --git a/test/mock/ohos_mock/ipc_single/iremote_object.h b/test/mock/ohos_mock/ipc_single/iremote_object.h
+index 3895109e..804605d3 100644
+--- a/test/mock/ohos_mock/ipc_single/iremote_object.h
++++ b/test/mock/ohos_mock/ipc_single/iremote_object.h
+@@ -19,8 +19,18 @@
+ #include <string>
+ 
+ #include "refbase.h"
++#include "errors.h"  // [linux-port] ErrCode/ERR_OK for IDL-generated IPC sources
+ 
+ namespace OHOS {
++// [linux-port] IDL-generated IPC code (qos_manager concurrent_task *_types/*_proxy)
++// expects MIN_TRANSACTION_ID / ERR_INVALID_DATA / ERR_NONE from the real
++// ipc_types.h / iremote_object.h. There is no foundation/communication/ipc repo on
++// linux and this cross-platform IPC mock omits them, so provide minimal definitions.
++constexpr int MIN_TRANSACTION_ID = 0x00000001;
++enum {
++    ERR_NONE = 0,
++    ERR_INVALID_DATA = 5,
++};
+ class IRemoteObject {
+ public:
+     explicit IRemoteObject(const std::u16string& descriptor = std::u16string()) {}
 diff --git a/test/mock/ohos_mock/ipc_single/message_parcel.h b/test/mock/ohos_mock/ipc_single/message_parcel.h
 index 28d43f09..f0abbe30 100644
 --- a/test/mock/ohos_mock/ipc_single/message_parcel.h

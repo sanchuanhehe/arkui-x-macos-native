@@ -39,6 +39,20 @@ index eb6556f..b4228b5 100644
    ]
  
    subsystem_name = "resourceschedule"
+diff --git a/interfaces/inner_api/concurrent_task_client.h b/interfaces/inner_api/concurrent_task_client.h
+index 6e84d25..11d2f9e 100644
+--- a/interfaces/inner_api/concurrent_task_client.h
++++ b/interfaces/inner_api/concurrent_task_client.h
+@@ -17,6 +17,9 @@
+ #define CONCURRENT_TASK_SERVICE_INTERFACES_INNERAPI_CONCURRENT_TASK_CLIENT_INCLUDE_CONCURRENT_TASK_CLIENT_H
+ 
+ #include <unordered_map>
++#include <mutex>          // [linux-port] std::mutex mutex_; member
++#include "errors.h"       // [linux-port] ErrCode return type (c_utils)
++#include "nocopyable.h"   // [linux-port] DISALLOW_COPY_AND_MOVE macro (c_utils)
+ #include "iremote_object.h"
+ #include <concurrent_task_type.h>
+ 
 diff --git a/qos/BUILD.gn b/qos/BUILD.gn
 index 7e10ace..39a3347 100644
 --- a/qos/BUILD.gn

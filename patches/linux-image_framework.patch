@@ -100,7 +100,7 @@ index afcfd33..3bdfa6f 100644
      const int maxThread = 16; // 16 max thread size
      int m = dst.size_.height;
 diff --git a/frameworks/innerkitsimpl/egl_image/BUILD.gn b/frameworks/innerkitsimpl/egl_image/BUILD.gn
-index 1298e9f..97f8acd 100644
+index 1298e9f..2bd8c33 100644
 --- a/frameworks/innerkitsimpl/egl_image/BUILD.gn
 +++ b/frameworks/innerkitsimpl/egl_image/BUILD.gn
 @@ -51,11 +51,11 @@ ohos_shared_library("egl_image") {
@@ -119,7 +119,7 @@ index 1298e9f..97f8acd 100644
      "skia:skia_canvaskit",
      "egl:libEGL",
      "opengles:libGLES",
-@@ -80,7 +80,21 @@ if (!use_clang_ios && !use_clang_android) {
+@@ -80,7 +80,25 @@ if (!use_clang_ios && !use_clang_android) {
        "../../../interfaces/innerkits/include",
        "../../../interfaces/utils/include",
        "../utils/include",
@@ -134,6 +134,10 @@ index 1298e9f..97f8acd 100644
 +      # graphic_common.h (inner_api/common).
 +      include_dirs += [
 +        "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++          # [linux-port] surface.h pulls ipc (iremote_broker.h) + buffer_handle_utils.h;
++          # graphic_2d's platform/ipc_core is the cross-platform ipc mock.
++          "//foundation/graphic/graphic_2d/rosen/modules/platform/ipc_core",
++          "//foundation/graphic/graphic_surface/interfaces/inner_api/buffer_handle",
 +        "//foundation/graphic/graphic_surface/interfaces/inner_api/utils",
 +        "//foundation/graphic/graphic_surface/interfaces/inner_api/common",
 +      ]
@@ -141,7 +145,7 @@ index 1298e9f..97f8acd 100644
      sources = [
        "../utils/src/image_trace.cpp",
        "src/pixel_map_gl_context.cpp",
-@@ -92,15 +106,15 @@ if (!use_clang_ios && !use_clang_android) {
+@@ -92,15 +110,15 @@ if (!use_clang_ios && !use_clang_android) {
        defines = [ "USE_M133_SKIA" ]
      }
      external_deps = [
@@ -191,8 +195,36 @@ index f1181a4..b4944cf 100644
          "graphic_2d:color_manager",
          "hilog:libhilog",
          "skia:skia_canvaskit",
+diff --git a/frameworks/innerkitsimpl/stream/src/file_source_stream.cpp b/frameworks/innerkitsimpl/stream/src/file_source_stream.cpp
+index 42ee826..c25ca90 100644
+--- a/frameworks/innerkitsimpl/stream/src/file_source_stream.cpp
++++ b/frameworks/innerkitsimpl/stream/src/file_source_stream.cpp
+@@ -400,7 +400,11 @@ uint8_t *FileSourceStream::GetDataPtr(bool populate)
+         populate ? MAP_SHARED | MAP_POPULATE : MAP_SHARED, mmapFd_, fileOriginalOffset_);
+     if (mmptr == MAP_FAILED) {
+         IMAGE_LOGE("[FileSourceStream] mmap failed, errno:%{public}d", errno);
++#if defined(CROSS_PLATFORM)
++        ::close(mmapFd_);
++#else
+         fdsan_close_with_tag(mmapFd_, FILE_SOURCE_FDSAN_TAG);
++#endif
+         return nullptr;
+     }
+     fileData_ = static_cast<uint8_t*>(mmptr);
+@@ -422,7 +426,11 @@ void FileSourceStream::ResetReadBuffer()
+     if (fileData_ != nullptr && !mmapFdPassedOn_ && useMmap_) {
+ #ifdef SUPPORT_MMAP
+         ::munmap(fileData_, fileSize_ - fileOriginalOffset_);
++#if defined(CROSS_PLATFORM)
++        ::close(mmapFd_);
++#else
+         fdsan_close_with_tag(mmapFd_, FILE_SOURCE_FDSAN_TAG);
++#endif
+ #endif
+     }
+     if (!useMmap_) {
 diff --git a/frameworks/innerkitsimpl/utils/BUILD.gn b/frameworks/innerkitsimpl/utils/BUILD.gn
-index 71a4a0a..9353415 100644
+index 71a4a0a..b6e682c 100644
 --- a/frameworks/innerkitsimpl/utils/BUILD.gn
 +++ b/frameworks/innerkitsimpl/utils/BUILD.gn
 @@ -21,7 +21,6 @@ if (use_clang_ios) {
@@ -239,7 +271,7 @@ index 71a4a0a..9353415 100644
      } else if (use_clang_android) {
        defines = image_decode_android_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -132,10 +131,28 @@ if (use_clang_ios) {
+@@ -132,10 +131,32 @@ if (use_clang_ios) {
        ]
        sources += [ "src/image_dfx.cpp" ]
        sources += [ "src/image_data_statistics.cpp" ]
@@ -263,13 +295,17 @@ index 71a4a0a..9353415 100644
 +          "//foundation/multimedia/image_framework/mock/native/include",
 +          "//foundation/multimedia/image_framework/mock/native/include/log",
 +          "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++          # [linux-port] surface.h pulls ipc (iremote_broker.h) + buffer_handle_utils.h;
++          # graphic_2d's platform/ipc_core is the cross-platform ipc mock.
++          "//foundation/graphic/graphic_2d/rosen/modules/platform/ipc_core",
++          "//foundation/graphic/graphic_surface/interfaces/inner_api/buffer_handle",
 +        ]
 +      }
 +
        deps = [
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
        ]
-@@ -148,22 +165,22 @@ if (use_clang_ios) {
+@@ -148,22 +169,22 @@ if (use_clang_ios) {
          "src/hispeed_image_manager.cpp",
        ]
        external_deps += [
@@ -304,7 +340,7 @@ index 71a4a0a..9353415 100644
          "json:nlohmann_json_static",
        ]
        if (defined(global_parts_info) &&
-@@ -175,7 +192,7 @@ if (use_clang_ios) {
+@@ -175,7 +196,7 @@ if (use_clang_ios) {
        }
  
        if (is_standard_system) {
@@ -313,7 +349,7 @@ index 71a4a0a..9353415 100644
        } else {
          external_deps += [ "startup:syspara" ]
        }
-@@ -235,7 +252,7 @@ ohos_static_library("image_utils_static") {
+@@ -235,7 +256,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/mock/native:log_mock_static",
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
      ]
@@ -322,7 +358,7 @@ index 71a4a0a..9353415 100644
    } else if (use_clang_mac) {
      defines = image_decode_mac_defines
      include_dirs += [ "//third_party/ffmpeg" ]
-@@ -248,7 +265,7 @@ ohos_static_library("image_utils_static") {
+@@ -248,7 +269,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        "//third_party/bounds_checking_function:libsec_static",
      ]
@@ -331,7 +367,7 @@ index 71a4a0a..9353415 100644
    } else if (use_clang_ios) {
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -270,7 +287,7 @@ ohos_static_library("image_utils_static") {
+@@ -270,7 +291,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -340,7 +376,7 @@ index 71a4a0a..9353415 100644
    } else if (use_clang_android) {
      defines = image_decode_android_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -292,7 +309,7 @@ ohos_static_library("image_utils_static") {
+@@ -292,7 +313,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -349,7 +385,7 @@ index 71a4a0a..9353415 100644
    } else {
      sources += [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
      sources += [
-@@ -308,18 +325,18 @@ ohos_static_library("image_utils_static") {
+@@ -308,18 +329,18 @@ ohos_static_library("image_utils_static") {
  
      external_deps = [
        "c_utils:utils",
@@ -880,6 +916,55 @@ index 20422ac..cf89a66 100644
      std::string packageName = ImageUtils::GetCurrentProcessName();
      HiSysEventWrite(IMAGE_FWK_UE,
                      "ENCODE_FAULT",
+diff --git a/frameworks/innerkitsimpl/utils/src/image_system_properties.cpp b/frameworks/innerkitsimpl/utils/src/image_system_properties.cpp
+index ceb1e5f..816f470 100644
+--- a/frameworks/innerkitsimpl/utils/src/image_system_properties.cpp
++++ b/frameworks/innerkitsimpl/utils/src/image_system_properties.cpp
+@@ -15,6 +15,11 @@
+ 
+ #include "image_system_properties.h"
+ 
++#include <string>
++#include <fstream>
++#include <sstream>
++#include <iostream>
++
+ #if !defined(CROSS_PLATFORM)
+ #include "tokenid_kit.h"
+ #include "ipc_skeleton.h"
+@@ -27,6 +32,20 @@
+ #include <parameters.h>
+ #endif
+ 
++#if defined(CROSS_PLATFORM)
++// Linux/Wayland native port: the OHOS system-parameter API (parameters.h) is not
++// available on the desktop client, so the persist.multimedia.image.* feature
++// toggles fall back to their compiled-in defaults.
++namespace OHOS {
++namespace system {
++inline bool GetBoolParameter(const std::string& key, bool defaultValue)
++{
++    return defaultValue;
++}
++}  // namespace system
++}  // namespace OHOS
++#endif
++
+ extern "C" {
+ extern char* __progname;
+ }
+diff --git a/frameworks/innerkitsimpl/utils/src/image_utils.cpp b/frameworks/innerkitsimpl/utils/src/image_utils.cpp
+index a0b730c..f765048 100644
+--- a/frameworks/innerkitsimpl/utils/src/image_utils.cpp
++++ b/frameworks/innerkitsimpl/utils/src/image_utils.cpp
+@@ -27,7 +27,6 @@
+ #include <chrono>
+ #include <atomic>
+ 
+-#include "__config"
+ #include "image_log.h"
+ #include "ios"
+ #include "istream"
 diff --git a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn b/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
 index 47c0ecc..e092124 100644
 --- a/frameworks/kits/js/common/pixelmap_ndk/BUILD.gn
@@ -946,7 +1031,7 @@ index 7ee671c..3bb9de9 100644
      "runtime_core:ani_helpers",
      "egl:libEGL",
 diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
-index b6ee377..c96fbda 100644
+index b6ee377..f3178c0 100644
 --- a/interfaces/innerkits/BUILD.gn
 +++ b/interfaces/innerkits/BUILD.gn
 @@ -55,7 +55,6 @@ config("image_external_config") {
@@ -957,7 +1042,7 @@ index b6ee377..c96fbda 100644
        "$third_party_skia_root",
      ]
      if (image_use_new_skia) {
-@@ -63,6 +62,19 @@ config("image_external_config") {
+@@ -63,6 +62,23 @@ config("image_external_config") {
      }
    }
  
@@ -969,6 +1054,10 @@ index b6ee377..c96fbda 100644
 +    # (inner_api/utils).
 +    include_dirs += [
 +      "//foundation/graphic/graphic_surface/interfaces/inner_api/surface",
++          # [linux-port] surface.h pulls ipc (iremote_broker.h) + buffer_handle_utils.h;
++          # graphic_2d's platform/ipc_core is the cross-platform ipc mock.
++          "//foundation/graphic/graphic_2d/rosen/modules/platform/ipc_core",
++          "//foundation/graphic/graphic_surface/interfaces/inner_api/buffer_handle",
 +      "//foundation/graphic/graphic_surface/interfaces/inner_api/utils",
 +      "//foundation/graphic/graphic_surface/interfaces/inner_api/common",
 +    ]
@@ -977,7 +1066,7 @@ index b6ee377..c96fbda 100644
    if (use_mingw_win) {
      include_dirs +=
          [ "//foundation/multimedia/image_framework/mock/native/include" ]
-@@ -70,6 +82,18 @@ config("image_external_config") {
+@@ -70,6 +86,18 @@ config("image_external_config") {
      include_dirs += [
        "//foundation/multimedia/image_framework/mock/native/include",
        "//third_party/bounds_checking_function/include",
@@ -996,7 +1085,7 @@ index b6ee377..c96fbda 100644
        "//commonlibrary/c_utils/base/include",
        "//base/hiviewdfx/hilog/interfaces/native/innerkits/include",
      ]
-@@ -108,7 +132,7 @@ if (use_clang_android) {
+@@ -108,7 +136,7 @@ if (use_clang_android) {
      sources = image_native_android_sources
      include_dirs = image_native_android_include_dirs
      deps = image_native_android_deps
@@ -1005,7 +1094,7 @@ index b6ee377..c96fbda 100644
      subsystem_name = "multimedia"
      part_name = "image_framework"
    }
-@@ -128,7 +152,7 @@ if (use_clang_android) {
+@@ -128,7 +156,7 @@ if (use_clang_android) {
      include_dirs = image_native_ios_include_dirs
      sources = image_native_ios_sources
      deps = image_native_ios_deps
@@ -1014,7 +1103,7 @@ index b6ee377..c96fbda 100644
      external_deps = image_native_ios_external_deps
      subsystem_name = "multimedia"
      part_name = "image_framework"
-@@ -216,9 +240,9 @@ if (use_clang_android) {
+@@ -216,9 +244,9 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils:image_utils_static",
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
@@ -1026,7 +1115,7 @@ index b6ee377..c96fbda 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -235,12 +259,24 @@ if (use_clang_android) {
+@@ -235,12 +263,24 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_statics",
@@ -1053,7 +1142,7 @@ index b6ee377..c96fbda 100644
        deps = [
          "${image_subsystem}/frameworks/innerkitsimpl/egl_image:post_proc_gl",
          "${image_subsystem}/plugins/common/libs/image/libextplugin:heifparser",
-@@ -255,30 +291,30 @@ if (use_clang_android) {
+@@ -255,30 +295,30 @@ if (use_clang_android) {
          deps += [ "//third_party/libpng:libpng" ]
        }
        external_deps = [
@@ -1095,7 +1184,7 @@ index b6ee377..c96fbda 100644
          "skia:skia_canvaskit",
        ]
        if (enable_libexif) {
-@@ -434,7 +470,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -434,7 +474,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        ]
@@ -1104,7 +1193,7 @@ index b6ee377..c96fbda 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -453,8 +489,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -453,8 +493,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_static",
        ]
@@ -1115,7 +1204,7 @@ index b6ee377..c96fbda 100644
      } else if (use_clang_ios) {
        defines = image_decode_ios_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -510,11 +546,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -510,11 +550,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
        }
        external_deps = [
          "c_utils:utils",
@@ -1404,6 +1493,18 @@ index 02b08e5..4282c10 100644
 +#endif // MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
  }
 \ No newline at end of file
+diff --git a/mock/native/src/HiLog.cpp b/mock/native/src/HiLog.cpp
+index 69de5fa..2609673 100644
+--- a/mock/native/src/HiLog.cpp
++++ b/mock/native/src/HiLog.cpp
+@@ -13,7 +13,6 @@
+  * limitations under the License.
+  */
+ 
+-#include "__config"
+ #include "iosfwd"
+ #include "hilog/log.h"
+ #include "hilog/log_cpp.h"
 diff --git a/plugins/common/libs/image/libextplugin/BUILD.gn b/plugins/common/libs/image/libextplugin/BUILD.gn
 index 89376c5..89b8abe 100644
 --- a/plugins/common/libs/image/libextplugin/BUILD.gn
@@ -1522,6 +1623,33 @@ index aafd420..4271243 100644
  
  namespace OHOS {
  namespace ImagePlugin {
+diff --git a/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/box/item_data_box.cpp b/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/box/item_data_box.cpp
+index 68485ee..8c22f6e 100644
+--- a/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/box/item_data_box.cpp
++++ b/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/box/item_data_box.cpp
+@@ -15,6 +15,8 @@
+ 
+ #include "box/item_data_box.h"
+ #include <climits>
++#include <cstdint>
++#include <limits>
+ #include "image_log.h"
+ 
+ namespace {
+diff --git a/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/cr3_parser.cpp b/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/cr3_parser.cpp
+index 6169861..d359b0d 100644
+--- a/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/cr3_parser.cpp
++++ b/plugins/common/libs/image/libextplugin/src/heif_impl/heif_parser/cr3_parser.cpp
+@@ -15,6 +15,9 @@
+ 
+ #include "cr3_parser.h"
+ 
++#include <cstdint>
++#include <limits>
++#include <memory>
+ #include "heif_utils.h"
+ #include "image_log.h"
+ #include "securec.h"
 diff --git a/plugins/common/libs/image/librawplugin/BUILD.gn b/plugins/common/libs/image/librawplugin/BUILD.gn
 index 6ba3fd8..a4566f8 100644
 --- a/plugins/common/libs/image/librawplugin/BUILD.gn
@@ -1579,6 +1707,45 @@ index e82be27..f7402c3 100644
  
  namespace OHOS {
  namespace MultimediaPlugin {
+diff --git a/plugins/manager/src/common/attr_data.cpp b/plugins/manager/src/common/attr_data.cpp
+index e46cc46..75ca13e 100644
+--- a/plugins/manager/src/common/attr_data.cpp
++++ b/plugins/manager/src/common/attr_data.cpp
+@@ -18,7 +18,7 @@
+ #include <memory>
+ #include <utility>
+ #include <functional>
+-#include "__tree"
++#include <set>
+ #include "cstdint"
+ #include "image_log.h"
+ #include "iosfwd"
+diff --git a/plugins/manager/src/framework/plugin.h b/plugins/manager/src/framework/plugin.h
+index ab47306..2aa6c09 100644
+--- a/plugins/manager/src/framework/plugin.h
++++ b/plugins/manager/src/framework/plugin.h
+@@ -17,6 +17,8 @@
+ #define PLUGIN_H
+ 
+ #include <iostream>
++#include <memory>
++#include <mutex>
+ #include <sstream>
+ #include <string>
+ #include "nocopyable.h"
+diff --git a/plugins/manager/src/thirdpartyadp/gstreamer/gst_plugin_fw.cpp b/plugins/manager/src/thirdpartyadp/gstreamer/gst_plugin_fw.cpp
+index ff87506..f1d2c7d 100644
+--- a/plugins/manager/src/thirdpartyadp/gstreamer/gst_plugin_fw.cpp
++++ b/plugins/manager/src/thirdpartyadp/gstreamer/gst_plugin_fw.cpp
+@@ -14,7 +14,7 @@
+  */
+ 
+ #include "gst_plugin_fw.h"
+-#include "__mutex_base"
++#include <mutex>
+ #include "image_log.h"
+ #include "map"
+ #include "plugin_errors.h"
 diff --git a/test/resource/image/images/test_rfdatab_depthen.jpg b/test/resource/image/images/test_rfdatab_depthen.jpg
 index 73c072c..7459e3f 100644
 Binary files a/test/resource/image/images/test_rfdatab_depthen.jpg and b/test/resource/image/images/test_rfdatab_depthen.jpg differ

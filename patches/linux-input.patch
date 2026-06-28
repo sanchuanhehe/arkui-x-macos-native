@@ -377,7 +377,7 @@ index 2ab5b13..918771f 100644
      "image_framework:pixelmap",
      "napi:ace_napi",
 diff --git a/frameworks/proxy/BUILD.gn b/frameworks/proxy/BUILD.gn
-index 4926332..c5896e6 100644
+index 4926332..ad0e8de 100644
 --- a/frameworks/proxy/BUILD.gn
 +++ b/frameworks/proxy/BUILD.gn
 @@ -77,11 +77,11 @@ ohos_source_set("libmmi-common") {
@@ -395,7 +395,7 @@ index 4926332..c5896e6 100644
    ]
  
    part_name = "input"
-@@ -98,6 +98,15 @@ if (is_arkui_x) {
+@@ -98,6 +98,21 @@ if (is_arkui_x) {
        "${c_utils_root}/base/include",
        "${mmi_path}/frameworks/proxy/events/include",
      ]
@@ -407,11 +407,17 @@ index 4926332..c5896e6 100644
 +      include_dirs += [
 +        "//foundation/multimedia/image_framework/mock/native/include",
 +      ]
++      # [linux-port] Define CROSS_PLATFORM so pixel_map.h gates out
++      # pixel_map_parcel.h -> image_framework mock message_parcel.h/parcel.h, which
++      # otherwise redefine the c_utils Parcel/Parcelable/NoCopyable pulled via
++      # pointer_style.h's "parcel.h" (redefinition errors in pointer_style.o).
++      # Mirrors mac, which sets IOS_PLATFORM on this target for the same gate.
++      defines += [ "CROSS_PLATFORM" ]
 +    }
  
      if (input_feature_upgrade_skia) {
        defines += [ "USE_M133_SKIA" ]
-@@ -174,20 +183,20 @@ ohos_shared_library("libmmi-client") {
+@@ -174,20 +189,20 @@ ohos_shared_library("libmmi-client") {
    external_deps = [
      "cJSON:cjson",
      "c_utils:utils",
@@ -439,7 +445,7 @@ index 4926332..c5896e6 100644
    }
  
    if (is_ohos && is_clang && target_cpu == "arm64" && defined(build_ext_path)) {
-@@ -199,7 +208,7 @@ ohos_shared_library("libmmi-client") {
+@@ -199,7 +214,7 @@ ohos_shared_library("libmmi-client") {
    }
  
    if (hitrace_enabled) {
@@ -448,7 +454,7 @@ index 4926332..c5896e6 100644
    }
  }
  
-@@ -225,11 +234,11 @@ ohos_unittest("ut-mmi-proxy-out") {
+@@ -225,11 +240,11 @@ ohos_unittest("ut-mmi-proxy-out") {
    ]
    external_deps = [
      "c_utils:utils",
@@ -462,7 +468,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -259,18 +268,18 @@ ohos_unittest("KeyEventTest") {
+@@ -259,18 +274,18 @@ ohos_unittest("KeyEventTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -489,7 +495,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -308,37 +317,37 @@ ohos_unittest("InputHandlerManagerTest") {
+@@ -308,37 +323,37 @@ ohos_unittest("InputHandlerManagerTest") {
    ]
  
    external_deps = [
@@ -546,7 +552,7 @@ index 4926332..c5896e6 100644
    }
  
    if (call_manager_service_enabled) {
-@@ -395,22 +404,22 @@ ohos_unittest("SwitchEventInputSubscribeManagerTest") {
+@@ -395,22 +410,22 @@ ohos_unittest("SwitchEventInputSubscribeManagerTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -580,7 +586,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -470,19 +479,19 @@ ohos_unittest("InputMonitorManagerTest") {
+@@ -470,19 +485,19 @@ ohos_unittest("InputMonitorManagerTest") {
    ]
  
    external_deps = [
@@ -610,7 +616,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -544,24 +553,24 @@ ohos_unittest("InputManagerImplTest") {
+@@ -544,24 +559,24 @@ ohos_unittest("InputManagerImplTest") {
    ]
  
    external_deps = [
@@ -645,7 +651,7 @@ index 4926332..c5896e6 100644
    }
  }
  
-@@ -609,22 +618,22 @@ ohos_unittest("InputManagerTest") {
+@@ -609,22 +624,22 @@ ohos_unittest("InputManagerTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -678,7 +684,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -653,9 +662,9 @@ ohos_unittest("LongPressEventSubscribeManagerTest") {
+@@ -653,9 +668,9 @@ ohos_unittest("LongPressEventSubscribeManagerTest") {
    ]
  
    external_deps = [
@@ -690,7 +696,7 @@ index 4926332..c5896e6 100644
      "hilog:libhilog",
    ]
  }
-@@ -686,8 +695,8 @@ ohos_unittest("InputDeviceImplTest") {
+@@ -686,8 +701,8 @@ ohos_unittest("InputDeviceImplTest") {
    ]
  
    external_deps = [
@@ -701,7 +707,7 @@ index 4926332..c5896e6 100644
      "hilog:libhilog",
    ]
  }
-@@ -717,19 +726,19 @@ ohos_unittest("PointerEventTest") {
+@@ -717,19 +732,19 @@ ohos_unittest("PointerEventTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -729,7 +735,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -756,19 +765,19 @@ ohos_unittest("PointerEventExTest") {
+@@ -756,19 +771,19 @@ ohos_unittest("PointerEventExTest") {
    ]
  
    external_deps = [
@@ -757,7 +763,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -796,19 +805,19 @@ ohos_unittest("PointerStyleTest") {
+@@ -796,19 +811,19 @@ ohos_unittest("PointerStyleTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -785,7 +791,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -873,21 +882,21 @@ ohos_unittest("KeyEventHookHandlerTest") {
+@@ -873,21 +888,21 @@ ohos_unittest("KeyEventHookHandlerTest") {
    ]
  
    external_deps = [
@@ -817,7 +823,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -935,16 +944,16 @@ ohos_unittest("PointerEventNdkTest") {
+@@ -935,16 +950,16 @@ ohos_unittest("PointerEventNdkTest") {
    ]
  
    external_deps = [
@@ -840,7 +846,7 @@ index 4926332..c5896e6 100644
      "image_framework:image_native",
      "image_framework:pixelmap",
      "napi:ace_napi",
-@@ -988,20 +997,20 @@ ohos_unittest("InputManagerInjectTest") {
+@@ -988,20 +1003,20 @@ ohos_unittest("InputManagerInjectTest") {
    ]
  
    external_deps = [
@@ -870,7 +876,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -1020,15 +1029,15 @@ ohos_unittest("InputManagerManualTest") {
+@@ -1020,15 +1035,15 @@ ohos_unittest("InputManagerManualTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -891,7 +897,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -1047,15 +1056,15 @@ ohos_unittest("InputManagerFilterManualTest") {
+@@ -1047,15 +1062,15 @@ ohos_unittest("InputManagerFilterManualTest") {
      "${mmi_path}/util:libmmi-util",
    ]
    external_deps = [
@@ -912,7 +918,7 @@ index 4926332..c5896e6 100644
    ]
  }
  
-@@ -1085,9 +1094,9 @@ ohos_unittest("KeyEventInputSubscribeManagerTest") {
+@@ -1085,9 +1100,9 @@ ohos_unittest("KeyEventInputSubscribeManagerTest") {
    ]
  
    external_deps = [
@@ -1029,6 +1035,19 @@ index 19dab4a..4acbc8d 100644
      }
  
  private:
+diff --git a/frameworks/proxy/events/src/key_event.cpp b/frameworks/proxy/events/src/key_event.cpp
+index cd63676..5e1fdb6 100644
+--- a/frameworks/proxy/events/src/key_event.cpp
++++ b/frameworks/proxy/events/src/key_event.cpp
+@@ -15,6 +15,8 @@
+ 
+ #include "key_event.h"
+ 
++#include <climits>  // [linux-port] strict libc++: INT_MAX used in WriteToParcel; mac clang pulled it in transitively
++
+ #include "mmi_log.h"
+ 
+ #undef MMI_LOG_TAG
 diff --git a/frameworks/proxy/events/test/BUILD.gn b/frameworks/proxy/events/test/BUILD.gn
 index 7b46528..3ff5934 100644
 --- a/frameworks/proxy/events/test/BUILD.gn

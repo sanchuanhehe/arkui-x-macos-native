@@ -12,18 +12,45 @@ index 35ccdcc..947a32c 100644
  namespace OHOS {
  namespace JsEnv {
 diff --git a/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map.h b/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map.h
-index 70d5129..448e9bc 100644
+index 70d5129..8f7771e 100644
 --- a/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map.h
 +++ b/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map.h
-@@ -18,6 +18,8 @@
+@@ -18,6 +18,9 @@
  
  #include <cstring>
  #include <utility>
 +// [linux-port] strict libc++: explicit std includes (mac clang pulled these in transitively)
++#include <cstdint>
 +#include <string>
  
  namespace OHOS {
  namespace JsEnv {
+diff --git a/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map_operator.cpp b/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map_operator.cpp
+index 43ae9f3..38892e2 100644
+--- a/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map_operator.cpp
++++ b/ability/ability_runtime/cross_platform/frameworks/js/napi/js_environment/source_map_operator.cpp
+@@ -15,7 +15,9 @@
+ 
+ #include "source_map_operator.h"
+ 
++#include <algorithm>
+ #include <charconv>
++#include <mutex>
+ #include <sstream>
+ 
+ #include "hilog.h"
+diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/base/src/array_wrapper.cpp b/ability/ability_runtime/cross_platform/frameworks/native/base/base/src/array_wrapper.cpp
+index 8d730ca..6b7d2e1 100755
+--- a/ability/ability_runtime/cross_platform/frameworks/native/base/base/src/array_wrapper.cpp
++++ b/ability/ability_runtime/cross_platform/frameworks/native/base/base/src/array_wrapper.cpp
+@@ -15,6 +15,7 @@
+ 
+ #include "array_wrapper.h"
+ 
++#include <climits>
+ #include <cstdint>
+ 
+ #include "bool_wrapper.h"
 diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/bundle_parser/include/bundle_constants.h b/ability/ability_runtime/cross_platform/frameworks/native/base/bundle_parser/include/bundle_constants.h
 index 65a22cd..0a99283 100644
 --- a/ability/ability_runtime/cross_platform/frameworks/native/base/bundle_parser/include/bundle_constants.h
@@ -37,6 +64,18 @@ index 65a22cd..0a99283 100644
  
  namespace OHOS {
  namespace AppExecFwk {
+diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/event_queue.h b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/event_queue.h
+index 203d932..f0c8eeb 100644
+--- a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/event_queue.h
++++ b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/event_queue.h
+@@ -17,6 +17,7 @@
+ #define BASE_EVENTHANDLER_INTERFACES_INNER_API_EVENT_QUEUE_H
+ 
+ #include <array>
++#include <atomic>
+ #include <list>
+ #include <map>
+ #include <mutex>
 diff --git a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/inner_event.h b/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/inner_event.h
 index 1727fef..8d62303 100644
 --- a/ability/ability_runtime/cross_platform/frameworks/native/base/event_handler/include/inner_event.h
@@ -236,6 +275,23 @@ index 034d79e..c874946 100644
  
  namespace OHOS {
  namespace AbilityRuntime {
+diff --git a/arkui/uicontent/BUILD.gn b/arkui/uicontent/BUILD.gn
+index 8e5605f..50578f0 100644
+--- a/arkui/uicontent/BUILD.gn
++++ b/arkui/uicontent/BUILD.gn
+@@ -47,6 +47,12 @@ ohos_source_set("ace_uicontent_interface") {
+       "IOS_PLATFORM",
+       "MAC_PLATFORM",
+     ]
++  } else if (current_os == "linux") {
++    # Linux/Wayland port: LINUX_PLATFORM gates out the Android namespace
++    # (Dl_namespace) members in native_module_manager.h.
++    defines = [
++      "LINUX_PLATFORM",
++    ]
+   }
+   sources = [
+     "//foundation/appframework/arkui/uicontent/declarative_module_preloader.cpp",
 diff --git a/hiviewdfx/hiappevent/native/include/observer/app_event_observer.h b/hiviewdfx/hiappevent/native/include/observer/app_event_observer.h
 index f9b7f1d..8eb8ddc 100644
 --- a/hiviewdfx/hiappevent/native/include/observer/app_event_observer.h
@@ -275,6 +331,32 @@ index cd1b4f0..23c83bd 100644
  
  namespace OHOS {
  namespace HiviewDFX {
+diff --git a/hiviewdfx/hiappevent/native/src/observer/app_event_observer.cpp b/hiviewdfx/hiappevent/native/src/observer/app_event_observer.cpp
+index b7ac2af..6a252c0 100644
+--- a/hiviewdfx/hiappevent/native/src/observer/app_event_observer.cpp
++++ b/hiviewdfx/hiappevent/native/src/observer/app_event_observer.cpp
+@@ -14,6 +14,7 @@
+  */
+ #include "app_event_observer.h"
+ 
++#include <algorithm>
+ #include <sstream>
+ 
+ #include "app_event.h"
+diff --git a/hiviewdfx/hilog/BUILD.gn b/hiviewdfx/hilog/BUILD.gn
+index 4534ac6..b669970 100644
+--- a/hiviewdfx/hilog/BUILD.gn
++++ b/hiviewdfx/hilog/BUILD.gn
+@@ -39,7 +39,8 @@ ohos_static_library("hiviewdfx_hilog_base") {
+   defines = [
+   ]
+ 
+-  if (target_os == "android" || target_os == "ios" || target_os == "mac") {
++  if (target_os == "android" || target_os == "ios" || target_os == "mac" ||
++      target_os == "linux") {
+     # Phase 2 path X: the vsnprintf output code uses SECUREC_FLAG_INTMAX which the
+     # securec header only defines under SECUREC_COMPATIBLE_LINUX_FORMAT.
+     defines += [ "SECUREC_COMPATIBLE_LINUX_FORMAT" ]
 diff --git a/window_manager/dm/BUILD.gn b/window_manager/dm/BUILD.gn
 index 4166d1b..d0b25e9 100644
 --- a/window_manager/dm/BUILD.gn
@@ -292,6 +374,177 @@ index 4166d1b..d0b25e9 100644
      }
    }
  }
+diff --git a/window_manager/interfaces/innerkits/wm/window_stage.h b/window_manager/interfaces/innerkits/wm/window_stage.h
+index 469f6ba..75625cb 100644
+--- a/window_manager/interfaces/innerkits/wm/window_stage.h
++++ b/window_manager/interfaces/innerkits/wm/window_stage.h
+@@ -1,83 +1,83 @@
+-/*
+- * Copyright (c) 2023 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#ifndef INTERFACES_INNERKITS_WINDOW_STAGE_H
+-#define INTERFACES_INNERKITS_WINDOW_STAGE_H
+-
+-#ifndef IOS_PLATFORM
+-#include "jni.h"
+-#endif
+-#include <memory>
+-#include "ability_context.h"
+-
+-namespace OHOS {
+-namespace AbilityRuntime::Platform {
+-class Configuration;
+-}
+-namespace Rosen {
+-class Window;
+-class WindowStage {
+-public:
+-    /**
+-     * Default constructor used to create an empty WindowStage instance.
+-     */
+-    WindowStage() = default;
+-
+-    /**
+-     * Default deconstructor used to deconstruct.
+-     *
+-     */
+-    ~WindowStage();
+-
+-#ifdef IOS_PLATFORM
+-    /**
+-     * Init a WindowStage instance based on the parameters displayId, context, listener and option.
+-     *
+-     * @param context current ability context
+-     * @param view the object of the WindowStageView
+-     * @return void
+-     */
+-    void Init(const std::shared_ptr<AbilityRuntime::Platform::Context>& context, void* windowView);
+-#else
+-    /**
+-     * Init a WindowStage instance based on the parameters displayId, context, listener and option.
+-     *
+-     * @param context current ability context
+-     * @param listener the life cycle listener of the window
+-     * @param windowStageView the java object of the WindowStageView
+-     * @return void
+-     */
+-    void Init(const std::shared_ptr<AbilityRuntime::Platform::Context>& context,
+-        jobject windowStageView, JNIEnv* env);
+-#endif
+-
+-    /**
+-     * Get shared pointer of main window.
+-     *
+-     * @return the shared pointer of window
+-     */
+-    const std::shared_ptr<Window>& GetMainWindow() const;
+-    std::shared_ptr<Window> CreateSubWindow(const std::string& windowName);
+-    std::vector<std::shared_ptr<Window>> GetSubWindow();
+-
+-    void UpdateConfigurationForAll(const std::shared_ptr<OHOS::AbilityRuntime::Platform::Configuration>& config);
+-
+-private:
+-    std::shared_ptr<Window> mainWindow_;
+-    std::shared_ptr<AbilityRuntime::Platform::Context> context_ = nullptr;
+-};
+-} // namespace Rosen
+-} // namespace OHOS
+-#endif // INTERFACES_INNERKITS_WINDOW_STAGE_H
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef INTERFACES_INNERKITS_WINDOW_STAGE_H
++#define INTERFACES_INNERKITS_WINDOW_STAGE_H
++
++#if !defined(IOS_PLATFORM) && !defined(LINUX_PLATFORM)
++#include "jni.h"
++#endif
++#include <memory>
++#include "ability_context.h"
++
++namespace OHOS {
++namespace AbilityRuntime::Platform {
++class Configuration;
++}
++namespace Rosen {
++class Window;
++class WindowStage {
++public:
++    /**
++     * Default constructor used to create an empty WindowStage instance.
++     */
++    WindowStage() = default;
++
++    /**
++     * Default deconstructor used to deconstruct.
++     *
++     */
++    ~WindowStage();
++
++#if defined(IOS_PLATFORM) || defined(LINUX_PLATFORM)
++    /**
++     * Init a WindowStage instance based on the parameters displayId, context, listener and option.
++     *
++     * @param context current ability context
++     * @param view the object of the WindowStageView
++     * @return void
++     */
++    void Init(const std::shared_ptr<AbilityRuntime::Platform::Context>& context, void* windowView);
++#else
++    /**
++     * Init a WindowStage instance based on the parameters displayId, context, listener and option.
++     *
++     * @param context current ability context
++     * @param listener the life cycle listener of the window
++     * @param windowStageView the java object of the WindowStageView
++     * @return void
++     */
++    void Init(const std::shared_ptr<AbilityRuntime::Platform::Context>& context,
++        jobject windowStageView, JNIEnv* env);
++#endif
++
++    /**
++     * Get shared pointer of main window.
++     *
++     * @return the shared pointer of window
++     */
++    const std::shared_ptr<Window>& GetMainWindow() const;
++    std::shared_ptr<Window> CreateSubWindow(const std::string& windowName);
++    std::vector<std::shared_ptr<Window>> GetSubWindow();
++
++    void UpdateConfigurationForAll(const std::shared_ptr<OHOS::AbilityRuntime::Platform::Configuration>& config);
++
++private:
++    std::shared_ptr<Window> mainWindow_;
++    std::shared_ptr<AbilityRuntime::Platform::Context> context_ = nullptr;
++};
++} // namespace Rosen
++} // namespace OHOS
++#endif // INTERFACES_INNERKITS_WINDOW_STAGE_H
 diff --git a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn b/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
 index 11b4dac..f02eee4 100644
 --- a/window_manager/interfaces/kits/napi/display_runtime/BUILD.gn
@@ -306,6 +559,146 @@ index 11b4dac..f02eee4 100644
      }
  
      sources = [
+diff --git a/window_manager/interfaces/kits/napi/display_runtime/js_display_listener.h b/window_manager/interfaces/kits/napi/display_runtime/js_display_listener.h
+index be6cca9..5ce9160 100755
+--- a/window_manager/interfaces/kits/napi/display_runtime/js_display_listener.h
++++ b/window_manager/interfaces/kits/napi/display_runtime/js_display_listener.h
+@@ -1,61 +1,62 @@
+-/*
+- * Copyright (c) 2025-2025 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#ifndef OHOS_JS_DISPLAY_LISTENER_H
+-#define OHOS_JS_DISPLAY_LISTENER_H
+-
+-#include <mutex>
+-#include "dm_common.h"
+-#include "napi/native_api.h"
+-#include "napi/native_node_api.h"
+-#include "refbase.h"
+-#include "display_manager.h"
+-#include "native_engine/native_reference.h"
+-
+-namespace OHOS {
+-namespace Rosen {
+-class JsDisplayListener : public DisplayManager::DisplayListener,
+-                          public DisplayManager::FoldStatusListener,
+-                          public DisplayManager::DisplayModeListener {
+-public:
+-    explicit JsDisplayListener(napi_env env);
+-    ~JsDisplayListener() override;
+-    void AddCallback(const std::string& type, napi_value jsListenerObject);
+-    void RemoveAllCallback();
+-    void RemoveCallback(napi_env env, const std::string& type, napi_value jsListenerObject);
+-    void OnCreate(DisplayId id) override;
+-    void OnDestroy(DisplayId id) override;
+-    void OnChange(DisplayId id) override;
+-    void DispatchDisplayEvent(const std::string& eventType, DisplayId id);
+-    void OnFoldStatusChanged(FoldStatus foldStatus) override;
+-    void OnDisplayModeChanged(FoldDisplayMode displayMode) override;
+-
+-private:
+-    void CallJsMethod(const std::string& methodName, napi_value const * argv = nullptr, size_t argc = 0);
+-    napi_env env_ = nullptr;
+-    std::mutex mtx_;
+-    wptr<JsDisplayListener> weakRef_  = nullptr;
+-    std::map<std::string, std::vector<std::unique_ptr<NativeReference>>> jsCallBack_;
+-    napi_value CreateDisplayIdArray(napi_env env, const std::vector<DisplayId>& data);
+-    static void CleanEnv(void* obj);
+-};
+-const std::string EVENT_ADD = "add";
+-const std::string EVENT_REMOVE = "remove";
+-const std::string EVENT_CHANGE = "change";
+-const std::string EVENT_FOLD_STATUS_CHANGED = "foldStatusChange";
+-const std::string EVENT_DISPLAY_MODE_CHANGED = "foldDisplayModeChange";
+-}  // namespace Rosen
+-}  // namespace OHOS
++/*
++ * Copyright (c) 2025-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef OHOS_JS_DISPLAY_LISTENER_H
++#define OHOS_JS_DISPLAY_LISTENER_H
++
++#include <memory>
++#include <mutex>
++#include "dm_common.h"
++#include "napi/native_api.h"
++#include "napi/native_node_api.h"
++#include "refbase.h"
++#include "display_manager.h"
++#include "native_engine/native_reference.h"
++
++namespace OHOS {
++namespace Rosen {
++class JsDisplayListener : public DisplayManager::DisplayListener,
++                          public DisplayManager::FoldStatusListener,
++                          public DisplayManager::DisplayModeListener {
++public:
++    explicit JsDisplayListener(napi_env env);
++    ~JsDisplayListener() override;
++    void AddCallback(const std::string& type, napi_value jsListenerObject);
++    void RemoveAllCallback();
++    void RemoveCallback(napi_env env, const std::string& type, napi_value jsListenerObject);
++    void OnCreate(DisplayId id) override;
++    void OnDestroy(DisplayId id) override;
++    void OnChange(DisplayId id) override;
++    void DispatchDisplayEvent(const std::string& eventType, DisplayId id);
++    void OnFoldStatusChanged(FoldStatus foldStatus) override;
++    void OnDisplayModeChanged(FoldDisplayMode displayMode) override;
++
++private:
++    void CallJsMethod(const std::string& methodName, napi_value const * argv = nullptr, size_t argc = 0);
++    napi_env env_ = nullptr;
++    std::mutex mtx_;
++    wptr<JsDisplayListener> weakRef_  = nullptr;
++    std::map<std::string, std::vector<std::unique_ptr<NativeReference>>> jsCallBack_;
++    napi_value CreateDisplayIdArray(napi_env env, const std::vector<DisplayId>& data);
++    static void CleanEnv(void* obj);
++};
++const std::string EVENT_ADD = "add";
++const std::string EVENT_REMOVE = "remove";
++const std::string EVENT_CHANGE = "change";
++const std::string EVENT_FOLD_STATUS_CHANGED = "foldStatusChange";
++const std::string EVENT_DISPLAY_MODE_CHANGED = "foldDisplayModeChange";
++}  // namespace Rosen
++}  // namespace OHOS
+ #endif /* OHOS_JS_DISPLAY_LISTENER_H */
+\ No newline at end of file
+diff --git a/window_manager/interfaces/kits/napi/display_runtime/js_display_manager.h b/window_manager/interfaces/kits/napi/display_runtime/js_display_manager.h
+index e0f8a6a..c6fc450 100755
+--- a/window_manager/interfaces/kits/napi/display_runtime/js_display_manager.h
++++ b/window_manager/interfaces/kits/napi/display_runtime/js_display_manager.h
+@@ -16,6 +16,7 @@
+ #ifndef OHOS_JS_DISPLAY_MANAGER_H
+ #define OHOS_JS_DISPLAY_MANAGER_H
+ 
++#include <memory>
+ #include "display_manager.h"
+ #include "js_display_listener.h"
+ #include "napi/native_api.h"
 diff --git a/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn b/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
 index 19b5862..ffd949b 100644
 --- a/window_manager/interfaces/kits/napi/window_runtime/BUILD.gn
@@ -356,3 +749,186 @@ index 201eb54..52e9e8e 100644
      }
  
      deps += [
+diff --git a/window_manager/wm/src/window_stage.cpp b/window_manager/wm/src/window_stage.cpp
+index 9d022ee..377ad87 100644
+--- a/window_manager/wm/src/window_stage.cpp
++++ b/window_manager/wm/src/window_stage.cpp
+@@ -1,89 +1,89 @@
+-/*
+- * Copyright (c) 2023 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#include "window_stage.h"
+-
+-#include "foundation/appframework/arkui/uicontent/ui_content.h"
+-#include "virtual_rs_window.h"
+-#include "window_hilog.h"
+-#include "window_option.h"
+-
+-namespace OHOS {
+-namespace Rosen {
+-WindowStage::~WindowStage() {}
+-
+-#ifdef IOS_PLATFORM
+-void WindowStage::Init(const std::shared_ptr<AbilityRuntime::Platform::Context>& context, void* windowView)
+-{
+-    mainWindow_ = Window::Create(context, windowView);
+-    context_ = context;
+-    return;
+-}
+-#else
+-void WindowStage::Init(
+-    const std::shared_ptr<AbilityRuntime::Platform::Context>& context, jobject windowStageView, JNIEnv* env)
+-{
+-    mainWindow_ = Window::Create(context, env, windowStageView);
+-    context_ = context;
+-    return;
+-}
+-#endif
+-
+-const std::shared_ptr<Window>& WindowStage::GetMainWindow() const
+-{
+-    return mainWindow_;
+-}
+-
+-std::shared_ptr<Window> WindowStage::CreateSubWindow(const std::string& windowName)
+-{
+-    if (windowName.empty() || mainWindow_ == nullptr) {
+-        return nullptr;
+-    }
+-    std::shared_ptr<WindowOption> option = std::make_shared<WindowOption>();
+-    option->SetParentId(mainWindow_->GetWindowId());
+-    option->SetWindowType(Rosen::WindowType::WINDOW_TYPE_APP_SUB_WINDOW);
+-    option->SetWindowMode(Rosen::WindowMode::WINDOW_MODE_FLOATING);
+-    option->SetWindowName(windowName);
+-    std::shared_ptr<Window> subWindow = Window::CreateSubWindow(context_, option);
+-    return subWindow;
+-}
+-
+-std::vector<std::shared_ptr<Window>> WindowStage::GetSubWindow()
+-{
+-    if (mainWindow_ == nullptr) {
+-        LOGE("Get sub window failed, because main window is null");
+-        return std::vector<std::shared_ptr<Window>>();
+-    }
+-    return Window::GetSubWindow(mainWindow_->GetWindowId());
+-}
+-
+-void WindowStage::UpdateConfigurationForAll(
+-    const std::shared_ptr<OHOS::AbilityRuntime::Platform::Configuration>& config)
+-{
+-    if (mainWindow_ != nullptr) {
+-        mainWindow_->UpdateConfiguration(config);
+-    }
+-    auto subWindows = GetSubWindow();
+-    if (subWindows.empty()) {
+-        return;
+-    }
+-    for (const auto& subWindow : subWindows) {
+-        if (subWindow != nullptr) {
+-            subWindow->UpdateConfiguration(config);
+-        }
+-    }
+-}
+-} // namespace Rosen
+-} // namespace OHOS
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "window_stage.h"
++
++#include "foundation/appframework/arkui/uicontent/ui_content.h"
++#include "virtual_rs_window.h"
++#include "window_hilog.h"
++#include "window_option.h"
++
++namespace OHOS {
++namespace Rosen {
++WindowStage::~WindowStage() {}
++
++#if defined(IOS_PLATFORM) || defined(LINUX_PLATFORM)
++void WindowStage::Init(const std::shared_ptr<AbilityRuntime::Platform::Context>& context, void* windowView)
++{
++    mainWindow_ = Window::Create(context, windowView);
++    context_ = context;
++    return;
++}
++#else
++void WindowStage::Init(
++    const std::shared_ptr<AbilityRuntime::Platform::Context>& context, jobject windowStageView, JNIEnv* env)
++{
++    mainWindow_ = Window::Create(context, env, windowStageView);
++    context_ = context;
++    return;
++}
++#endif
++
++const std::shared_ptr<Window>& WindowStage::GetMainWindow() const
++{
++    return mainWindow_;
++}
++
++std::shared_ptr<Window> WindowStage::CreateSubWindow(const std::string& windowName)
++{
++    if (windowName.empty() || mainWindow_ == nullptr) {
++        return nullptr;
++    }
++    std::shared_ptr<WindowOption> option = std::make_shared<WindowOption>();
++    option->SetParentId(mainWindow_->GetWindowId());
++    option->SetWindowType(Rosen::WindowType::WINDOW_TYPE_APP_SUB_WINDOW);
++    option->SetWindowMode(Rosen::WindowMode::WINDOW_MODE_FLOATING);
++    option->SetWindowName(windowName);
++    std::shared_ptr<Window> subWindow = Window::CreateSubWindow(context_, option);
++    return subWindow;
++}
++
++std::vector<std::shared_ptr<Window>> WindowStage::GetSubWindow()
++{
++    if (mainWindow_ == nullptr) {
++        LOGE("Get sub window failed, because main window is null");
++        return std::vector<std::shared_ptr<Window>>();
++    }
++    return Window::GetSubWindow(mainWindow_->GetWindowId());
++}
++
++void WindowStage::UpdateConfigurationForAll(
++    const std::shared_ptr<OHOS::AbilityRuntime::Platform::Configuration>& config)
++{
++    if (mainWindow_ != nullptr) {
++        mainWindow_->UpdateConfiguration(config);
++    }
++    auto subWindows = GetSubWindow();
++    if (subWindows.empty()) {
++        return;
++    }
++    for (const auto& subWindow : subWindows) {
++        if (subWindow != nullptr) {
++            subWindow->UpdateConfiguration(config);
++        }
++    }
++}
++} // namespace Rosen
++} // namespace OHOS

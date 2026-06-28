@@ -169,10 +169,14 @@ index 78d9304..4d392dc 100644
  #include <memory>
  #endif
 diff --git a/base/include/directory_ex.h b/base/include/directory_ex.h
-index c71a5e7..017526d 100644
+index c71a5e7..015c064 100644
 --- a/base/include/directory_ex.h
 +++ b/base/include/directory_ex.h
-@@ -21,6 +21,8 @@
+@@ -18,9 +18,12 @@
+ 
+ #include <string>
+ #include <vector>
++#include <cstdint>  // [linux-port] strict libc++: GetFolderSize() uses uint64_t unconditionally; mac clang pulled <cstdint> in transitively
  #include <sys/stat.h>
  #ifdef UTILS_CXX_RUST
  #include "cxx.h"
@@ -181,6 +185,19 @@ index c71a5e7..017526d 100644
  #endif
  
  namespace OHOS {
+diff --git a/base/include/flat_obj.h b/base/include/flat_obj.h
+index 87596b4..2f2e458 100644
+--- a/base/include/flat_obj.h
++++ b/base/include/flat_obj.h
+@@ -26,7 +26,7 @@
+ 
+ #include <sys/types.h>
+ 
+-#if !defined(IOS_PLATFORM) && !defined(WINDOWS_PLATFORM) && !defined(MAC_PLATFORM)
++#if defined(LINUX_PLATFORM) || (!defined(IOS_PLATFORM) && !defined(WINDOWS_PLATFORM) && !defined(MAC_PLATFORM))
+ #include <linux/types.h>
+ #else
+     typedef uint32_t __u32;
 diff --git a/base/src/unicode_ex.cpp b/base/src/unicode_ex.cpp
 index 3908eab..00e29c4 100644
 --- a/base/src/unicode_ex.cpp
