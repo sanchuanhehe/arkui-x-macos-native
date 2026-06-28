@@ -167,6 +167,24 @@ index 71a4a0a34..7f60b5aa4 100644
    } else if (use_clang_ios) {
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
+diff --git a/frameworks/innerkitsimpl/utils/src/image_utils.cpp b/frameworks/innerkitsimpl/utils/src/image_utils.cpp
+index e15dc881d..d235eea39 100644
+--- a/frameworks/innerkitsimpl/utils/src/image_utils.cpp
++++ b/frameworks/innerkitsimpl/utils/src/image_utils.cpp
+@@ -425,7 +425,12 @@ uint32_t ImageUtils::RegisterPluginServer()
+ #ifdef _WIN32
+     vector<string> pluginPaths = { "" };
+ #elif defined(_APPLE)
+-    vector<string> pluginPaths = { "./" };
++    // ArkUI-X macOS: the image codec plugins (libextplugin ExtDecoder/ExtEncoder, gif) are
++    // statically linked into ace_macos, not shipped as loadable .so under "./". A non-empty
++    // path makes PluginServer scan the filesystem for .so + metadata, finds none, and leaves
++    // no decoder registered ("No extended decoder available"). Empty paths take the static
++    // registration route (PluginFw::Register) that Android/iOS use for their compiled-in codecs.
++    vector<string> pluginPaths = {};
+ #elif defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
+     vector<string> pluginPaths = {};
+ #else
 diff --git a/frameworks/innerkitsimpl/utils/src/mac_image_link_stubs.cpp b/frameworks/innerkitsimpl/utils/src/mac_image_link_stubs.cpp
 new file mode 100644
 index 000000000..288bb0596
