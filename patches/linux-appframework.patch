@@ -861,6 +861,45 @@ index 4f2b4b0..ac7afcd 100755
  
  namespace OHOS {
  namespace Rosen {
+diff --git a/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn b/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn
+index d553314..4aecc84 100644
+--- a/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn
++++ b/window_manager/interfaces/kits/napi/window_runtime/window_stage_napi/BUILD.gn
+@@ -35,7 +35,12 @@ es2abc_gen_abc("gen_window_stage_abc") {
+ 
+ gen_obj("window_stage_js") {
+   input = "window_stage.js"
+-  if (target_os == "ios") {
++
++  # iOS and the Linux/Wayland native port both route gen_obj through
++  # build_resource_to_bytecode.py (use_mac/use_linux in ace_gen_obj.gni), which
++  # emits a C source (pointer-form _binary_*_end), so the output must be a .c to
++  # be compiled, not a raw .o handed to the linker ("unknown directive: const").
++  if (target_os == "ios" || target_os == "linux") {
+     output = target_out_dir + "/window_stage.c"
+   } else {
+     output = target_out_dir + "/window_stage.o"
+@@ -46,7 +51,7 @@ gen_obj("window_stage_js") {
+ gen_obj("window_stage_abc") {
+   input = get_label_info(":gen_window_stage_abc", "target_out_dir") +
+           "/window_stage.abc"
+-  if (target_os == "ios") {
++  if (target_os == "ios" || target_os == "linux") {
+     output = target_out_dir + "/window_stage_abc.c"
+   } else {
+     output = target_out_dir + "/window_stage_abc.o"
+@@ -83,6 +88,11 @@ ohos_source_set("application_windowstage_source_set") {
+       "IOS_PLATFORM",
+       "MAC_PLATFORM",
+     ]
++  } else if (target_os == "linux") {
++    # Linux/Wayland native port: window_stage_module.cpp must use the IOS_PLATFORM
++    # pointer-form `extern const char* _binary_window_stage_*_end` declarations to
++    # match the build_resource_to_bytecode.py-generated symbols (use_linux path).
++    defines = [ "IOS_PLATFORM" ]
+   }
+ 
+   part_name = "window_manager"
 diff --git a/window_manager/wm/BUILD.gn b/window_manager/wm/BUILD.gn
 index 201eb54..52e9e8e 100644
 --- a/window_manager/wm/BUILD.gn
