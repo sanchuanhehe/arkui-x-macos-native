@@ -434,6 +434,28 @@ index 55b8cefe9e4..03fc6ef9a85 100644
  #endif
  private:
      InputMethodManager() = default;
+diff --git a/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp
+index afef4922b2c..11b3640d1dd 100644
+--- a/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp
+@@ -173,7 +173,7 @@ void SetCounterBackgroundColorRes(ArkUINodeHandle node, ArkUI_Uint32 color, ArkU
+     }
+ }
+ 
+-void SetBackgroundColorForHDR(
++static void SetBackgroundColorForHDR(
+     ArkUINodeHandle node, ArkUI_Int32 colorSpace, const ArkUI_Float32* hdrValues, void* colorRawPtr)
+ {
+     FrameNode* frameNode = GetFrameNode(node);
+@@ -249,7 +249,7 @@ void ResetCounterOnDec(ArkUINodeHandle node)
+     CounterModelNG::SetOnDec(frameNode, nullptr);
+ }
+ 
+-ArkUINodeHandle CreateFrameNode(int32_t nodeId)
++static ArkUINodeHandle CreateFrameNode(int32_t nodeId)
+ {
+     return nullptr;
+ }
 diff --git a/frameworks/core/components_ng/pattern/gauge/bridge/gauge_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/gauge/bridge/gauge_dynamic_modifier.cpp
 index b06ed9fc164..0d75c84ec31 100644
 --- a/frameworks/core/components_ng/pattern/gauge/bridge/gauge_dynamic_modifier.cpp
