@@ -434,6 +434,73 @@ index 55b8cefe9e4..03fc6ef9a85 100644
  #endif
  private:
      InputMethodManager() = default;
+diff --git a/frameworks/core/components_ng/pattern/rating/bridge/arkts_native_rating_bridge.cpp b/frameworks/core/components_ng/pattern/rating/bridge/arkts_native_rating_bridge.cpp
+index f346de52885..d8c95a56d87 100644
+--- a/frameworks/core/components_ng/pattern/rating/bridge/arkts_native_rating_bridge.cpp
++++ b/frameworks/core/components_ng/pattern/rating/bridge/arkts_native_rating_bridge.cpp
+@@ -55,7 +55,9 @@ panda::Local<panda::JSValueRef> JsRatingChangeCallback(panda::JsiRuntimeCallInfo
+     return panda::JSValueRef::Undefined(vm);
+ }
+ 
+-bool GetNativeNode(ArkUINodeHandle& nativeNode, const Local<JSValueRef>& firstArg, panda::ecmascript::EcmaVM* vm)
++// ArkUI-X macOS: internal linkage to avoid colliding with the identically-named helper in
++// other components' bridges under the single static ace_macos binary (iOS = per-component dylib).
++static bool GetNativeNode(ArkUINodeHandle& nativeNode, const Local<JSValueRef>& firstArg, panda::ecmascript::EcmaVM* vm)
+ {
+     if (firstArg->IsNativePointer(vm)) {
+         nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+@@ -68,7 +70,7 @@ bool GetNativeNode(ArkUINodeHandle& nativeNode, const Local<JSValueRef>& firstAr
+     return false;
+ }
+ 
+-bool IsJsView(const Local<JSValueRef>& firstArg, panda::ecmascript::EcmaVM* vm)
++static bool IsJsView(const Local<JSValueRef>& firstArg, panda::ecmascript::EcmaVM* vm)
+ {
+     return firstArg->IsBoolean() && firstArg->ToBoolean(vm)->Value();
+ }
+diff --git a/frameworks/core/components_ng/pattern/rating/bridge/rating_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/rating/bridge/rating_dynamic_modifier.cpp
+index 83289658b57..16a6541d418 100644
+--- a/frameworks/core/components_ng/pattern/rating/bridge/rating_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/rating/bridge/rating_dynamic_modifier.cpp
+@@ -175,7 +175,9 @@ void ResetOnChange(ArkUINodeHandle node)
+     RatingModelNG::SetOnChange(frameNode, nullptr);
+ }
+ 
+-ArkUINodeHandle CreateFrameNode(int32_t nodeId)
++// ArkUI-X macOS: internal linkage to avoid colliding with other components' identically-named
++// helper when statically linked into the single ace_macos binary (iOS = per-component dylib).
++static ArkUINodeHandle CreateFrameNode(int32_t nodeId)
+ {
+     auto frameNode = RatingModelNG::CreateFrameNode(nodeId);
+     CHECK_NULL_RETURN(frameNode, nullptr);
+@@ -190,7 +192,10 @@ void CreateRating(ArkUI_Float64 rating, ArkUI_Bool indicator)
+     RatingModelNG::CreateRating(rating, static_cast<bool>(indicator));
+ }
+ 
+-void SetOnChangeEvent(void* callback)
++// ArkUI-X macOS: internal linkage so this per-component helper does not collide with the
++// identically-named NG::SetOnChangeEvent in other components' bridges when they are all
++// statically linked into the single ace_macos binary (iOS keeps each in its own dylib).
++static void SetOnChangeEvent(void* callback)
+ {
+     if (callback) {
+         auto onChange = reinterpret_cast<std::function<void(const std::string&)>*>(callback);
+diff --git a/frameworks/core/components_ng/pattern/slider/bridge/slider_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/slider/bridge/slider_dynamic_modifier.cpp
+index 40f842f1e90..ad1df897be1 100644
+--- a/frameworks/core/components_ng/pattern/slider/bridge/slider_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/slider/bridge/slider_dynamic_modifier.cpp
+@@ -1038,7 +1038,10 @@ void SliderPaintPropertyUpdateValue(ArkUINodeHandle node, ArkUI_Float32 value)
+     sliderPaintProperty->UpdateValue(static_cast<float>(value));
+ }
+ 
+-void SetOnChangeEvent(void* callback)
++// ArkUI-X macOS: internal linkage so this per-component helper does not collide with the
++// identically-named NG::SetOnChangeEvent in other components' bridges when they are all
++// statically linked into the single ace_macos binary (iOS keeps each in its own dylib).
++static void SetOnChangeEvent(void* callback)
+ {
+     if (callback) {
+         auto changeEvent = reinterpret_cast<std::function<void(float)>*>(callback);
 diff --git a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp b/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
 index f50650ecfb1..66f62d29723 100644
 --- a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
