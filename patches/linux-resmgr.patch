@@ -74,7 +74,7 @@ index 03c9bc2..2d2f1d3 100644
 +} // OHOS
 +#endif // OHOS_RESOURCE_MANAGER_DFX_HISYSEVENT_ADAPTER_H
 diff --git a/frameworks/resmgr/BUILD.gn b/frameworks/resmgr/BUILD.gn
-index 0b7d88c..2a462ad 100644
+index 0b7d88c..5c8dba1 100644
 --- a/frameworks/resmgr/BUILD.gn
 +++ b/frameworks/resmgr/BUILD.gn
 @@ -19,6 +19,11 @@ config("resmgr_config") {
@@ -89,7 +89,33 @@ index 0b7d88c..2a462ad 100644
    ]
  }
  
-@@ -92,14 +97,14 @@ ohos_shared_library("global_resmgr") {
+@@ -72,9 +77,23 @@ config("rawfile_public_config") {
+ ohos_shared_library("global_resmgr") {
+   sources = manager_sources
+ 
+-  sources += [ "../../dfx/hisysevent_adapter/hisysevent_adapter.cpp" ]
++  # Linux/Wayland native port: hisysevent (DFX telemetry) is not available on the
++  # desktop client; the adapter's HiSysEventWrite calls are no-ops there.
++  if (!is_arkui_x) {
++    sources += [ "../../dfx/hisysevent_adapter/hisysevent_adapter.cpp" ]
++  }
+ 
+-  defines = [ "CONFIG_HILOG" ]
++  # [linux-port] arkui-x hilog has no HILOG_IMPL; take hilog_wrapper.h's no-op
++  # #else branch (don't define CONFIG_HILOG), like the c_utils CONFIG_HILOG fix.
++  defines = []
++  if (!is_arkui_x) {
++    defines += [ "CONFIG_HILOG" ]
++  } else {
++    # Linux/Wayland native port: __ARKUI_CROSS__ is the cross-platform switch the
++    # resmgr sources use to gate out the HAP-zip AbilityBase::Extractor path (no
++    # ability_base on the desktop client); resources load from the filesystem.
++    defines += [ "__ARKUI_CROSS__" ]
++  }
+ 
+   if (is_asan) {
+     defines += ["SUPPORT_ASAN"]
+@@ -92,14 +111,14 @@ ohos_shared_library("global_resmgr") {
    ]
  
    external_deps = [
@@ -109,7 +135,40 @@ index 0b7d88c..2a462ad 100644
      "zlib:shared_libz",
    ]
  
-@@ -156,7 +161,7 @@ ohos_shared_library("global_resmgr_win") {
+@@ -120,13 +139,25 @@ ohos_shared_library("global_resmgr") {
+   }
+ 
+   branch_protector_ret = "pac_ret"
+-  sanitize = {
+-    boundary_sanitize = true
+-    cfi = true
+-    cfi_cross_dso = true
+-    debug = false
+-    integer_overflow = true
+-    ubsan = true
++
++  # Linux/Wayland native port: ubsan/integer_overflow emit __ubsan_*_minimal_abort
++  # references that need the ubsan minimal runtime, which isn't linked into the
++  # arkui-x desktop .so. Disable the sanitizers for the desktop client.
++  if (is_arkui_x) {
++    sanitize = {
++      cfi = false
++      cfi_cross_dso = false
++      debug = false
++    }
++  } else {
++    sanitize = {
++      boundary_sanitize = true
++      cfi = true
++      cfi_cross_dso = true
++      debug = false
++      integer_overflow = true
++      ubsan = true
++    }
+   }
+   subsystem_name = "global"
+   innerapi_tags = [
+@@ -156,7 +187,7 @@ ohos_shared_library("global_resmgr_win") {
  
      external_deps = [
        "bounds_checking_function:libsec_shared",
@@ -118,7 +177,7 @@ index 0b7d88c..2a462ad 100644
        "cJSON:cjson_static",
        "icu:static_icui18n",
        "zlib:libz",
-@@ -192,7 +197,7 @@ ohos_shared_library("global_resmgr_mac") {
+@@ -192,7 +223,7 @@ ohos_shared_library("global_resmgr_mac") {
      if (host_os == "mac") {
        external_deps = [
          "bounds_checking_function:libsec_static",
@@ -127,7 +186,7 @@ index 0b7d88c..2a462ad 100644
          "cJSON:cjson_static",
          "icu:static_icui18n",
          "zlib:libz",
-@@ -229,7 +234,7 @@ ohos_shared_library("global_resmgr_linux") {
+@@ -229,7 +260,7 @@ ohos_shared_library("global_resmgr_linux") {
  
      external_deps = [
        "bounds_checking_function:libsec_shared",
@@ -136,7 +195,21 @@ index 0b7d88c..2a462ad 100644
        "cJSON:cjson_static",
        "icu:shared_icui18n",
        "zlib:shared_libz",
-@@ -267,15 +272,15 @@ ohos_shared_library("librawfile") {
+@@ -251,7 +282,12 @@ ohos_shared_library("librawfile") {
+   public_configs = [ ":rawfile_public_config" ]
+   sources = [ "src/raw_file_manager.cpp" ]
+ 
+-  defines = [ "CONFIG_HILOG" ]
++  # [linux-port] arkui-x hilog has no HILOG_IMPL; take hilog_wrapper.h's no-op
++  # #else branch (don't define CONFIG_HILOG), like the c_utils CONFIG_HILOG fix.
++  defines = []
++  if (!is_arkui_x) {
++    defines += [ "CONFIG_HILOG" ]
++  }
+ 
+   version_script = "librawfile.versionscript"
+ 
+@@ -267,15 +303,15 @@ ohos_shared_library("librawfile") {
    deps = [ ":global_resmgr" ]
  
    external_deps = [
@@ -158,7 +231,21 @@ index 0b7d88c..2a462ad 100644
      "napi:ace_napi",
    ]
  
-@@ -316,16 +321,24 @@ ohos_shared_library("ohresmgr") {
+@@ -302,7 +338,12 @@ ohos_shared_library("ohresmgr") {
+   output_extension = "so"
+   output_name = "ohresmgr"
+ 
+-  defines = [ "CONFIG_HILOG" ]
++  # [linux-port] arkui-x hilog has no HILOG_IMPL; take hilog_wrapper.h's no-op
++  # #else branch (don't define CONFIG_HILOG), like the c_utils CONFIG_HILOG fix.
++  defines = []
++  if (!is_arkui_x) {
++    defines += [ "CONFIG_HILOG" ]
++  }
+ 
+   include_dirs = [
+     "./include",
+@@ -316,16 +357,24 @@ ohos_shared_library("ohresmgr") {
    deps = [ ":global_resmgr" ]
  
    external_deps = [
@@ -1510,6 +1597,21 @@ index 9fd6d10..922420e 100644
 +    return result;
  }
 \ No newline at end of file
+diff --git a/frameworks/resmgr/src/utils/utils.cpp b/frameworks/resmgr/src/utils/utils.cpp
+index 966bd92..de24c1c 100644
+--- a/frameworks/resmgr/src/utils/utils.cpp
++++ b/frameworks/resmgr/src/utils/utils.cpp
+@@ -21,7 +21,9 @@
+ #include <vector>
+ #include <sys/stat.h>
+ #include "hilog_wrapper.h"
+-#ifdef __LINUX__
++#if defined(__LINUX__) || defined(__ARKUI_CROSS__)
++// [linux-port] strlen lives in <cstring>; the arkui-x linux build defines
++// __ARKUI_CROSS__ (not __LINUX__), and GCC-13 libstdc++ doesn't pull it in.
+ #include <cstring>
+ #endif
+ 
 diff --git a/resmgr.gni b/resmgr.gni
 index 2268214..5b79d9b 100644
 --- a/resmgr.gni

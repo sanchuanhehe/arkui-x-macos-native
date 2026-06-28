@@ -2570,7 +2570,7 @@ index 7ee671c..3bb9de9 100644
      "runtime_core:ani_helpers",
      "egl:libEGL",
 diff --git a/interfaces/innerkits/BUILD.gn b/interfaces/innerkits/BUILD.gn
-index b6ee377..78b6635 100644
+index b6ee377..a6a5726 100644
 --- a/interfaces/innerkits/BUILD.gn
 +++ b/interfaces/innerkits/BUILD.gn
 @@ -55,7 +55,6 @@ config("image_external_config") {
@@ -2701,7 +2701,7 @@ index b6ee377..78b6635 100644
        deps = [
          "${image_subsystem}/frameworks/innerkitsimpl/egl_image:post_proc_gl",
          "${image_subsystem}/plugins/common/libs/image/libextplugin:heifparser",
-@@ -249,36 +309,42 @@ if (use_clang_android) {
+@@ -249,36 +309,53 @@ if (use_clang_android) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
          "${image_subsystem}/frameworks/innerkitsimpl/accessor:image_accessor",
        ]
@@ -2710,6 +2710,17 @@ index b6ee377..78b6635 100644
 +        # (egl_image/BUILD.gn) and pulls graphic_surface external_window.h whose
 +        # "Region" typedef clashes; drop the dep on linux to mirror the lean variant.
 +        deps -= [ "${image_subsystem}/frameworks/innerkitsimpl/egl_image:post_proc_gl" ]
++        # [linux-port] On arkui-x, ace_napi is a static lib that pulls in
++        # libark_jsruntime_static's jspandafile objects (js_pandafile.o,
++        # debug_info_extractor.o, pandafile.o ...). These reference
++        # panda::GetStacktrace / PrintStack / os::thread::GetCurrentThreadId /
++        # time::GetCurrentTimeInMillis, which are defined in libpandabase
++        # (libarkbase_static). On OHOS they come from the shared
++        # libark_jsruntime.so; here libimage_native.so links with -z,defs and
++        # nothing provides them, so depend on libarkbase_static directly
++        # (mirrors the ace_engine adapter/linux build).
++        deps += [ "//arkcompiler/runtime_core/libpandabase:libarkbase_static" ]
++        deps += [ "//arkcompiler/runtime_core/libpandafile:libarkfile_static" ]
 +      }
  
        if (DUAL_ADAPTER) {
@@ -2755,7 +2766,7 @@ index b6ee377..78b6635 100644
          "skia:skia_canvaskit",
        ]
        if (enable_libexif) {
-@@ -434,7 +500,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -434,7 +511,7 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        ]
@@ -2764,7 +2775,7 @@ index b6ee377..78b6635 100644
      } else if (use_clang_mac) {
        defines = image_decode_mac_defines
        sources -= [
-@@ -453,8 +519,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -453,8 +530,8 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
          "//third_party/bounds_checking_function:libsec_static",
        ]
@@ -2775,7 +2786,7 @@ index b6ee377..78b6635 100644
      } else if (use_clang_ios) {
        defines = image_decode_ios_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -510,11 +576,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
+@@ -510,11 +587,11 @@ if (use_mingw_win || use_clang_mac || use_clang_ios || use_clang_android) {
        }
        external_deps = [
          "c_utils:utils",
@@ -2979,10 +2990,10 @@ index af8196e..a28197c 100644
        ]
  
 diff --git a/mock/native/include/log/hitrace_meter.h b/mock/native/include/log/hitrace_meter.h
-index 02b08e5..4282c10 100644
+index 02b08e5..5443657 100644
 --- a/mock/native/include/log/hitrace_meter.h
 +++ b/mock/native/include/log/hitrace_meter.h
-@@ -1,40 +1,41 @@
+@@ -1,40 +1,93 @@
 -/*
 - * Copyright (C) 2022 Huawei Device Co., Ltd.
 - * Licensed under the Apache License, Version 2.0 (the "License");
@@ -3048,19 +3059,71 @@ index 02b08e5..4282c10 100644
 +extern "C" {
 +#endif
 +#define HITRACE_TAG_ZIMAGE (-1)
-+/**
-+ * Track the beginning of a context.
-+ */
-+void StartTrace(uint64_t label, const std::string& value, float limit = -1);
-+
-+/**
-+ * Track the end of a context.
-+ */
-+void FinishTrace(uint64_t label);
++// Linux/Wayland native port: make the trace entry points inline no-ops so any
++// consumer (image_framework, the un-dropped native-RS sources) links without a
++// separate hitrace impl object (log_mock_static is not on every consumer's deps).
++inline void StartTrace(uint64_t label, const std::string& value, float limit = -1) {}
++inline void FinishTrace(uint64_t label) {}
++inline void StartAsyncTrace(uint64_t, const std::string&, int32_t, float = -1) {}
++inline void FinishAsyncTrace(uint64_t, const std::string&, int32_t) {}
++inline void CountTrace(uint64_t, const std::string&, int64_t) {}
 +
 +#ifdef __cplusplus
 +}
 +#endif
++
++// Linux/Wayland native port: the rosen RS trace macros (rs_optional_trace.h /
++// scoped_trace_fmt.h) construct HitraceMeterFmtScoped as an RAII trace scope.
++// On device it is defined in hitrace_meter.cpp, but the desktop client links
++// against this image_framework mock instead, leaving the ctor symbol
++// (HitraceMeterFmtScoped::HitraceMeterFmtScoped(uint64_t, const char*, ...))
++// undefined in librender_service_base.so. Provide an inline no-op definition
++// matching the real ctor signature; the dtor only calls FinishTrace (already a
++// no-op above). Guarded with a dedicated macro so it does not clash if the real
++// innerkits hitrace_meter.h is ever pulled in alongside this mock.
++#ifndef HITRACE_METER_FMT_SCOPED_DEFINED
++#define HITRACE_METER_FMT_SCOPED_DEFINED
++class HitraceMeterFmtScoped {
++public:
++    inline HitraceMeterFmtScoped(uint64_t, const char*, ...) {}
++    inline ~HitraceMeterFmtScoped() {}
++};
++#endif // HITRACE_METER_FMT_SCOPED_DEFINED
++
++// Linux/Wayland native port: the rosen RS trace macros (rs_trace.h / rs_optional_
++// trace.h) expect the full hitrace_meter macro/enum surface. Provide no-op
++// fallbacks here so the un-dropped native-RS sources compile on the desktop client.
++#ifndef HITRACE_TAG_GRAPHIC_AGP
++#define HITRACE_TAG_GRAPHIC_AGP 0
++#endif
++#ifndef HITRACE_TAG_COMMERCIAL
++#define HITRACE_TAG_COMMERCIAL 0
++#endif
++#ifndef HITRACE_LEVEL_COMMERCIAL
++#define HITRACE_LEVEL_COMMERCIAL 0
++#endif
++#ifndef HITRACE_LEVEL_CRITICAL
++#define HITRACE_LEVEL_CRITICAL 0
++#endif
++#ifndef HITRACE_LEVEL_INFO
++#define HITRACE_LEVEL_INFO 0
++#endif
++#ifndef HITRACE_LEVEL_DEBUG
++#define HITRACE_LEVEL_DEBUG 0
++#endif
++#ifndef HITRACE_METER_NAME
++#define HITRACE_METER_NAME(tag, name) ((void)0)
++#endif
++#ifndef HITRACE_METER_NAME_EX
++#define HITRACE_METER_NAME_EX(level, tag, name, customArgs) ((void)0)
++#endif
++#ifndef HITRACE_METER_FMT
++#define HITRACE_METER_FMT(tag, fmt, ...) ((void)0)
++#endif
++#ifndef HITRACE_METER_FMT_EX
++#define HITRACE_METER_FMT_EX(level, tag, fmt, ...) ((void)0)
++#endif
++
 +#endif // MOCK_NATIVE_INCLUDE_HILOG_HITRACE_METER_H
  }
 \ No newline at end of file
@@ -3076,6 +3139,29 @@ index 69de5fa..2609673 100644
  #include "iosfwd"
  #include "hilog/log.h"
  #include "hilog/log_cpp.h"
+diff --git a/mock/native/src/hitrace_meter.cpp b/mock/native/src/hitrace_meter.cpp
+index 7f9c92a..136d6b9 100644
+--- a/mock/native/src/hitrace_meter.cpp
++++ b/mock/native/src/hitrace_meter.cpp
+@@ -14,16 +14,7 @@
+  */
+ 
+ #include "hitrace_meter.h"
++// Linux/Wayland native port: StartTrace/FinishTrace are now inline no-ops in the
++// header (so every consumer links without this object), so this TU is empty.
+ namespace OHOS {
+-    void StartTrace(uint64_t label, const std::string& value, float limit)
+-    {
+-        (void) label;
+-        (void) value;
+-        (void) limit;
+-    }
+-
+-    void FinishTrace(uint64_t label)
+-    {
+-        (void) label;
+-    }
+ }
 diff --git a/plugins/common/libs/image/libextplugin/BUILD.gn b/plugins/common/libs/image/libextplugin/BUILD.gn
 index 89376c5..89b8abe 100644
 --- a/plugins/common/libs/image/libextplugin/BUILD.gn

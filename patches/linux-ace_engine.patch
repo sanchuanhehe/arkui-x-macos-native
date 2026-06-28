@@ -18,6 +18,18 @@ index 49645022..20305d09 100644
    enable_player_framework = true
    ace_common_defines += [ "PLAYER_FRAMEWORK_EXISTS" ]
  } else {
+diff --git a/adapter/ohos/entrance/picker/picker_haptic_factory.h b/adapter/ohos/entrance/picker/picker_haptic_factory.h
+index 4e8526d5..10043a3e 100644
+--- a/adapter/ohos/entrance/picker/picker_haptic_factory.h
++++ b/adapter/ohos/entrance/picker/picker_haptic_factory.h
+@@ -16,6 +16,7 @@
+ #ifndef FOUNDATION_ACE_ENGINE_ADAPTER_OHOS_ENTRANCE_PICKER_PICKER_AUDIO_HAPTIC_FACTORY_H
+ #define FOUNDATION_ACE_ENGINE_ADAPTER_OHOS_ENTRANCE_PICKER_PICKER_AUDIO_HAPTIC_FACTORY_H
+ 
++#include <string>
+ #include <atomic>
+ #include <memory>
+ #include <mutex>
 diff --git a/adapter/preview/build/config_linux.gni b/adapter/preview/build/config_linux.gni
 index 8393f4c6..8681c894 100644
 --- a/adapter/preview/build/config_linux.gni
