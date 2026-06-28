@@ -27,10 +27,10 @@ index c6621661..6d61450b 100644
        if (err.code) {
          hilog.error(0x0000, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
 diff --git a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
-index 61af322f..6ccbe119 100644
+index 61af322f..61461790 100644
 --- a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
 +++ b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
-@@ -1,45 +1,55 @@
+@@ -1,45 +1,72 @@
 -/*
 - * Copyright (c) 2023 Huawei Device Co., Ltd.
 - * Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,14 +45,18 @@ index 61af322f..6ccbe119 100644
 - * See the License for the specific language governing permissions and
 - * limitations under the License.
 - */
-+import window from '@ohos.window'
-+import hilog from '@ohos.hilog'
- 
+-
  @Entry
  @Component
  struct Index {
 -  @State message:string = 'World'
--  build() {
++  @State sliderVal: number = 40
++  @State checked: boolean = true
++  @State rating: number = 3
++  @State sel: number = 1
++  @State counter: number = 5
++
+   build() {
 -    Row() {
 -      Column() {
 -        Text('Hello ' + this.message)
@@ -61,7 +65,60 @@ index 61af322f..6ccbe119 100644
 -        Button() {
 -          Text($r('app.string.click_me'))
 -            .fontSize(25)
--        }
++    Scroll() {
++      Column({ space: 16 }) {
++        Text('M6 组件广度 · 静态链接(实测渲染)')
++          .fontSize(18).fontWeight(FontWeight.Bold).fontColor(Color.Black)
++
++        Row({ space: 20 }) {
++          // 左列
++          Column({ space: 14 }) {
++            Column({ space: 4 }) {
++              Text('Slider: ' + Math.round(this.sliderVal)).fontSize(13).fontColor(Color.Black)
++              Slider({ value: this.sliderVal, min: 0, max: 100 })
++                .width(180).onChange((v: number) => { this.sliderVal = v })
++            }
++            Row({ space: 8 }) {
++              Checkbox().select(this.checked).width(24).height(24)
++                .onChange((v: boolean) => { this.checked = v })
++              Text(this.checked ? '已勾选' : '未勾选').fontSize(13).fontColor(Color.Black)
++            }
++            Column({ space: 4 }) {
++              Text('Rating: ' + this.rating).fontSize(13).fontColor(Color.Black)
++              Rating({ rating: this.rating, indicator: false })
++                .stars(5).width(140).height(28)
++                .onChange((v: number) => { this.rating = v })
++            }
++            Row({ space: 10 }) {
++              Radio({ value: 'a', group: 'g' }).checked(this.sel === 0).width(24).height(24)
++                .onChange(() => { this.sel = 0 })
++              Text('A').fontSize(13).fontColor(Color.Black)
++              Radio({ value: 'b', group: 'g' }).checked(this.sel === 1).width(24).height(24)
++                .onChange(() => { this.sel = 1 })
++              Text('B').fontSize(13).fontColor(Color.Black)
++            }
++          }
++
++          // 右列
++          Column({ space: 14 }) {
++            Column({ space: 2 }) {
++              Text('Gauge').fontSize(13).fontColor(Color.Black)
++              Gauge({ value: this.sliderVal, min: 0, max: 100 }).width(100).height(100)
++            }
++            Column({ space: 2 }) {
++              Text('DataPanel').fontSize(13).fontColor(Color.Black)
++              DataPanel({ values: [25, 20, 15, 10], max: 100 }).width(100).height(100)
++            }
++            Row({ space: 8 }) {
++              Text('Counter:').fontSize(13).fontColor(Color.Black)
++              Counter() {
++                Text(this.counter.toString()).fontSize(14).fontColor(Color.Black)
++              }
++              .onInc(() => { this.counter++ })
++              .onDec(() => { this.counter-- })
++            }
++          }
+         }
 -        .type(ButtonType.Capsule)
 -        .margin({
 -          top: 25
@@ -72,54 +129,14 @@ index 61af322f..6ccbe119 100644
 -        .onClick(() => {
 -          this.message = 'ArkUI'
 -        })
-+  @State msg: string = '点击①创建可拖动子窗口'
-+  private sub: window.Window | null = null
-+
-+  async createSub() {
-+    try {
-+      const stage = AppStorage.get<window.WindowStage>('windowStage')
-+      if (!stage) {
-+        this.msg = '无 windowStage'
-+        return
-+      }
-+      this.sub = await stage.createSubWindow('movableSub')
-+      await this.sub.resize(360, 240)
-+      await this.sub.moveWindowTo(320, 320)
-+      await this.sub.setUIContent('pages/SubPage')
-+      await this.sub.showWindow()
-+      this.msg = '子窗口已显示 — 直接拖动它可移动'
-+      hilog.info(0x0000, 'movableDemo', '%{public}s', 'subwindow shown')
-+    } catch (e) {
-+      this.msg = 'err: ' + JSON.stringify(e)
-+      hilog.error(0x0000, 'movableDemo', 'createSub failed: %{public}s', JSON.stringify(e) ?? '')
-+    }
-+  }
-+
-+  async moveIt() {
-+    try {
-+      if (this.sub) {
-+        await this.sub.moveWindowTo(680, 220)
-+        this.msg = '已 moveWindowTo(680,220)'
-+      } else {
-+        this.msg = '先点①创建子窗口'
        }
 -      .width('100%')
-+    } catch (e) {
-+      this.msg = 'move err: ' + JSON.stringify(e)
-+    }
-+  }
-+
-+  build() {
-+    Column({ space: 18 }) {
-+      Text('可拖动子窗口 Demo').fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.Black)
-+      Text(this.msg).fontSize(13).fontColor('#FF666666')
-+      Button('① 创建可拖动子窗口').fontSize(16).width(220).height(44).onClick(() => this.createSub())
-+      Button('② moveWindowTo(680,220)').fontSize(16).width(220).height(44).onClick(() => this.moveIt())
++      .width('100%').padding(20)
++      .justifyContent(FlexAlign.Start)
++      .backgroundColor(Color.White)
      }
-+    .width('100%')
-     .height('100%')
-+    .justifyContent(FlexAlign.Center)
-+    .backgroundColor(Color.White)
+-    .height('100%')
++    .width('100%').height('100%').backgroundColor(Color.White)
    }
 -}
 \ No newline at end of file
