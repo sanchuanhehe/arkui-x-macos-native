@@ -237,7 +237,7 @@ index 42ee826..c25ca90 100644
      }
      if (!useMmap_) {
 diff --git a/frameworks/innerkitsimpl/utils/BUILD.gn b/frameworks/innerkitsimpl/utils/BUILD.gn
-index 71a4a0a..056c15d 100644
+index 71a4a0a..9d78263 100644
 --- a/frameworks/innerkitsimpl/utils/BUILD.gn
 +++ b/frameworks/innerkitsimpl/utils/BUILD.gn
 @@ -21,7 +21,6 @@ if (use_clang_ios) {
@@ -284,7 +284,7 @@ index 71a4a0a..056c15d 100644
      } else if (use_clang_android) {
        defines = image_decode_android_defines
        defines += [ "CROSS_PLATFORM" ]
-@@ -132,10 +131,45 @@ if (use_clang_ios) {
+@@ -132,13 +131,56 @@ if (use_clang_ios) {
        ]
        sources += [ "src/image_dfx.cpp" ]
        sources += [ "src/image_data_statistics.cpp" ]
@@ -331,7 +331,18 @@ index 71a4a0a..056c15d 100644
        deps = [
          "//foundation/multimedia/image_framework/plugins/manager:pluginmanager",
        ]
-@@ -148,22 +182,22 @@ if (use_clang_ios) {
++      if (target_os == "linux") {
++        # [linux-port] the mock log/hitrace impl (StartTrace/FinishTrace) lives here;
++        # link it so image_utils.so resolves them (mingw/mac/android branches above
++        # already do).
++        deps += [
++          "//foundation/multimedia/image_framework/mock/native:log_mock_static",
++        ]
++      }
+ 
+       sources += [
+         "src/image_data_statistics.cpp",
+@@ -148,22 +190,22 @@ if (use_clang_ios) {
          "src/hispeed_image_manager.cpp",
        ]
        external_deps += [
@@ -366,7 +377,7 @@ index 71a4a0a..056c15d 100644
          "json:nlohmann_json_static",
        ]
        if (defined(global_parts_info) &&
-@@ -175,7 +209,7 @@ if (use_clang_ios) {
+@@ -175,7 +217,7 @@ if (use_clang_ios) {
        }
  
        if (is_standard_system) {
@@ -375,7 +386,7 @@ index 71a4a0a..056c15d 100644
        } else {
          external_deps += [ "startup:syspara" ]
        }
-@@ -235,7 +269,7 @@ ohos_static_library("image_utils_static") {
+@@ -235,7 +277,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/mock/native:log_mock_static",
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
      ]
@@ -384,7 +395,7 @@ index 71a4a0a..056c15d 100644
    } else if (use_clang_mac) {
      defines = image_decode_mac_defines
      include_dirs += [ "//third_party/ffmpeg" ]
-@@ -248,7 +282,7 @@ ohos_static_library("image_utils_static") {
+@@ -248,7 +290,7 @@ ohos_static_library("image_utils_static") {
        "//foundation/multimedia/image_framework/plugins/manager:pluginmanager_static",
        "//third_party/bounds_checking_function:libsec_static",
      ]
@@ -393,7 +404,7 @@ index 71a4a0a..056c15d 100644
    } else if (use_clang_ios) {
      defines = image_decode_ios_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -270,7 +304,7 @@ ohos_static_library("image_utils_static") {
+@@ -270,7 +312,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -402,7 +413,7 @@ index 71a4a0a..056c15d 100644
    } else if (use_clang_android) {
      defines = image_decode_android_defines
      defines += [ "CROSS_PLATFORM" ]
-@@ -292,7 +326,7 @@ ohos_static_library("image_utils_static") {
+@@ -292,7 +334,7 @@ ohos_static_library("image_utils_static") {
        "src/image_fwk_ext_manager.cpp",
        "src/hispeed_image_manager.cpp",
      ]
@@ -411,7 +422,7 @@ index 71a4a0a..056c15d 100644
    } else {
      sources += [ "//foundation/multimedia/image_framework/frameworks/innerkitsimpl/utils/src/image_trace.cpp" ]
      sources += [
-@@ -308,18 +342,18 @@ ohos_static_library("image_utils_static") {
+@@ -308,18 +350,18 @@ ohos_static_library("image_utils_static") {
  
      external_deps = [
        "c_utils:utils",

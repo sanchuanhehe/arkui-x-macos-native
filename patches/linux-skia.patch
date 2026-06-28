@@ -1,5 +1,5 @@
 diff --git a/m133/BUILD.gn b/m133/BUILD.gn
-index 42afa0a8..78973a1e 100644
+index 42afa0a8..3e22125c 100644
 --- a/m133/BUILD.gn
 +++ b/m133/BUILD.gn
 @@ -665,6 +665,11 @@ optional("fontmgr_custom_directory_factory") {
@@ -14,11 +14,51 @@ index 42afa0a8..78973a1e 100644
      sources -= [ "src/ports/SkFontMgr_custom_directory_factory.cpp" ]
    }
  }
+@@ -709,9 +714,10 @@ skia_source_set("typeface_proxy") {
+ }
+ 
+ optional("fontmgr_fontconfig") {
+-  if (use_oh_skia) {
++  if (use_oh_skia && !(is_arkui_x && target_os == "linux")) {
+     enabled = false
+   } else {
++    # Linux/Wayland native port: arkui-x desktop client uses the fontconfig SkFontMgr.
+     enabled = skia_enable_fontmgr_fontconfig
+   }
+   public_defines = [ "SK_FONTMGR_FONTCONFIG_AVAILABLE" ]
+@@ -892,9 +898,12 @@ optional("fontmgr_win_factory") {
+ 
+ 
+ optional("fontmgr_fontconfig_factory") {
+-  if (use_oh_skia) {
++  if (use_oh_skia && !(is_arkui_x && target_os == "linux")) {
+     enabled = false
+   } else {
++    # Linux/Wayland native port: the arkui-x desktop client uses the fontconfig
++    # SkFontMgr::Factory() even though use_oh_skia is set (the OHOS factory is
++    # removed for is_arkui_x).
+     enabled = skia_enable_fontmgr_fontconfig
+   }
+ 
 diff --git a/m133/gn/skia.gni b/m133/gn/skia.gni
-index 2f1df1bc..f1b484c8 100644
+index 2f1df1bc..0eb561ed 100644
 --- a/m133/gn/skia.gni
 +++ b/m133/gn/skia.gni
-@@ -150,9 +150,16 @@ declare_args() {
+@@ -56,7 +56,12 @@ declare_args() {
+   skia_use_expat = !is_wasm
+   skia_use_ffmpeg = false
+   skia_use_fixed_gamma_text = is_android
+-  skia_use_fontconfig = is_linux
++
++  # Linux/Wayland native port: the arkui-x desktop client uses fontconfig for its
++  # SkFontMgr (the OHOS skia path's font factory is removed for is_arkui_x, leaving
++  # SkFontMgr::Factory() undefined). is_linux is false under the OHOS BUILDCONFIG, so
++  # key off target_os.
++  skia_use_fontconfig = is_linux || (is_arkui_x && target_os == "linux")
+   skia_use_fontations = false
+   skia_use_fonthost_mac = is_mac || is_ios
+   skia_use_freetype = is_android || is_fuchsia || is_linux || is_wasm
+@@ -150,9 +155,16 @@ declare_args() {
      skia_use_vulkan = true
    } else {
      skia_use_vulkan = false
@@ -38,6 +78,18 @@ index 2f1df1bc..f1b484c8 100644
        skia_use_vulkan = true
        skia_vk_enable_partialrender = true
      }
+@@ -221,7 +233,10 @@ declare_args() {
+     skia_fontmgr_factory = ":fontmgr_win_factory"
+   } else if ((is_mac || is_ios) && skia_use_fonthost_mac) {
+     skia_fontmgr_factory = ":fontmgr_mac_ct_factory"
+-  } else if (skia_enable_fontmgr_fontconfig && !use_oh_skia) {
++  } else if (skia_enable_fontmgr_fontconfig &&
++             (!use_oh_skia || (is_arkui_x && target_os == "linux"))) {
++    # Linux/Wayland native port: select the clean fontconfig factory (no OHOS
++    # runtimeOS/containerFontPath duplication) for the arkui-x desktop client.
+     skia_fontmgr_factory = ":fontmgr_fontconfig_factory"
+   } else if (skia_enable_fontmgr_custom_directory) {
+     skia_fontmgr_factory = ":fontmgr_custom_directory_factory"
 diff --git a/m133/src/gpu/ganesh/GrPerfMonitorReporter.h b/m133/src/gpu/ganesh/GrPerfMonitorReporter.h
 index 1beb1939..45b4cfc7 100644
 --- a/m133/src/gpu/ganesh/GrPerfMonitorReporter.h

@@ -1191,6 +1191,23 @@ index 5cbfcdd..78ee314 100644
    ]
  
    subsystem_name = "graphic"
+diff --git a/rosen/modules/platform/BUILD.gn b/rosen/modules/platform/BUILD.gn
+index d6b7be2..fa4930a 100644
+--- a/rosen/modules/platform/BUILD.gn
++++ b/rosen/modules/platform/BUILD.gn
+@@ -176,7 +176,11 @@ config("ios_utils_config") {
+ 
+ ohos_source_set("mock_utils") {
+   public_external_deps = []
+-  if (current_os == "ios") {
++  if (current_os == "ios" || (is_arkui_x && target_os == "linux")) {
++    # Linux/Wayland native port: use the real c_utils directory_ex/parcel/refbase
++    # (linked anyway via c_utils:utils), not rosen's mock copies — otherwise
++    # GetCurrentProcFullFileName/GetCurrentProcPath etc. are duplicate symbols in
++    # librender_service_base.so.
+     public_configs = [ ":ios_utils_config" ]
+     public_external_deps += [ "c_utils:utilsbase" ]
+   } else {
 diff --git a/rosen/modules/platform/utils/directory_ex.h b/rosen/modules/platform/utils/directory_ex.h
 index ab24b23..0eab431 100644
 --- a/rosen/modules/platform/utils/directory_ex.h

@@ -60,6 +60,7 @@ case "$TARGET" in
       "foundation/appframework:appframework"
       "foundation/arkui/napi:napi"
       "foundation/resourceschedule/qos_manager:qos_manager"
+      "arkcompiler/ets_frontend:ets_frontend"
       "third_party/ffmpeg:ffmpeg"
       "third_party/skia:skia"
     )
