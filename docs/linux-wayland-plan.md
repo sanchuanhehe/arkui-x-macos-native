@@ -2,6 +2,9 @@
 
 > 评估见 [`linux-wayland-assessment.md`](linux-wayland-assessment.md)(已在 master 源码逐条复核为真)。
 > 本文锁定**最终目标、技术路线、仓库结构、分阶段计划**,作为正式工作的执行基线。
+> **实证日志(实际达成状态 / 链接 0-undefined 方法论 / Stage D bundle 根因深析 / 补丁集规则)见
+> [`linux-port-journal.md`](linux-port-journal.md)。** adapter 代码侧实现机制见
+> `arkui_for_linux/docs/实现笔记.md`。
 
 ## 0. 锁定的决策
 
