@@ -1,5 +1,5 @@
 #!/bin/bash
-# 把 patches/ 下的补丁应用到 ArkUI-X 源码树(15 仓的 mac-port 改动)。
+# 把 patches/ 下的补丁应用到 ArkUI-X 源码树(18 仓的 mac-port 改动)。
 # 每个仓应用 <name>.patch(单补丁)或 <name>-*.patch(拆分补丁集,按名排序应用)。
 # ace_engine 拆为 ace_engine-2-framework / -3-build 两个子补丁;
 # adapter/macos(原 -1-adapter-macos)已独立成子仓,改为克隆引入(见文件尾部)。
@@ -31,6 +31,9 @@ MAP=(
   "interface/sdk-js:sdk-js"
   "foundation/arkui/napi:napi"
   "foundation/multimodalinput/input:input"
+  "plugins:plugins"
+  "developtools/ace_ets2bundle:ace_ets2bundle"
+  "samples:samples"
 )
 
 for e in "${MAP[@]}"; do

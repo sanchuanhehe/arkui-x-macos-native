@@ -300,6 +300,22 @@ index 29686e11b15..51f7dfc1536 100644
      const needBuild: boolean = PUV2ViewBase.prebuildPhase_ === PrebuildPhase.BuildPrebuildCmd;
      return needBuild;
    }
+diff --git a/frameworks/core/common/ime/input_method_manager.h b/frameworks/core/common/ime/input_method_manager.h
+index 55b8cefe9e4..03fc6ef9a85 100644
+--- a/frameworks/core/common/ime/input_method_manager.h
++++ b/frameworks/core/common/ime/input_method_manager.h
+@@ -56,6 +56,11 @@ public:
+     void Attach(const WeakPtr<TextInputClient>& client, const TextInputConfiguration& config,
+         const RefPtr<TaskExecutor>& taskExecutor, int32_t instanceId);
+     void FinishComposing(int32_t instanceId);
++#if defined(MAC_PLATFORM)
++    // Push the focused editable's caret rect (ArkUI window pixels, top-left origin)
++    // to the platform IME bridge so the candidate window anchors at the caret.
++    void UpdateCursorInfo(double left, double top, double width, double height);
++#endif
+ #endif
+ private:
+     InputMethodManager() = default;
 diff --git a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp b/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
 index f50650ecfb1..66f62d29723 100644
 --- a/frameworks/core/components_ng/pattern/stage/stage_manager.cpp
@@ -319,6 +335,58 @@ index f50650ecfb1..66f62d29723 100644
          return true;
      }
      stageNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+diff --git a/frameworks/core/components_ng/pattern/text_field/text_field_pattern.cpp b/frameworks/core/components_ng/pattern/text_field/text_field_pattern.cpp
+index 22190ee7e47..902f0571520 100644
+--- a/frameworks/core/components_ng/pattern/text_field/text_field_pattern.cpp
++++ b/frameworks/core/components_ng/pattern/text_field/text_field_pattern.cpp
+@@ -1203,6 +1203,15 @@ void TextFieldPattern::UpdateCaretInfoToController(bool forceUpdate)
+ #endif
+     value.selection.Update(selectController_->GetStartIndex(), selectController_->GetEndIndex());
+     InputMethodManager::GetInstance()->SetEditingState(value, GetInstanceId());
++#if defined(MAC_PLATFORM)
++    // Hand the caret rect (window pixels, top-left origin) to the platform IME so the
++    // macOS candidate window anchors at the caret. caretRect is relative to the text
++    // content; GetPaintRectGlobalOffset places that content within the window.
++    auto caretRect = selectController_->GetCaretRect();
++    auto globalOffset = GetPaintRectGlobalOffset();
++    InputMethodManager::GetInstance()->UpdateCursorInfo(caretRect.GetX() + globalOffset.GetX(),
++        caretRect.GetY() + globalOffset.GetY(), caretRect.Width(), caretRect.Height());
++#endif
+ #else
+     if (HasConnection()) {
+         TextEditingValue value;
+@@ -7267,6 +7276,12 @@ bool TextFieldPattern::ProcessFocusIndexAction()
+ 
+ void TextFieldPattern::PerformAction(TextInputAction action, bool forceCloseKeyboard)
+ {
++    // PerformAction can be invoked from a bare platform UI task (e.g. the macOS IME
++    // bridge posting the Return key) where no container is current. Without the
++    // scope the onSubmit JS callback fires against no active container, so its
++    // @State writes and RequestFrame are dropped and nothing re-renders. Mirror
++    // UpdateEditingValue, which already establishes the scope for the onChange path.
++    ContainerScope scope(GetInstanceId());
+     if (!HasFocus()) {
+         TAG_LOGW(AceLogTag::ACE_TEXT_FIELD, "Not Trigger OnSubmit because field blur");
+         return;
+@@ -10191,6 +10206,18 @@ void TextFieldPattern::UpdateSelectController()
+ {
+     selectController_->UpdateContentRect(contentRect_);
+     selectController_->UpdateParagraph(paragraph_);
++#if defined(CROSS_PLATFORM)
++    // ArkUI-X (macOS): the deferred caret recompute (UpdateCaretRect / the
++    // after-layout task) can run against a stale paragraph or be skipped when the
++    // focusHub current-focus state lags behind the active IME connection, leaving
++    // the visual caret pinned at the line start. Recompute the caret rect here,
++    // where the fresh paragraph has just been propagated to the controller, so the
++    // caret tracks the text. Idempotent for the current index; skipped while
++    // selecting so it cannot collapse a selection.
++    if (paragraph_ && !contentController_->IsEmpty() && !IsSelected()) {
++        selectController_->MoveCaretToContentRect(selectController_->GetCaretIndex());
++    }
++#endif
+ }
+ 
+ bool TextFieldPattern::RepeatClickCaret(const Offset& offset, int32_t lastCaretIndex)
 diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.cpp b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
 index 086a3e22416..c3b81968871 100644
 --- a/frameworks/core/components_ng/render/adapter/rosen_window.cpp
@@ -382,3 +450,114 @@ index ae41531d1dd..09ed7274703 100644
  #include "adapter/ios/entrance/virtual_rs_window.h"
  #else
  #include "adapter/android/entrance/java/jni/virtual_rs_window.h"
+diff --git a/frameworks/core/components_ng/render/adapter/txt_paragraph.cpp b/frameworks/core/components_ng/render/adapter/txt_paragraph.cpp
+index f85f987d950..d1dc486c74f 100644
+--- a/frameworks/core/components_ng/render/adapter/txt_paragraph.cpp
++++ b/frameworks/core/components_ng/render/adapter/txt_paragraph.cpp
+@@ -754,6 +754,15 @@ bool TxtParagraph::IsIndexInEmoji(int32_t index, int32_t& emojiStart, int32_t& e
+     if (!GetWordBoundary(index, start, end)) {
+         return false;
+     }
++    // ArkUI-X (macOS): the underlying paragraph can return a degenerate word
++    // boundary (e.g. (0,0)) for ordinary text. In that case GetRectsForRangeInner
++    // below would be queried over an empty/invalid range, come back empty, and the
++    // index would be misclassified as an emoji -- which collapses the caret extent
++    // to 0 and pins the caret at the line start. A real emoji always spans forward
++    // (end > index), so bail out of the emoji heuristic when it does not.
++    if (end <= index) {
++        return false;
++    }
+     std::vector<RectF> selectedRects;
+     // if index in emoji or the first or the last, selectedRects is empty and
+     // 'end' will be emoji's end index or 0 or the max index.
+diff --git a/frameworks/core/event/key_event_recognizer.cpp b/frameworks/core/event/key_event_recognizer.cpp
+index 840f34f872d..382852318da 100644
+--- a/frameworks/core/event/key_event_recognizer.cpp
++++ b/frameworks/core/event/key_event_recognizer.cpp
+@@ -524,6 +524,12 @@ std::vector<KeyEvent> KeyEventRecognizer::GetKeyEvents(int32_t keyCode, int32_t
+         if (static_cast<uint32_t>(metaKey) & static_cast<uint32_t>(CtrlKeysBit::ALT)) {
+             addPressedKey(static_cast<int32_t>(KeyCode::KEY_ALT_LEFT));
+         }
++        // META (e.g. the macOS Command key) drives the platform shortcut combos
++        // (KeyComb(KEY_V, KEY_META) etc.). Without this the Meta bit never becomes
++        // KEY_META_LEFT in pressedCodes, so Cmd+C/V/X/A never match on macOS.
++        if (static_cast<uint32_t>(metaKey) & static_cast<uint32_t>(CtrlKeysBit::META)) {
++            addPressedKey(static_cast<int32_t>(KeyCode::KEY_META_LEFT));
++        }
+         addPressedKey(keyCode);
+     }
+     auto keyItems = getPressedKeys();
+diff --git a/frameworks/core/interfaces/native/node/menu_modifier.cpp b/frameworks/core/interfaces/native/node/menu_modifier.cpp
+index 0a50c7f5c93..c6a8e32c069 100644
+--- a/frameworks/core/interfaces/native/node/menu_modifier.cpp
++++ b/frameworks/core/interfaces/native/node/menu_modifier.cpp
+@@ -31,8 +31,12 @@ const ArkUIMenuModifier* GetMenuModifier()
+     if (modifier == nullptr) {
+         auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Menu");
+         if (module == nullptr) {
++            // ArkUI-X (cross-platform): the "Menu" dynamic module is not loaded on macOS, so degrade
++            // gracefully to nullptr instead of aborting. Every caller guards with CHECK_NULL_RETURN,
++            // so menu features no-op rather than crashing the whole app on e.g. a TextInput click
++            // (drag recognizer rejection -> IsGatherWithMenu -> CheckMenuManager -> here).
+             LOGF("Can't find Menu dynamic module");
+-            abort();
++            return nullptr;
+         }
+         modifier = reinterpret_cast<const ArkUIMenuModifier*>(module->GetDynamicModifier());
+     }
+@@ -46,8 +50,12 @@ const CJUIMenuModifier* GetCJUIMenuModifier()
+     if (modifier == nullptr) {
+         auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Menu");
+         if (module == nullptr) {
++            // ArkUI-X (cross-platform): the "Menu" dynamic module is not loaded on macOS, so degrade
++            // gracefully to nullptr instead of aborting. Every caller guards with CHECK_NULL_RETURN,
++            // so menu features no-op rather than crashing the whole app on e.g. a TextInput click
++            // (drag recognizer rejection -> IsGatherWithMenu -> CheckMenuManager -> here).
+             LOGF("Can't find Menu dynamic module");
+-            abort();
++            return nullptr;
+         }
+         modifier = reinterpret_cast<const CJUIMenuModifier*>(module->GetCjModifier());
+     }
+@@ -61,8 +69,12 @@ const ArkUIMenuInnerModifier* GetMenuInnerModifier()
+     if (modifier == nullptr) {
+         auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Menu");
+         if (module == nullptr) {
++            // ArkUI-X (cross-platform): the "Menu" dynamic module is not loaded on macOS, so degrade
++            // gracefully to nullptr instead of aborting. Every caller guards with CHECK_NULL_RETURN,
++            // so menu features no-op rather than crashing the whole app on e.g. a TextInput click
++            // (drag recognizer rejection -> IsGatherWithMenu -> CheckMenuManager -> here).
+             LOGF("Can't find Menu dynamic module");
+-            abort();
++            return nullptr;
+         }
+         modifier = reinterpret_cast<const ArkUIMenuInnerModifier*>(module->GetCustomModifier("menuInnerModifier"));
+     }
+@@ -75,8 +87,12 @@ const ArkUIMenuViewInnerModifier* GetMenuViewInnerModifier()
+     if (modifier == nullptr) {
+         auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Menu");
+         if (module == nullptr) {
++            // ArkUI-X (cross-platform): the "Menu" dynamic module is not loaded on macOS, so degrade
++            // gracefully to nullptr instead of aborting. Every caller guards with CHECK_NULL_RETURN,
++            // so menu features no-op rather than crashing the whole app on e.g. a TextInput click
++            // (drag recognizer rejection -> IsGatherWithMenu -> CheckMenuManager -> here).
+             LOGF("Can't find Menu dynamic module");
+-            abort();
++            return nullptr;
+         }
+         modifier =
+             reinterpret_cast<const ArkUIMenuViewInnerModifier*>(module->GetCustomModifier("menuViewInnerModifier"));
+@@ -90,8 +106,12 @@ const ArkUIMenuManagerInnerModifier* GetMenuManagerInnerModifier()
+     if (modifier == nullptr) {
+         auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Menu");
+         if (module == nullptr) {
++            // ArkUI-X (cross-platform): the "Menu" dynamic module is not loaded on macOS, so degrade
++            // gracefully to nullptr instead of aborting. Every caller guards with CHECK_NULL_RETURN,
++            // so menu features no-op rather than crashing the whole app on e.g. a TextInput click
++            // (drag recognizer rejection -> IsGatherWithMenu -> CheckMenuManager -> here).
+             LOGF("Can't find Menu dynamic module");
+-            abort();
++            return nullptr;
+         }
+         modifier =
+             reinterpret_cast<const ArkUIMenuManagerInnerModifier*>(

@@ -17,3 +17,7 @@ foundation/arkui/napi              261c6a74
 foundation/multimodalinput/input   c82ad85e1
 # c2 内容运行时:
 arkcompiler/ets_runtime           c5f1b0ffd
+# M8 i18n + 工具链(本轮新增):
+plugins                            0e5761c585de   # @ohos.i18n / @ohos.intl 静态链接到 mac
+developtools/ace_ets2bundle        b45ced226f62   # es2panda is_arkui_x deps 不被 regenerate 重置
+samples                            ccab739e4121   # HelloWorld demo(各 M 验证页)

@@ -1,0 +1,27 @@
+diff --git a/ets1.2/libarkts/BUILD.gn b/ets1.2/libarkts/BUILD.gn
+index 3853b4e99..b70afbf5c 100644
+--- a/ets1.2/libarkts/BUILD.gn
++++ b/ets1.2/libarkts/BUILD.gn
+@@ -109,8 +109,13 @@ if (current_toolchain == host_toolchain) {
+ }
+ 
+ shared_library("es2panda_lib") {
++  # Phase 2 path X: keep the is_arkui_x es2panda deps in a side list; the
++  # unconditional `deps = [ ":regenerate" ]` below would otherwise replace this
++  # nonempty list (gn error) and drop the deps. We re-append after the
++  # get_target_outputs(deps[0]) call that needs :regenerate to be deps[0].
++  _arkui_x_extra_deps = []
+   if (defined(is_arkui_x) && is_arkui_x) {
+-    deps = [
++    _arkui_x_extra_deps = [
+       "//arkcompiler/ets_frontend/es2panda:es2panda",
+       "//third_party/bounds_checking_function:libsec_static",
+     ]
+@@ -157,6 +162,7 @@ shared_library("es2panda_lib") {
+ 
+   deps = [ ":regenerate" ]
+   sources += get_target_outputs(deps[0])
++  deps += _arkui_x_extra_deps
+ 
+   if (!koala_mr.is_rri) {
+     configs -= [ "//build/config/compiler:compiler" ]

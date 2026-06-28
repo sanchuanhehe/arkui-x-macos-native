@@ -1,0 +1,426 @@
+diff --git a/i18n/BUILD.gn b/i18n/BUILD.gn
+index 3c57ece7..92be41fd 100644
+--- a/i18n/BUILD.gn
++++ b/i18n/BUILD.gn
+@@ -163,6 +163,22 @@ template("plugin_i18n_static") {
+       deps += [ "//foundation/arkui/ace_engine/adapter/ios/build:intl" ]
+       cflags_cc += [ "-faligned-allocation" ]
+       defines += [ "ARK_UI_X" ]
++    } else if (platform == "mac") {
++      # mac/ provides OHOS::Plugin::I18N::Create() (reuses the Foundation-only
++      # iOS impl). i18n_addon.cpp also uses intl's number_format.h; only the
++      # include dir is needed (NOT a dep on intl_static_mac — both compile the
++      # shared I18n core LocaleInfo/PluralRules/icu_data, which would duplicate
++      # symbols when both are linked statically into ace_macos).
++      #
++      # locale_config_intl_ext.cpp supplies the 3 intl-specific LocaleConfig
++      # methods i18n's fork lacks, so intl can reuse i18n's LocaleConfig instead
++      # of its own (which would ODR-collide). See the file header for the full
++      # rationale.
++      sources += [ "mac/locale_config_intl_ext.cpp" ]
++      deps += [ "mac:i18n_plugin_mac" ]
++      include_dirs += [ "//plugins/intl/include" ]
++      cflags_cc += [ "-faligned-allocation" ]
++      defines += [ "ARK_UI_X" ]
+     }
+ 
+     subsystem_name = "plugins"
+diff --git a/i18n/include/locale_config.h b/i18n/include/locale_config.h
+index c5b34bb2..2c1f7deb 100644
+--- a/i18n/include/locale_config.h
++++ b/i18n/include/locale_config.h
+@@ -17,9 +17,9 @@
+ 
+ #include <string>
+ 
+-#include "i18n_types.h"
+-#include "locale_info.h"
+-#include "plugins/i18n/I18N.h"
++#include "i18n_types.h"
++#include "locale_info.h"
++#include "plugins/i18n/I18N.h"
+ 
+ namespace OHOS {
+ namespace Global {
+@@ -33,6 +33,16 @@ public:
+     static std::string GetSystemRegion();
+     static std::string GetSystemTimezone();
+     static bool Is24HourClock();
++#if defined(MAC_PLATFORM)
++    // mac-only: intl reuses i18n's LocaleConfig (the two forks ODR-collide when
++    // both are static-linked into the single ace_macos exe). These 3 methods are
++    // intl-specific (i18n's fork lacks them); implemented in
++    // mac/locale_config_intl_ext.cpp via the INTL plugin so intl's date/number/
++    // relative-time formatters keep their correct calendar/numbering behaviour.
++    static std::string GetSystemCalendar();
++    static std::string GetNumberingSystem();
++    static std::string GetSystemLocaleWithExtParam();
++#endif
+     static bool IsRTL(const std::string &locale);
+     static std::string GetDisplayLanguage(const std::string &language, const std::string &displayLocale,
+         bool sentenceCase);
+diff --git a/i18n/mac/BUILD.gn b/i18n/mac/BUILD.gn
+new file mode 100644
+index 00000000..795b81a0
+--- /dev/null
++++ b/i18n/mac/BUILD.gn
+@@ -0,0 +1,41 @@
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++import("//build/ohos.gni")
++import("//foundation/arkui/ace_engine/ace_config.gni")
++
++# macOS platform impl of OHOS::Plugin::I18N. The iOS impl (i18n_plugin.m +
++# i18n_plugin_impl.mm) is Foundation-only — NSLocale / NSTimeZone, no UIKit and
++# no IOS_PLATFORM #ifdef branches — so the exact same Objective-C++ sources
++# compile and behave identically on macOS. Reuse them rather than fork a copy.
++ohos_source_set("i18n_plugin_mac") {
++  sources = [
++    "//plugins/i18n/ios/i18n_plugin.m",
++    "//plugins/i18n/ios/i18n_plugin_impl.mm",
++  ]
++
++  defines = [ "MAC_PLATFORM" ]
++
++  configs = [ "$ace_root:ace_config" ]
++
++  cflags_objc = [
++    "-fvisibility=default",
++    "-fobjc-weak",
++  ]
++  cflags_objcc = cflags_objc
++
++  deps = [ "//plugins/interfaces/native:ace_plugin_util_mac" ]
++
++  subsystem_name = "plugins"
++  part_name = "i18n"
++}
+diff --git a/i18n/mac/locale_config_intl_ext.cpp b/i18n/mac/locale_config_intl_ext.cpp
+new file mode 100644
+index 00000000..e9eb7b75
+--- /dev/null
++++ b/i18n/mac/locale_config_intl_ext.cpp
+@@ -0,0 +1,106 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// macOS-only LocaleConfig extension.
++//
++// On iOS each plugin is an isolated dylib, so plugins/i18n and plugins/intl can
++// each carry their own fork of OHOS::Global::I18n::LocaleConfig without colliding.
++// On macOS both plugins are static-linked into the single ace_macos executable,
++// where the two forks would produce duplicate symbols (same class, different
++// Plugin:: member type — I18N* vs INTL*). We resolve this by linking only i18n's
++// LocaleConfig and dropping intl's copies (see plugins/intl/BUILD.gn mac branch).
++//
++// intl's date/number/relative-time formatters call three LocaleConfig methods
++// that i18n's fork does not define: GetSystemCalendar / GetNumberingSystem /
++// GetSystemLocaleWithExtParam. This file supplies them, sourcing calendar and
++// numbering data from the INTL plugin (the iOS Foundation impl reused on mac),
++// so behaviour matches intl's original implementation.
++
++#include "locale_config.h"
++
++#include <map>
++#include <memory>
++
++#include "plugins/intl/INTL.h"
++
++namespace OHOS {
++namespace Global {
++namespace I18n {
++namespace {
++// Mirrors the IcuCalendarMap in plugins/intl/framework/locale_config.cpp: maps
++// the platform calendar id to its ICU "-ca-" extension keyword.
++const std::map<std::string, std::string> g_icuCalendarMap = {
++    { "gregorian", "gregory" },
++    { "ethiopicAmeteMihret", "ethiopic" },
++    { "ethiopicAmeteAlem", "ethioaa" },
++    { "islamicCivil", "islamic-civil" },
++    { "islamicTabular", "islamic-tbla" },
++    { "islamicUmmAlQura", "islamic-umalqura" },
++    { "republicOfChina", "roc" },
++};
++
++std::unique_ptr<Plugin::INTL>& IntlPlugin()
++{
++    static std::unique_ptr<Plugin::INTL> plugin = Plugin::INTL::Create();
++    return plugin;
++}
++} // namespace
++
++std::string LocaleConfig::GetSystemCalendar()
++{
++    auto& plugin = IntlPlugin();
++    if (!plugin) {
++        return "";
++    }
++    std::string calendar = plugin->GetSystemCalendar();
++    auto iter = g_icuCalendarMap.find(calendar);
++    if (iter != g_icuCalendarMap.end()) {
++        calendar = iter->second;
++    }
++    return calendar;
++}
++
++std::string LocaleConfig::GetNumberingSystem()
++{
++    auto& plugin = IntlPlugin();
++    if (!plugin) {
++        return "";
++    }
++    return plugin->GetNumberingSystem();
++}
++
++std::string LocaleConfig::GetSystemLocaleWithExtParam()
++{
++    std::string systemLocale = LocaleConfig::GetSystemLocale();
++    bool hasExtParam = false;
++
++    std::string systemNumberingSystem = LocaleConfig::GetNumberingSystem();
++    if (!systemNumberingSystem.empty()) {
++        systemLocale += "-u-nu-" + systemNumberingSystem;
++        hasExtParam = true;
++    }
++    std::string systemCalendar = LocaleConfig::GetSystemCalendar();
++    if (!systemCalendar.empty()) {
++        if (!hasExtParam) {
++            systemLocale += "-u";
++        }
++        systemLocale += "-ca-" + systemCalendar;
++    }
++
++    return systemLocale;
++}
++} // namespace I18n
++} // namespace Global
++} // namespace OHOS
+diff --git a/interfaces/native/BUILD.gn b/interfaces/native/BUILD.gn
+index e471723c..5573ee61 100644
+--- a/interfaces/native/BUILD.gn
++++ b/interfaces/native/BUILD.gn
+@@ -133,12 +133,20 @@ ohos_source_set("napi_common") {
+     "${ability_runtime_cross_platform_path}/interfaces/inner_api/hilog:ability_cross_platform_hilog_config",
+   ]
+ 
+-  sources = [
+-    "//foundation/appframework/ability/ability_runtime/cross_platform/frameworks/js/napi/napi_common/napi_common_util.cpp",
+-    "//foundation/appframework/ability/ability_runtime/cross_platform/frameworks/js/napi/napi_common/napi_common_want.cpp",
+-  ]
+-
+-  deps = [ "${ability_runtime_cross_platform_path}/interfaces/inner_api/want:cross_platform_want" ]
++  # On mac, ability_runtime already compiles napi_common_util.cpp/napi_common_want.cpp
++  # in its own napi_common target to the SAME .o output path. Recompiling them here
++  # trips gn "Duplicate output file". Reuse ability_runtime's target instead of
++  # recompiling; only non-mac platforms build the sources locally.
++  if (target_os == "mac") {
++    sources = []
++    deps = [ "${ability_runtime_cross_platform_path}/frameworks/js/napi/napi_common:napi_common" ]
++  } else {
++    sources = [
++      "//foundation/appframework/ability/ability_runtime/cross_platform/frameworks/js/napi/napi_common/napi_common_util.cpp",
++      "//foundation/appframework/ability/ability_runtime/cross_platform/frameworks/js/napi/napi_common/napi_common_want.cpp",
++    ]
++    deps = [ "${ability_runtime_cross_platform_path}/interfaces/inner_api/want:cross_platform_want" ]
++  }
+ 
+   deps += [ "//plugins/libs/napi:napi_${target_os}" ]
+ 
+@@ -149,5 +157,12 @@ ohos_source_set("napi_common") {
+   }
+ 
+   subsystem_name = "ability"
+-  part_name = "ability_runtime"
++
++  # NOTICE-file collision: ability_runtime's part also emits this notice; use a
++  # distinct part_name on mac so the two don't write the same NOTICE.txt path.
++  if (target_os == "mac") {
++    part_name = "plugins"
++  } else {
++    part_name = "ability_runtime"
++  }
+ }
+diff --git a/intl/BUILD.gn b/intl/BUILD.gn
+index 4ed6cd4b..ce32426c 100644
+--- a/intl/BUILD.gn
++++ b/intl/BUILD.gn
+@@ -65,6 +65,25 @@ template("plugin_intl_static") {
+       deps += [ "android/java:intl_plugin_android_jni" ]
+     } else if (platform == "ios") {
+       deps += [ "ios:intl_plugin_ios" ]
++    } else if (platform == "mac") {
++      # mac/ provides OHOS::Plugin::INTL::Create() (reuses the Foundation-only
++      # iOS impl).
++      deps += [ "mac:intl_plugin_mac" ]
++
++      # i18n and intl both fork the shared OHOS::Global::I18n core (LocaleInfo /
++      # LocaleConfig / InitIcuData / Split / PluralRules). On iOS each plugin is
++      # an isolated dylib so the duplicate definitions never meet; on mac both
++      # are static-linked into the single ace_macos executable, so the dup
++      # definitions collide (37 duplicate symbols). The two forks are the same
++      # source modulo include style, so drop intl's copies and resolve these
++      # symbols against i18n_static_mac's (also linked into ace_macos).
++      sources -= [
++        "framework/locale_info.cpp",
++        "framework/locale_config.cpp",
++        "framework/icu_data.cpp",
++        "framework/plural_rules.cpp",
++        "framework/utils.cpp",
++      ]
+     }
+ 
+     subsystem_name = "plugins"
+diff --git a/intl/include/intl_addon.h b/intl/include/intl_addon.h
+index 1f98c978..77f476a0 100644
+--- a/intl/include/intl_addon.h
++++ b/intl/include/intl_addon.h
+@@ -31,8 +31,10 @@ namespace OHOS {
+ namespace Global {
+ namespace I18n {
+ void GetLocaleTags(napi_env env, napi_value rawLocaleTag, std::vector<std::string> &localeTags);
+-void GetOptionValue(napi_env env, napi_value options, const std::string &optionName,
+-    std::map<std::string, std::string> &map);
++// GetOptionValue is defined file-local (static) in intl_addon.cpp — it is used
++// only there and its external symbol collided with i18n_addon.cpp's namesake
++// when both plugins are static-linked into ace_macos. Declaration intentionally
++// omitted here.
+ void GetBoolOptionValue(napi_env env, napi_value options, const std::string &optionName,
+     std::map<std::string, std::string> &map);
+ void GetIntegerOptionValue(napi_env env, napi_value options, const std::string &optionName,
+diff --git a/intl/intl_addon.cpp b/intl/intl_addon.cpp
+index aa92ae29..d975798a 100644
+--- a/intl/intl_addon.cpp
++++ b/intl/intl_addon.cpp
+@@ -173,7 +173,11 @@ napi_value IntlAddon::InitNumberFormat(napi_env env, napi_value exports)
+     return exports;
+ }
+ 
+-void GetOptionValue(napi_env env, napi_value options, const std::string &optionName,
++// File-local helper. Was external in namespace OHOS::Global::I18n, which collides
++// with i18n_addon.cpp's identically-named helper when both plugins are static-
++// linked into ace_macos (iOS keeps each plugin in its own dylib, so it never
++// surfaced there). Internal linkage is the correct scope here on every platform.
++static void GetOptionValue(napi_env env, napi_value options, const std::string &optionName,
+     std::map<std::string, std::string> &map)
+ {
+     napi_value optionValue = nullptr;
+@@ -1851,7 +1855,10 @@ std::shared_ptr<LocaleInfo> IntlAddon::GetLocaleInfo()
+     return this->locale_;
+ }
+ 
+-napi_value Init(napi_env env, napi_value exports)
++// File-local napi module entry (referenced only by g_intlModule below). External
++// linkage collides with i18n_addon.cpp's Init when both are static-linked into
++// ace_macos; internal linkage is correct on every platform.
++static napi_value Init(napi_env env, napi_value exports)
+ {
+     napi_value val = IntlAddon::InitLocale(env, exports);
+     val = IntlAddon::InitDateTimeFormat(env, val);
+diff --git a/intl/ios/intl_plugin.h b/intl/ios/intl_plugin.h
+index 2510f8f6..250f00ba 100644
+--- a/intl/ios/intl_plugin.h
++++ b/intl/ios/intl_plugin.h
+@@ -16,7 +16,11 @@
+ #define INTL_IOS_INTL_PLUGIN_H
+ 
+ #import <Foundation/Foundation.h>
++// UIKit is iOS-only. macOS reuses these Foundation-based sources but has no
++// UIKit; the single UIDevice use (getDeviceType) is guarded for MAC_PLATFORM.
++#if !defined(MAC_PLATFORM)
+ #import <UIKit/UIKit.h>
++#endif
+ 
+ NS_ASSUME_NONNULL_BEGIN
+ 
+diff --git a/intl/ios/intl_plugin.m b/intl/ios/intl_plugin.m
+index ea1bc9d1..1e63e2d0 100644
+--- a/intl/ios/intl_plugin.m
++++ b/intl/ios/intl_plugin.m
+@@ -68,6 +68,10 @@ -(NSString*)getNumberingSystem{
+ }
+ 
+ -(NSString*)getDeviceType{
++#if defined(MAC_PLATFORM)
++    // macOS is a desktop class device; UIDevice does not exist here.
++    return @"pc";
++#else
+     NSString *deviceModel = [[UIDevice currentDevice] model];
+     NSString *deviceType = @"phones";
+     if ([deviceModel isEqualToString: @"iPhone"]) {
+@@ -77,6 +81,7 @@ -(NSString*)getDeviceType{
+         deviceType = @"tablet";
+     }
+     return deviceType;
++#endif
+ }
+ 
+ @end
+diff --git a/intl/mac/BUILD.gn b/intl/mac/BUILD.gn
+new file mode 100644
+index 00000000..e9d8dad1
+--- /dev/null
++++ b/intl/mac/BUILD.gn
+@@ -0,0 +1,40 @@
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++import("//build/ohos.gni")
++import("//foundation/arkui/ace_engine/ace_config.gni")
++
++# macOS platform impl of OHOS::Plugin::INTL. Same rationale as i18n/mac: the iOS
++# intl_plugin.m / intl_plugin_impl.mm are Foundation-only with no UIKit or
++# IOS_PLATFORM branches, so they compile and run unchanged on macOS.
++ohos_source_set("intl_plugin_mac") {
++  sources = [
++    "//plugins/intl/ios/intl_plugin.m",
++    "//plugins/intl/ios/intl_plugin_impl.mm",
++  ]
++
++  defines = [ "MAC_PLATFORM" ]
++
++  configs = [ "$ace_root:ace_config" ]
++
++  cflags_objc = [
++    "-fvisibility=default",
++    "-fobjc-weak",
++  ]
++  cflags_objcc = cflags_objc
++
++  deps = [ "//plugins/interfaces/native:ace_plugin_util_mac" ]
++
++  subsystem_name = "plugins"
++  part_name = "intl"
++}

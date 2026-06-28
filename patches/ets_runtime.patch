@@ -53,3 +53,38 @@ index f93b8ca57..eb3de9195 100644
      }
      return baseFileName;
  }
+diff --git a/ecmascript/platform/unix/mac/pandafile.cpp b/ecmascript/platform/unix/mac/pandafile.cpp
+index 79c25fb97..aec6a87d9 100644
+--- a/ecmascript/platform/unix/mac/pandafile.cpp
++++ b/ecmascript/platform/unix/mac/pandafile.cpp
+@@ -16,13 +16,29 @@
+ #include "ecmascript/platform/pandafile.h"
+ 
+ #include "ecmascript/log_wrapper.h"
++#include "ecmascript/module/module_path_helper.h"
+ 
+ namespace panda::ecmascript {
++using PathHelper = base::PathHelper;
++
+ // use "@bundle" as ohmurl's rules, will be abandon later
++// Align with the common/iOS implementation: derive the abc base file name (asset path)
++// and the OHM record name from the relative input filename, so esmodule pages loaded
++// from the in-memory modules.abc resolve correctly instead of being treated as hsp/file
++// paths. The mac-specific stub used to pass the filename through unchanged, which made
++// page loads fail with "Invalid input hsp path".
+ std::pair<CString, CString> ParseAbcEntryPoint([[maybe_unused]] JSThread *thread, const CString &filename,
+     [[maybe_unused]] std::string_view entryPoint)
+ {
+-    return {filename, entryPoint.data()};
++    CString name;
++    CString entry;
++    EcmaVM *vm = thread->GetEcmaVM();
++    CString normalName = PathHelper::NormalizePath(filename);
++    ModulePathHelper::ParseAbcPathAndOhmUrl(vm, normalName, name, entry);
++    if (name.empty()) {
++        name = vm->GetAssetPath();
++    }
++    return std::make_pair(name, entry);
+ }
+ 
+ CString GetAssetPath(EcmaVM *vm)

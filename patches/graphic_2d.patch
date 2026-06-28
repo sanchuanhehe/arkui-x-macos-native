@@ -286,7 +286,7 @@ index 985d62ecee..5422001c87 100644
    } else if (rosen_is_linux) {
    } else {
 diff --git a/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp b/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp
-index 8f5c3a5076..6f45cd26a4 100644
+index 8f5c3a5076..a5ab4c9218 100644
 --- a/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp
 +++ b/rosen/modules/render_service_client/core/pipeline/rs_render_thread.cpp
 @@ -81,12 +81,14 @@
@@ -306,16 +306,23 @@ index 8f5c3a5076..6f45cd26a4 100644
  
      if (prctl(PR_SET_NAME, name.c_str()) < 0) {
          return;
-@@ -158,6 +160,13 @@ RSRenderThread::RSRenderThread()
+@@ -158,6 +160,20 @@ RSRenderThread::RSRenderThread()
          jankDetector_->CalculateSkippedFrame(renderStartTimeStamp, jankDetector_->GetSysTimeNs());
          RSTypefaceCache::Instance().HandleDelayDestroyQueue();
          RS_TRACE_END();
 +#if defined(MAC_PLATFORM) || defined(ROSEN_MAC)
-+        // ArkUI-X macOS: the one-shot CVDisplayLink vsync driver only re-arms when ProcessCommands
-+        // sees new commands, so the render thread sleeps after the first (pre-layout, empty) frame
-+        // and never repaints once the page is measured. Keep requesting vsync so RS renders
-+        // continuously and picks up the measured page tree.
-+        RSRenderThread::Instance().RequestNextVSync();
++        // ArkUI-X macOS: the page tree is only measured after the first few FlushVsync→layout
++        // cycles, and that layout-driven repaint does not itself re-arm the one-shot CVDisplayLink.
++        // Pump vsync for a bounded warm-up window so the measured page is guaranteed to render.
++        // After warm-up we idle: every UI commit re-arms vsync via RecvTransactionData (which calls
++        // RequestNextVSync), so interactivity/animation still drive frames, but a static page no
++        // longer spins the CPU at the display rate.
++        static int macWarmupFrames = 0;
++        constexpr int kMacWarmupFrameLimit = 240; // ~4s @ 60fps: covers startup + initial layout
++        if (macWarmupFrames < kMacWarmupFrameLimit) {
++            ++macWarmupFrames;
++            RSRenderThread::Instance().RequestNextVSync();
++        }
 +#endif
      };
      context_ = std::make_shared<RSContext>();

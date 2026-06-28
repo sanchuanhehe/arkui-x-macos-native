@@ -97,6 +97,8 @@
 
 **完成判据**:demo 调 router/prompt/http/preferences 均成功。
 
+**实测(2026-06-28)** ✅:23 个 `@ohos.*` NAPI kit 静态链接进 `ace_macos`——每个 kit 经 `__attribute__((constructor))` → `napi_module_register` 自注册(对齐 iOS 的 `_static_<platform>` source_set 聚合,无需 dylib)。`prompt`/`drawabledescriptor` 因与 libace 重复符号排除;`componentUtils`/`animator`/`dragController` 修复重复 base 源后恢复。
+
 ## M8 · 无障碍 / i18n / 安全
 **Goal**:可访问、国际化、安全合规。
 **Tasks**
@@ -107,6 +109,8 @@
 
 **完成判据**:VoiceOver 可读 UI;RTL 布局正确;权限弹窗合规。
 
+**实测(2026-06-28)** 🔶 i18n 打通:`@ohos.i18n` / `@ohos.intl` 静态链接进 `ace_macos`。两个 plugin 的 mac 平台层复用 iOS 的 Foundation-only impl(`NSLocale`/`NSTimeZone`,`intl` 的 `UIDevice`/`getDeviceType` 用 `MAC_PLATFORM` 守卫返回 `"pc"`)。关键难点是 `i18n`/`intl` 各 fork 了一份 `OHOS::Global::I18n::LocaleConfig`(static plugin 成员类型不同:`I18N*` vs `INTL*`)——iOS 各自 dylib 隔离不冲突,mac 静态链进单一 exe 触发 37 个 duplicate symbol;解法:intl 丢弃重复核心、复用 i18n 的 `LocaleConfig`,i18n 在 mac 补上 intl 特有的 3 个方法(`locale_config_intl_ext.cpp`)。**注**:dylib + flat-namespace 路线行不通——它阻止 dead-strip,强制解析 123 个死引用符号(`RSRenderServiceClient`/`ImageAnalyzerMgr` 等移植未链全的);静态链接 + dead-strip 才是 mac 正道。accessibility(NSAccessibility)/ Keychain 待做。
+
 ## M9 · 打包与分发
 **Goal**:一键产出可分发签名 `.app`。
 **Tasks**
@@ -116,6 +120,8 @@
 - 崩溃上报 / 符号化。
 
 **完成判据**:`ace build mac` 一条命令出 `.app`;双击即开;Gatekeeper 放行。
+
+**实测(2026-06-28)** 🔶:`package_app.sh` 组装可运行 `.app`(install_name_tool 修 dylib 路径、资源进 `Contents/Resources`、Info.plist、自底向上 codesign)。修复双击启动时弹一堆目录授权的 **TCC 隐私权限风暴**——真因是 GUI 启动 `cwd=/`(LaunchServices 不继承 shell cwd)+ 相对路径 `opendir` 递归遍历整盘,触发每个 folder service;解法 = constructor `chdir` 到 bundle + asset 扫描守卫(空/`/` 路径直接 bail)。**剩**:Developer-ID 签名 + 公证(notarization)需 Apple 开发者证书。
 
 ## M10 · 质量与硬化
 **Goal**:去 hack、稳定、有测试、CI 跑真构建。

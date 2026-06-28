@@ -1,0 +1,113 @@
+diff --git a/BasicFeature/HelloWorld/build-profile.json5 b/BasicFeature/HelloWorld/build-profile.json5
+index a26322be..d904a950 100644
+--- a/BasicFeature/HelloWorld/build-profile.json5
++++ b/BasicFeature/HelloWorld/build-profile.json5
+@@ -6,8 +6,9 @@
+       {
+         "name": "default",
+         "signingConfig": "default",
+-        "compatibleSdkVersion": "5.0.0(12)",
+-        "runtimeOS": "HarmonyOS"
++        "compatibleSdkVersion": 23,
++        "compileSdkVersion": 23,
++        "runtimeOS": "OpenHarmony"
+       }
+     ],
+     "buildModeSet": [
+diff --git a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
+index 61af322f..270ed264 100644
+--- a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
++++ b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
+@@ -1,45 +1,53 @@
+-/*
+- * Copyright (c) 2023 Huawei Device Co., Ltd.
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
++import I18n from '@ohos.i18n'
++import intl from '@ohos.intl'
+ 
+ @Entry
+ @Component
+ struct Index {
+-  @State message:string = 'World'
++  @State lang: string = '?'
++  @State region: string = '?'
++  @State locale: string = '?'
++  @State dateStr: string = '?'
++  @State numStr: string = '?'
++  @State i18nOk: string = 'pending'
++  @State intlOk: string = 'pending'
++
++  aboutToAppear() {
++    try {
++      this.lang = I18n.System.getSystemLanguage()
++      this.region = I18n.System.getSystemRegion()
++      this.locale = I18n.System.getSystemLocale()
++      this.i18nOk = 'OK'
++    } catch (e) {
++      this.i18nOk = 'ERR: ' + JSON.stringify(e)
++    }
++    try {
++      let dtf = new intl.DateTimeFormat('zh-CN', { dateStyle: 'full', timeStyle: 'short' })
++      this.dateStr = dtf.format(new Date(2026, 5, 28, 14, 30))
++      let nf = new intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
++      this.numStr = nf.format(123456.789)
++      this.intlOk = 'OK'
++    } catch (e) {
++      this.intlOk = 'ERR: ' + JSON.stringify(e)
++    }
++  }
++
+   build() {
+-    Row() {
+-      Column() {
+-        Text('Hello ' + this.message)
+-          .fontSize(50)
+-          .fontWeight(FontWeight.Bold)
+-        Button() {
+-          Text($r('app.string.click_me'))
+-            .fontSize(25)
+-        }
+-        .type(ButtonType.Capsule)
+-        .margin({
+-          top: 25
+-        })
+-        .backgroundColor(Color.Yellow)
+-        .width('35%')
+-        .height(50)
+-        .onClick(() => {
+-          this.message = 'ArkUI'
+-        })
+-      }
+-      .width('100%')
++    Column({ space: 12 }) {
++      Text('@ohos.i18n / @ohos.intl 验证')
++        .fontSize(20).fontColor(Color.Black)
++      Text('i18n: ' + this.i18nOk)
++        .fontSize(16).fontColor(this.i18nOk == 'OK' ? Color.Green : Color.Red)
++      Text('intl: ' + this.intlOk)
++        .fontSize(16).fontColor(this.intlOk == 'OK' ? Color.Green : Color.Red)
++      Text('language=' + this.lang).fontSize(15)
++      Text('region=' + this.region).fontSize(15)
++      Text('locale=' + this.locale).fontSize(15)
++      Text('date=' + this.dateStr).fontSize(15).fontColor(Color.Blue)
++      Text('currency=' + this.numStr).fontSize(15).fontColor(Color.Blue)
+     }
+-    .height('100%')
++    .width('100%').height('100%')
++    .justifyContent(FlexAlign.Center)
++    .backgroundColor(Color.White)
+   }
+-}
+\ No newline at end of file
++}

@@ -176,11 +176,79 @@ index e58f8e0b0a1..0a812c0f2a1 100644
      if (ace_enable_gpu) {
        defines += [ "RS_ENABLE_GPU" ]
      }
+diff --git a/interfaces/inner_api/drawable_descriptor/js_drawable_descriptor.cpp b/interfaces/inner_api/drawable_descriptor/js_drawable_descriptor.cpp
+index 6020606cbd4..b12a1837474 100644
+--- a/interfaces/inner_api/drawable_descriptor/js_drawable_descriptor.cpp
++++ b/interfaces/inner_api/drawable_descriptor/js_drawable_descriptor.cpp
+@@ -452,7 +452,12 @@ napi_value JsDrawableDescriptor::GetMaskClipPath(napi_env env, napi_callback_inf
+     return result;
+ }
+ 
+-bool GetSingleParam(napi_env env, napi_callback_info info, napi_value* argv, napi_valuetype& valueType)
++// File-local: napi_utils.cpp also exports OHOS::Ace::Napi::GetSingleParam with the
++// same signature. They never collide on iOS/Android (each napi module is its own
++// dylib), but the macOS app links every napi kit statically into one executable,
++// so the external definitions clash. This copy is only used within this file, so
++// give it internal linkage.
++static bool GetSingleParam(napi_env env, napi_callback_info info, napi_value* argv, napi_valuetype& valueType)
+ {
+     size_t argc = 1;
+     napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
+diff --git a/interfaces/napi/kits/animator/BUILD.gn b/interfaces/napi/kits/animator/BUILD.gn
+index 7899cd03461..98ce11c8eb6 100644
+--- a/interfaces/napi/kits/animator/BUILD.gn
++++ b/interfaces/napi/kits/animator/BUILD.gn
+@@ -40,7 +40,11 @@ template("napi_animator_static") {
+       deps += [ config.libace_target ]
+     }
+ 
+-    if (platform != "ohos" || is_asan || !ace_engine_feature_enable_libace) {
++    # macOS links this kit statically into the same executable as libace, whose
++    # ace_osal_mac already provides FrameTraceAdapter; recompiling the fake impl
++    # here would duplicate FrameTraceAdapter::GetInstance. Skip it on mac.
++    if (platform != "mac" &&
++        (platform != "ohos" || is_asan || !ace_engine_feature_enable_libace)) {
+       if (frame_trace_support) {
+         sources +=
+             [ "$ace_root/adapter/ohos/osal/frame_trace_adapter_impl.cpp" ]
+diff --git a/interfaces/napi/kits/componentutils/BUILD.gn b/interfaces/napi/kits/componentutils/BUILD.gn
+index 1a23c629b67..689ca61d012 100644
+--- a/interfaces/napi/kits/componentutils/BUILD.gn
++++ b/interfaces/napi/kits/componentutils/BUILD.gn
+@@ -26,7 +26,12 @@ template("napi_componentutils_static") {
+     configs = [ "$ace_root/interfaces/napi/kits:ace_napi_config" ]
+ 
+     sources = [ "js_component_utils.cpp" ]
+-    if (platform != "ohos" || is_asan || !ace_engine_feature_enable_libace) {
++    # macOS links this kit statically into the same executable as libace (which
++    # always provides Matrix4), so never recompile it here regardless of the other
++    # conditions -- doing so would duplicate the symbols. Other platforms keep their
++    # self-contained copy (each is its own dylib).
++    if (platform != "mac" &&
++        (platform != "ohos" || is_asan || !ace_engine_feature_enable_libace)) {
+       sources += [ "$ace_root/frameworks/base/geometry/matrix4.cpp" ]
+     }
+     external_deps = []
 diff --git a/interfaces/napi/kits/drag_controller/BUILD.gn b/interfaces/napi/kits/drag_controller/BUILD.gn
-index fabbd18d316..b97638c01c8 100644
+index fabbd18d316..fe43ec724cb 100644
 --- a/interfaces/napi/kits/drag_controller/BUILD.gn
 +++ b/interfaces/napi/kits/drag_controller/BUILD.gn
-@@ -42,6 +42,9 @@ template("napi_dragcontroller_static") {
+@@ -32,7 +32,13 @@ template("napi_dragcontroller_static") {
+ 
+     if (platform != "" && is_arkui_x) {
+       deps += [ "$crossplatform_plugin_root/libs/napi:napi_$platform" ]
+-      sources += ["$ace_napi_frameworks/core/common/interaction/interaction_data.cpp"]
++      # macOS links this kit into the same executable as libace, whose
++      # ace_core_ng_mac already compiles interaction_data.cpp; recompiling it here
++      # would duplicate the symbols. Other platforms keep their self-contained copy.
++      if (target_os != "mac") {
++        sources +=
++            [ "$ace_napi_frameworks/core/common/interaction/interaction_data.cpp" ]
++      }
+       defines += [ "CROSS_PLATFORM" ]
+       if (defined(config.enable_drag_framework) &&
+           config.enable_drag_framework) {
+@@ -42,6 +48,9 @@ template("napi_dragcontroller_static") {
          include_dirs = [ "$ace_root/adapter/android/entrance/java/jni" ]
        } else if (target_os == "ios") {
          include_dirs = [ "$ace_root/adapter/ios/entrance" ]
