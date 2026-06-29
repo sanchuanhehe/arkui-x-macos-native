@@ -306,6 +306,32 @@ index e0f512356d..7e135512de 100644
  }
  
  if (rosen_is_win) {
+diff --git a/rosen/modules/render_service_base/src/pipeline/rs_surface_render_node.cpp b/rosen/modules/render_service_base/src/pipeline/rs_surface_render_node.cpp
+index b47fa61f21..462bcef0cb 100644
+--- a/rosen/modules/render_service_base/src/pipeline/rs_surface_render_node.cpp
++++ b/rosen/modules/render_service_base/src/pipeline/rs_surface_render_node.cpp
+@@ -1775,7 +1775,11 @@ void RSSurfaceRenderNode::NotifyUIBufferAvailable()
+ 
+ bool RSSurfaceRenderNode::IsNotifyRTBufferAvailable() const
+ {
+-#if defined(ROSEN_ANDROID) || defined(ROSEN_IOS)
++// macOS uses the arkui-x cross-platform RT-only render path (no separate RenderService process to
++// drive the IPC buffer-available listener that sets isNotifyRTBufferAvailable_). Like iOS/Android,
++// treat the RT buffer as always available so SURFACE_TEXTURE nodes (Video) draw their texture
++// instead of the black fallback. mac defines ROSEN_MAC (not ROSEN_IOS), so it must be listed here.
++#if defined(ROSEN_ANDROID) || defined(ROSEN_IOS) || defined(ROSEN_MAC)
+     return true;
+ #else
+     return isNotifyRTBufferAvailable_;
+@@ -1784,7 +1788,7 @@ bool RSSurfaceRenderNode::IsNotifyRTBufferAvailable() const
+ 
+ bool RSSurfaceRenderNode::IsNotifyRTBufferAvailablePre() const
+ {
+-#if defined(ROSEN_ANDROID) || defined(ROSEN_IOS)
++#if defined(ROSEN_ANDROID) || defined(ROSEN_IOS) || defined(ROSEN_MAC)
+     return true;
+ #else
+     return isNotifyRTBufferAvailablePre_;
 diff --git a/rosen/modules/render_service_base/src/platform/BUILD.gn b/rosen/modules/render_service_base/src/platform/BUILD.gn
 index 985d62ecee..5422001c87 100644
 --- a/rosen/modules/render_service_base/src/platform/BUILD.gn

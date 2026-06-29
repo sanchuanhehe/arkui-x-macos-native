@@ -355,10 +355,10 @@ index 57e4708..b6a1656 100644
  }
 diff --git a/graphic_2d/macos/BUILD.gn b/graphic_2d/macos/BUILD.gn
 new file mode 100644
-index 0000000..75b0e3f
+index 0000000..b8f1e34
 --- /dev/null
 +++ b/graphic_2d/macos/BUILD.gn
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,127 @@
 +# Copyright (c) 2026 Huawei Device Co., Ltd.
 +# Licensed under the Apache License, Version 2.0 (the "License");
 +# you may not use this file except in compliance with the License.
@@ -447,6 +447,11 @@ index 0000000..75b0e3f
 +  if (rs_enable_gpu) {
 +    defines += [ "USE_GPU" ]
 +    sources += [ "rs_surface_gpu.mm" ]
++
++    # M5 Video carrier: the desktop-GL video texture surface (CVOpenGLTextureCache).
++    # USE_SURFACE_TEXTURE is defined for the mac iOS-backend (render_service_base/config.gni),
++    # so RSSurfaceGPU::CreateSurfaceExt builds an RSSurfaceTextureMac for video nodes.
++    sources += [ "rs_surface_texture_mac.mm" ]
 +  }
 +
 +  cflags = [ "-std=c++17" ]
@@ -461,6 +466,7 @@ index 0000000..75b0e3f
 +  ]
 +  frameworks = [
 +    "AppKit.framework",
++    "AVFoundation.framework",
 +    "CoreMedia.framework",
 +    "CoreVideo.framework",
 +    "OpenGL.framework",
@@ -2496,10 +2502,10 @@ index 0000000..e06bb2d
 +#endif // RENDER_SERVICE_BASE_SRC_PLATFORM_IOS_RS_SURFACE_GPU_H
 diff --git a/graphic_2d/macos/rs_surface_gpu.mm b/graphic_2d/macos/rs_surface_gpu.mm
 new file mode 100644
-index 0000000..6d2f332
+index 0000000..66c7c9b
 --- /dev/null
 +++ b/graphic_2d/macos/rs_surface_gpu.mm
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,184 @@
 +/*
 + * Copyright (c) 2026 Huawei Device Co., Ltd.
 + * Licensed under the Apache License, Version 2.0 (the "License");
@@ -2527,6 +2533,9 @@ index 0000000..6d2f332
 +
 +#include "platform/common/rs_log.h"
 +#include "rs_surface_frame_ios.h"
++#ifdef USE_SURFACE_TEXTURE
++#include "rs_surface_texture_mac.h"
++#endif
 +
 +namespace OHOS {
 +namespace Rosen {
@@ -2655,10 +2664,23 @@ index 0000000..6d2f332
 +#ifdef USE_SURFACE_TEXTURE
 +RSSurfaceExtPtr RSSurfaceGPU::CreateSurfaceExt(const RSSurfaceExtConfig& config)
 +{
-+    // Phase 1 path X: video SurfaceTexture / platform-texture (xcomponent) is out
-+    // of scope for the macOS milestone.
-+    ROSEN_LOGD("RSSurfaceGPU::CreateSurfaceExt: not supported on macOS milestone");
-+    return nullptr;
++    ROSEN_LOGD("RSSurfaceGPU::CreateSurfaceExt type=%d", static_cast<int>(config.type));
++    switch (config.type) {
++        case RSSurfaceExtType::SURFACE_TEXTURE: {
++            // M5 Video carrier: AVPlayer frames -> CVOpenGLTextureCache -> GL texture composited
++            // by Skia into the Rosen render tree (the iOS-style texture path, ported to desktop GL).
++            if (texture_ == nullptr) {
++                texture_ = std::dynamic_pointer_cast<RSSurfaceExt>(std::make_shared<RSSurfaceTextureMac>(config));
++            }
++            return texture_;
++        }
++        case RSSurfaceExtType::SURFACE_PLATFORM_TEXTURE:
++            // XComponent platform-view texture is a later milestone.
++            ROSEN_LOGD("RSSurfaceGPU::CreateSurfaceExt: SURFACE_PLATFORM_TEXTURE not yet supported on macOS");
++            return nullptr;
++        default:
++            return nullptr;
++    }
 +}
 +
 +RSSurfaceExtPtr RSSurfaceGPU::GetSurfaceExt(const RSSurfaceExtConfig& config)
@@ -2666,6 +2688,307 @@ index 0000000..6d2f332
 +    return texture_;
 +}
 +#endif
++} // namespace Rosen
++} // namespace OHOS
+diff --git a/graphic_2d/macos/rs_surface_texture_mac.h b/graphic_2d/macos/rs_surface_texture_mac.h
+new file mode 100644
+index 0000000..9649d5c
+--- /dev/null
++++ b/graphic_2d/macos/rs_surface_texture_mac.h
+@@ -0,0 +1,112 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++// macOS desktop-GL port of the iOS RSSurfaceTextureIOS video texture path. Mirrors
++// foundation/appframework/graphic_2d/ios/rs_surface_texture_ios.mm but uses the desktop
++// CoreVideo OpenGL bridge (CVOpenGLTextureCache) instead of the GLES one, so AVPlayer
++// frames are uploaded to a GL texture that Skia/Ganesh samples in the shared render
++// context's GL share group -- composited into the Rosen render tree like any other node
++// (so ArkUI Video controls draw on top, no native overlay / no z-order or flip issues).
++// Vulkan is out of scope on mac (the backend is GL: ACE_ENABLE_GL/RS_ENABLE_GL).
++
++#ifndef RS_SURFACE_TEXTURE_MAC_H
++#define RS_SURFACE_TEXTURE_MAC_H
++
++#include <AVFoundation/AVFoundation.h>
++#include <CoreMedia/CoreMedia.h>
++#include <CoreVideo/CoreVideo.h>
++#include <Foundation/Foundation.h>
++#include <OpenGL/OpenGL.h>
++#include <OpenGL/gl.h>
++#include <atomic>
++#include <memory>
++
++#include "common/rs_common_def.h"
++#include "pipeline/rs_paint_filter_canvas.h"
++#include "platform/common/rs_log.h"
++#include "platform/common/rs_surface_ext.h"
++
++namespace OHOS {
++namespace Rosen {
++class RSSurfaceTextureMac : public RSSurfaceExt {
++public:
++    static inline constexpr RSSurfaceExtType Type = RSSurfaceExtType::SURFACE_TEXTURE;
++
++    explicit RSSurfaceTextureMac(const RSSurfaceExtConfig& config);
++    ~RSSurfaceTextureMac() override;
++
++    void DrawTextureImage(RSPaintFilterCanvas& canvas, bool freeze, const Drawing::Rect& clipRect) override;
++    void UpdateSurfaceDefaultSize(float width, float height) override {}
++
++    RSSurfaceExtConfig GetSurfaceExtConfig() override
++    {
++        return config_;
++    }
++    void UpdateSurfaceExtConfig(const RSSurfaceExtConfig& config) override
++    {
++        if (config.additionalData != config_.additionalData) {
++            config_.additionalData = config.additionalData;
++        }
++    }
++    void SetAttachCallback(const RSSurfaceTextureAttachCallBack& attachCallback) override
++    {
++        if (attachCallback_ == nullptr) {
++            attachCallback_ = attachCallback;
++        }
++    }
++    void SetUpdateCallback(const RSSurfaceTextureUpdateCallBack& updateCallback) override
++    {
++        if (updateCallback_ == nullptr) {
++            updateCallback_ = updateCallback;
++        }
++    }
++    void SetInitTypeCallback(const RSSurfaceTextureInitTypeCallBack& initTypeCallback) override
++    {
++        if (initTypeCallback_ == nullptr) {
++            initTypeCallback_ = initTypeCallback;
++        }
++    }
++    void MarkUiFrameAvailable(bool available) override
++    {
++        bufferAvailable_.store(available);
++    }
++    bool IsUiFrameAvailable() const override
++    {
++        return bufferAvailable_.load();
++    }
++
++private:
++    void EnsureTextureCacheExists();
++    void CreateTextureFromPixelBuffer();
++    CVPixelBufferRef GetPixelBuffer();
++    bool FillTextureInfoByBackend(Drawing::TextureInfo& textureInfo, int texWidth, int texHeight);
++
++    std::atomic<bool> bufferAvailable_ = false;
++    RSSurfaceTextureAttachCallBack attachCallback_;
++    RSSurfaceTextureUpdateCallBack updateCallback_;
++    RSSurfaceTextureInitTypeCallBack initTypeCallback_;
++    RSSurfaceExtConfig config_;
++
++    // additionalData carries the AceTexture's AVPlayerItemVideoOutput pointer (registered via
++    // AcePlatformPlugin::RegisterSurface and threaded through MarkNewFrameAvailable).
++    AVPlayerItemVideoOutput* videoOutput_ = nullptr;
++    CVOpenGLTextureCacheRef cacheRef_ = nullptr;
++    CVOpenGLTextureRef textureRef_ = nullptr;
++    CVPixelBufferRef bufferRef_ = nullptr;
++};
++} // namespace Rosen
++} // namespace OHOS
++
++#endif // RS_SURFACE_TEXTURE_MAC_H
+diff --git a/graphic_2d/macos/rs_surface_texture_mac.mm b/graphic_2d/macos/rs_surface_texture_mac.mm
+new file mode 100644
+index 0000000..8687d02
+--- /dev/null
++++ b/graphic_2d/macos/rs_surface_texture_mac.mm
+@@ -0,0 +1,177 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "rs_surface_texture_mac.h"
++
++#include "image/image.h"
++#include "platform/common/rs_log.h"
++
++namespace OHOS {
++namespace Rosen {
++
++RSSurfaceTextureMac::RSSurfaceTextureMac(const RSSurfaceExtConfig& config) : RSSurfaceExt(), config_(config)
++{
++    videoOutput_ = [static_cast<AVPlayerItemVideoOutput*>(config.additionalData) retain];
++    ROSEN_LOGI("RSSurfaceTextureMac: created videoOutput=%p", config.additionalData);
++}
++
++RSSurfaceTextureMac::~RSSurfaceTextureMac()
++{
++    [videoOutput_ release];
++    videoOutput_ = nullptr;
++    if (textureRef_) {
++        CFRelease(textureRef_);
++        textureRef_ = nullptr;
++    }
++    if (bufferRef_) {
++        CVPixelBufferRelease(bufferRef_);
++        bufferRef_ = nullptr;
++    }
++    if (cacheRef_) {
++        CFRelease(cacheRef_);
++        cacheRef_ = nullptr;
++    }
++}
++
++void RSSurfaceTextureMac::EnsureTextureCacheExists()
++{
++    if (cacheRef_) {
++        return;
++    }
++    // DrawTextureImage runs inside the Rosen render pass, so the current CGL context IS the
++    // window's render context. Creating the texture cache against it (and its pixel format)
++    // means the produced GL texture lives in the same share group Skia samples from -- exactly
++    // mirroring iOS's `[EAGLContext currentContext]`.
++    CGLContextObj cglContext = CGLGetCurrentContext();
++    if (cglContext == nullptr) {
++        ROSEN_LOGE("RSSurfaceTextureMac: no current CGL context for texture cache");
++        return;
++    }
++    CGLPixelFormatObj cglPixelFormat = CGLGetPixelFormat(cglContext);
++    CVOpenGLTextureCacheRef cache = nullptr;
++    CVReturn err = CVOpenGLTextureCacheCreate(
++        kCFAllocatorDefault, nullptr, cglContext, cglPixelFormat, nullptr, &cache);
++    if (err == kCVReturnSuccess && cache != nullptr) {
++        cacheRef_ = cache;
++    } else {
++        ROSEN_LOGE("RSSurfaceTextureMac: Failed to create GL texture cache, err=%d", static_cast<int>(err));
++    }
++}
++
++CVPixelBufferRef RSSurfaceTextureMac::GetPixelBuffer()
++{
++    if (!videoOutput_) {
++        ROSEN_LOGE("RSSurfaceTextureMac: videoOutput_ is nullptr");
++        return nullptr;
++    }
++    CMTime outputItemTime = [videoOutput_ itemTimeForHostTime:CACurrentMediaTime()];
++    if ([videoOutput_ hasNewPixelBufferForItemTime:outputItemTime]) {
++        return [videoOutput_ copyPixelBufferForItemTime:outputItemTime itemTimeForDisplay:nullptr];
++    }
++    return nullptr;
++}
++
++void RSSurfaceTextureMac::CreateTextureFromPixelBuffer()
++{
++    if (bufferRef_ == nullptr) {
++        ROSEN_LOGE("RSSurfaceTextureMac: bufferRef_ is nullptr");
++        return;
++    }
++    if (cacheRef_ == nullptr) {
++        return;
++    }
++    // Release the previous frame's texture and recycle the cache before producing the new one.
++    if (textureRef_) {
++        CFRelease(textureRef_);
++        textureRef_ = nullptr;
++    }
++    CVOpenGLTextureCacheFlush(cacheRef_, 0);
++
++    CVOpenGLTextureRef texture = nullptr;
++    // The desktop CV OpenGL bridge infers target/format/size from the (BGRA, IOSurface-backed)
++    // pixel buffer -- unlike the GLES variant there are no explicit format/size args.
++    CVReturn err = CVOpenGLTextureCacheCreateTextureFromImage(
++        kCFAllocatorDefault, cacheRef_, bufferRef_, nullptr, &texture);
++    if (err == kCVReturnSuccess && texture != nullptr) {
++        textureRef_ = texture;
++    } else {
++        ROSEN_LOGE("RSSurfaceTextureMac: Could not create texture from pixel buffer, err=%d",
++            static_cast<int>(err));
++    }
++}
++
++bool RSSurfaceTextureMac::FillTextureInfoByBackend(Drawing::TextureInfo& textureInfo, int texWidth, int texHeight)
++{
++    if (!textureRef_) {
++        ROSEN_LOGE("RSSurfaceTextureMac: textureRef_ is nullptr");
++        return false;
++    }
++    textureInfo.SetWidth(texWidth);
++    textureInfo.SetHeight(texHeight);
++    textureInfo.SetIsMipMapped(false);
++    // On macOS CVOpenGLTexture yields a GL_TEXTURE_RECTANGLE_ARB texture (non-normalised
++    // texel coords); Ganesh supports that target and maps the pixel-space srcRect correctly.
++    textureInfo.SetTarget(CVOpenGLTextureGetTarget(textureRef_));
++    textureInfo.SetID(CVOpenGLTextureGetName(textureRef_));
++    textureInfo.SetFormat(GL_RGBA8);
++    return true;
++}
++
++void RSSurfaceTextureMac::DrawTextureImage(RSPaintFilterCanvas& canvas, bool freeze, const Drawing::Rect& clipRect)
++{
++    EnsureTextureCacheExists();
++    if (!freeze) {
++        auto pixelBuffer = GetPixelBuffer();
++        if (pixelBuffer) {
++            if (bufferRef_) {
++                CVPixelBufferRelease(bufferRef_);
++            }
++            bufferRef_ = pixelBuffer;
++            CreateTextureFromPixelBuffer();
++        }
++    }
++    if (!textureRef_) {
++        return;
++    }
++    auto image = std::make_shared<Drawing::Image>();
++    if (image == nullptr) {
++        ROSEN_LOGE("RSSurfaceTextureMac: create Drawing image fail");
++        return;
++    }
++    int texWidth = bufferRef_ ? static_cast<int>(CVPixelBufferGetWidth(bufferRef_))
++                              : static_cast<int>(clipRect.GetWidth());
++    int texHeight = bufferRef_ ? static_cast<int>(CVPixelBufferGetHeight(bufferRef_))
++                               : static_cast<int>(clipRect.GetHeight());
++
++    Drawing::TextureInfo textureInfo;
++    if (!FillTextureInfoByBackend(textureInfo, texWidth, texHeight)) {
++        return;
++    }
++    Drawing::BitmapFormat fmt = { Drawing::COLORTYPE_RGBA_8888, Drawing::ALPHATYPE_PREMUL };
++    bool ret = image->BuildFromTexture(*canvas.GetGPUContext(), textureInfo,
++        Drawing::TextureOrigin::TOP_LEFT, fmt, nullptr);
++    if (!ret) {
++        ROSEN_LOGE("RSSurfaceTextureMac: BuildFromTexture failed (target=%u id=%u %dx%d)",
++            CVOpenGLTextureGetTarget(textureRef_), CVOpenGLTextureGetName(textureRef_), texWidth, texHeight);
++        return;
++    }
++    Drawing::Rect srcRect(0, 0, texWidth, texHeight);
++    canvas.DrawImageRect(*image, srcRect, clipRect,
++        Drawing::SamplingOptions(Drawing::FilterMode::LINEAR),
++        Drawing::SrcRectConstraint::FAST_SRC_RECT_CONSTRAINT);
++}
++
 +} // namespace Rosen
 +} // namespace OHOS
 diff --git a/graphic_2d/macos/rs_system_properties.cpp b/graphic_2d/macos/rs_system_properties.cpp
