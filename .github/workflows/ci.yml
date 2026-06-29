@@ -4,8 +4,14 @@ name: ci
 # macOS runner + 数小时,不适合 CI)。CI 因此聚焦「补丁集本身的完整性与可用性」:
 #   - 每个 patch 可被 git 解析、非空
 #   - 每个仓都有补丁、基线 commit 已记录(可复现的前提)
-#   - 无孤儿补丁、apply 脚本语法正确、shellcheck 干净
+#   - 无孤儿补丁、apply 脚本语法正确、shellcheck 干净(覆盖 scripts/*.sh,含真构建脚本)
 # 这保证补丁集结构正确、能被幂等的 apply_patches.sh 复现应用。
+#
+# 真构建回归(需源码树 + Xcode,只能开发机本地跑,不进 CI)分两层,见 scripts/:
+#   - check_apply.sh  : 在真实源码树上验证每个 patch 能在 BASE_COMMITS 基线上干净 apply
+#                       (比纯解析强,抓 patch 漂移)。用法见脚本头。
+#   - verify_build.sh : apply 后 gn gen + ninja 编 ace_macos + 产物校验 (+--with-bundle 编 demo)。
+#                       端到端「真编出 + 跑得起来」回归,防改动回退。
 
 on:
   push:

@@ -90,6 +90,17 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 out/arkui-x/arkui/ace_engine/ace_macos
 ```
 
+### 5. 质量回归(改动后防回退)
+两层校验,层层加强:
+```bash
+scripts/check_patches.sh                       # ① 纯结构自检(无需源码,CI 也跑)
+scripts/check_apply.sh   /path/to/arkui-x      # ② 每个 patch 能在 BASE_COMMITS 基线干净 apply
+scripts/verify_build.sh  /path/to/arkui-x              # ③ gn gen + ninja 编 ace_macos + 产物校验
+scripts/verify_build.sh  /path/to/arkui-x --with-bundle  #    再加:编 HelloWorld demo 并校验 abc
+```
+- `check_apply.sh` 比 `check_patches.sh` 强一档:在**真实源码树**上对每仓核对基线/当前树一致,能抓到 `check_patches` 看不出的「补丁 hunk 漂移」。
+- `verify_build.sh` 是**端到端真构建**:前置检查(Xcode/gn/ninja/prebuilts python/adapter 子仓)→ `gn gen` → `ninja ace_macos` → 校验二进制 arm64 + `modules.abc` + systemres `resources.index`。全绿即「真编得出、跑得起来」。需源码树 + Xcode,故只在开发机本地跑,不进 CI。
+
 ---
 
 ## 一路啃下来的硬坑(精华)
