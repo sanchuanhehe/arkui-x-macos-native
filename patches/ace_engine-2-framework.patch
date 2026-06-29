@@ -450,6 +450,76 @@ index 02ec84ad704..6be91ef9eef 100644
  {
      static const std::unordered_map<std::string, Alignment> alignmentMap = {
          {"top_start", Alignment::TOP_LEFT}, {"top", Alignment::TOP_CENTER}, {"top_end", Alignment::TOP_RIGHT},
+diff --git a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_modifier.cpp
+index c3f37e59461..3b82bdb341a 100644
+--- a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_modifier.cpp
+@@ -94,7 +94,7 @@ const ArkUICalendarPickerDialogModifier* GetCalendarPickerDialogDynamicModifier(
+     return &modifier;
+ }
+ 
+-const CJUICalendarPickerDialogModifier* GetCJUICalendarPickerDialogModifier()
++const CJUICalendarPickerDialogModifier* GetCJUICalendarPickerDialogModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUICalendarPickerDialogModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_module.cpp b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_module.cpp
+index a3e7dde75ce..253b7d10a71 100644
+--- a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dialog_dynamic_module.cpp
+@@ -28,7 +28,7 @@ namespace OHOS::Ace {
+ 
+ namespace NG {
+ const ArkUICalendarPickerDialogModifier* GetCalendarPickerDialogDynamicModifier();
+-const CJUICalendarPickerDialogModifier* GetCJUICalendarPickerDialogModifier();
++const CJUICalendarPickerDialogModifier* GetCJUICalendarPickerDialogModifierStatic();
+ #ifdef INCLUDE_GENERATED_SOURCES
+ namespace GeneratedModifier {
+ const GENERATED_ArkUICalendarPickerDialogAccessor* GetCalendarPickerDialogAccessor();
+@@ -58,6 +58,6 @@ const void* CalendarPickerDialogDynamicModule::GetStaticModifier()
+ 
+ const void* CalendarPickerDialogDynamicModule::GetCjModifier()
+ {
+-    return NG::GetCJUICalendarPickerDialogModifier();
++    return NG::GetCJUICalendarPickerDialogModifierStatic();
+ }
+ } // namespace OHOS::Ace
+\ No newline at end of file
+diff --git a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_modifier.cpp
+index aefe5fbf4ef..5e91418557e 100644
+--- a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_modifier.cpp
+@@ -1436,7 +1436,7 @@ const ArkUICalendarPickerModifier* GetCalendarPickerDynamicModifier()
+     }
+ }
+ 
+-const CJUICalendarPickerModifier* GetCJUICalendarPickerModifier()
++const CJUICalendarPickerModifier* GetCJUICalendarPickerModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUICalendarPickerModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_module.cpp b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_module.cpp
+index bad44e180c4..87c6159f46a 100644
+--- a/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/calendar_picker/bridge/calendar_picker_dynamic_module.cpp
+@@ -32,7 +32,7 @@ namespace OHOS::Ace {
+ 
+ namespace NG {
+ const ArkUICalendarPickerModifier* GetCalendarPickerDynamicModifier();
+-const CJUICalendarPickerModifier* GetCJUICalendarPickerModifier();
++const CJUICalendarPickerModifier* GetCJUICalendarPickerModifierStatic();
+ #ifdef INCLUDE_GENERATED_SOURCES
+ namespace GeneratedModifier {
+ const GENERATED_ArkUICalendarPickerModifier* GetCalendarPickerStaticModifier();
+@@ -62,7 +62,7 @@ const void* CalendarPickerDynamicModule::GetStaticModifier()
+ 
+ const void* CalendarPickerDynamicModule::GetCjModifier()
+ {
+-    return NG::GetCJUICalendarPickerModifier();
++    return NG::GetCJUICalendarPickerModifierStatic();
+ }
+ 
+ void* CalendarPickerDynamicModule::GetModel()
 diff --git a/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp
 index afef4922b2c..11b3640d1dd 100644
 --- a/frameworks/core/components_ng/pattern/counter/bridge/counter_dynamic_modifier.cpp
@@ -530,6 +600,111 @@ index 83bdda8c2fb..181bb8a8b38 100644
  {
      auto* frameNode = GetFrameNode(node);
      CHECK_NULL_VOID(frameNode);
+diff --git a/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_modifier.cpp
+index 7df56b3bb30..ff794ec99c1 100644
+--- a/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_modifier.cpp
+@@ -197,7 +197,7 @@ const ArkUIColumnSplitModifier* GetColumnSplitDynamicModifier()
+     return &modifier;
+ }
+ 
+-const CJUIColumnSplitModifier* GetCJUIColumnSplitModifier()
++const CJUIColumnSplitModifier* GetCJUIColumnSplitModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUIColumnSplitModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_module.cpp b/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_module.cpp
+index 3de02b9bddd..a906313b85c 100644
+--- a/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/linear_split/bridge/column_split_dynamic_module.cpp
+@@ -33,7 +33,7 @@ namespace OHOS::Ace {
+ namespace NG {
+ namespace NodeModifier {
+ const ArkUIColumnSplitModifier* GetColumnSplitDynamicModifier();
+-const CJUIColumnSplitModifier* GetCJUIColumnSplitModifier();
++const CJUIColumnSplitModifier* GetCJUIColumnSplitModifierStatic();
+ } // namespace NodeModifier
+ #ifdef INCLUDE_GENERATED_SOURCES
+ namespace GeneratedModifier {
+@@ -63,7 +63,7 @@ const void* ColumnSplitDynamicModule::GetStaticModifier()
+ 
+ const void* ColumnSplitDynamicModule::GetCjModifier()
+ {
+-    return NG::NodeModifier::GetCJUIColumnSplitModifier();
++    return NG::NodeModifier::GetCJUIColumnSplitModifierStatic();
+ }
+ 
+ void* ColumnSplitDynamicModule::GetModel()
+diff --git a/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_modifier.cpp
+index 4680025309d..32a4608e151 100644
+--- a/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_modifier.cpp
+@@ -144,7 +144,7 @@ const ArkUIRowSplitModifier* GetRowSplitDynamicModifier()
+     return &modifier;
+ }
+ 
+-const CJUIRowSplitModifier* GetCJUIRowSplitModifier()
++const CJUIRowSplitModifier* GetCJUIRowSplitModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUIRowSplitModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_module.cpp b/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_module.cpp
+index 71d56179a61..344f80d7147 100644
+--- a/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/linear_split/bridge/row_split_dynamic_module.cpp
+@@ -32,7 +32,7 @@ namespace OHOS::Ace {
+ namespace NG {
+ namespace NodeModifier {
+ const ArkUIRowSplitModifier* GetRowSplitDynamicModifier();
+-const CJUIRowSplitModifier* GetCJUIRowSplitModifier();
++const CJUIRowSplitModifier* GetCJUIRowSplitModifierStatic();
+ } // namespace NodeModifier
+ #ifdef INCLUDE_GENERATED_SOURCES
+ namespace GeneratedModifier {
+@@ -62,7 +62,7 @@ const void* RowSplitDynamicModule::GetStaticModifier()
+ 
+ const void* RowSplitDynamicModule::GetCjModifier()
+ {
+-    return NG::NodeModifier::GetCJUIRowSplitModifier();
++    return NG::NodeModifier::GetCJUIRowSplitModifierStatic();
+ }
+ 
+ void* RowSplitDynamicModule::GetModel()
+diff --git a/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_modifier.cpp
+index 531748c35a9..44af663629f 100644
+--- a/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_modifier.cpp
+@@ -720,7 +720,7 @@ const ArkUIMarqueeModifier* GetMarqueeDynamicModifier()
+     }
+ }
+ 
+-const CJUIMarqueeModifier* GetCJUIMarqueeModifier()
++const CJUIMarqueeModifier* GetCJUIMarqueeModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUIMarqueeModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_module.cpp b/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_module.cpp
+index c53196d35f9..8c995f907ed 100644
+--- a/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/marquee/bridge/marquee_dynamic_module.cpp
+@@ -35,7 +35,7 @@ namespace OHOS::Ace {
+ namespace NG {
+ namespace NodeModifier {
+ const ArkUIMarqueeModifier* GetMarqueeDynamicModifier();
+-const CJUIMarqueeModifier* GetCJUIMarqueeModifier();
++const CJUIMarqueeModifier* GetCJUIMarqueeModifierStatic();
+ }
+ namespace CustomModifier {
+     constexpr const char* CUSTOM_MODIFIER = "customModifier";
+@@ -69,7 +69,7 @@ const void* MarqueeDynamicModule::GetStaticModifier()
+ 
+ const void* MarqueeDynamicModule::GetCjModifier()
+ {
+-    return NG::NodeModifier::GetCJUIMarqueeModifier();
++    return NG::NodeModifier::GetCJUIMarqueeModifierStatic();
+ }
+ 
+ const void* MarqueeDynamicModule::GetCustomModifier(const std::string& name)
 diff --git a/frameworks/core/components_ng/pattern/patternlock/bridge/patternlock_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/patternlock/bridge/patternlock_dynamic_modifier.cpp
 index 7157de17677..6d55e85cce5 100644
 --- a/frameworks/core/components_ng/pattern/patternlock/bridge/patternlock_dynamic_modifier.cpp
@@ -600,6 +775,140 @@ index 83289658b57..16a6541d418 100644
  {
      if (callback) {
          auto onChange = reinterpret_cast<std::function<void(const std::string&)>*>(callback);
+diff --git a/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_modifier.cpp
+index bae6626a26b..a74e3c166b0 100644
+--- a/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_modifier.cpp
+@@ -2246,7 +2246,7 @@ const ArkUIRichEditorModifier* GetRichEditorDynamicModifier()
+     return &modifier;
+ }
+ 
+-const CJUIRichEditorModifier* GetCJUIRichEditorDynamicModifier()
++const CJUIRichEditorModifier* GetCJUIRichEditorDynamicModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUIRichEditorModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_module.cpp b/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_module.cpp
+index 6fd0b786ec4..315bcdeb8ea 100644
+--- a/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/rich_editor/bridge/rich_editor_dynamic_module.cpp
+@@ -34,7 +34,7 @@ namespace OHOS::Ace {
+ namespace NG {
+ namespace NodeModifier {
+ const ArkUIRichEditorModifier* GetRichEditorDynamicModifier();
+-const CJUIRichEditorModifier* GetCJUIRichEditorDynamicModifier();
++const CJUIRichEditorModifier* GetCJUIRichEditorDynamicModifierStatic();
+ }
+ 
+ #ifdef INCLUDE_GENERATED_SOURCES
+@@ -65,7 +65,7 @@ const void* RichEditorDynamicModule::GetStaticModifier()
+ 
+ const void* RichEditorDynamicModule::GetCjModifier()
+ {
+-    return NG::NodeModifier::GetCJUIRichEditorDynamicModifier();
++    return NG::NodeModifier::GetCJUIRichEditorDynamicModifierStatic();
+ }
+ 
+ void* RichEditorDynamicModule::GetModel()
+diff --git a/frameworks/core/components_ng/pattern/search/bridge/arkts_native_search_bridge.cpp b/frameworks/core/components_ng/pattern/search/bridge/arkts_native_search_bridge.cpp
+index 6b94db10436..dac2292d2ea 100644
+--- a/frameworks/core/components_ng/pattern/search/bridge/arkts_native_search_bridge.cpp
++++ b/frameworks/core/components_ng/pattern/search/bridge/arkts_native_search_bridge.cpp
+@@ -52,8 +52,8 @@ constexpr char CHECK_REGEX_VALID[] = "__checkRegexValid__";
+ } // namespace
+ 
+ namespace OHOS::Ace {
+-const std::vector<TextAlign> TEXT_ALIGNS = { TextAlign::START, TextAlign::CENTER, TextAlign::END, TextAlign::JUSTIFY,
+-    TextAlign::LEFT, TextAlign::RIGHT };
++// TEXT_ALIGNS 的 canonical 定义在 common_text_constants.{h,cpp}(extern + 单一定义)。mac 静态
++// 单一二进制下 bridge 不能再定义一份(与 common_text_constants.o 重复符号),改用其 extern。
+ 
+ SearchModel* GetSearchModel()
+ {
+@@ -83,7 +83,7 @@ const char SEARCH_FIELD_ETS_TAG[] = "SearchField";
+ constexpr TextDecorationStyle DEFAULT_DECORATION_STYLE = TextDecorationStyle::SOLID;
+ constexpr double DEFAULT_LINE_THICKNESS_SCALE = 1.0;
+ 
+-Local<JSValueRef> JsPreventDefault(panda::JsiRuntimeCallInfo* info)
++static Local<JSValueRef> JsPreventDefault(panda::JsiRuntimeCallInfo* info)
+ {
+     Local<JSValueRef> thisObj = info->GetThisRef();
+     auto eventInfo =
+@@ -145,7 +145,7 @@ bool CheckRegexValid(const std::string& pattern)
+ #endif
+ }
+ 
+-bool GetNativeNode(ArkUINodeHandle& nativeNode, const Local<JSValueRef>& firstArg, panda::ecmascript::EcmaVM* vm)
++static bool GetNativeNode(ArkUINodeHandle& nativeNode, const Local<JSValueRef>& firstArg, panda::ecmascript::EcmaVM* vm)
+ {
+     if (firstArg->IsNativePointer(vm)) {
+         nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+diff --git a/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_modifier.cpp
+index 28b076bcfff..7411562cf4d 100644
+--- a/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_modifier.cpp
+@@ -33,8 +33,8 @@
+ #include "core/interfaces/native/node/search_modifier.h"
+ 
+ namespace OHOS::Ace {
+-const std::vector<TextDirection> TEXT_DIRECTIONS = { TextDirection::LTR, TextDirection::RTL, TextDirection::INHERIT,
+-    TextDirection::AUTO };
++// TEXT_DIRECTIONS 的 canonical 定义在 common_text_constants.{h,cpp}。mac 静态单一二进制下删 bridge
++// 冗余定义(与 common_text_constants.o 重复符号),改用其 extern。
+ }
+ 
+ namespace OHOS::Ace::NG {
+@@ -2593,7 +2593,7 @@ const ArkUISearchModifier* GetSearchDynamicModifier()
+     return &modifier;
+ }
+ 
+-const CJUISearchModifier* GetCJUISearchModifier()
++const CJUISearchModifier* GetCJUISearchModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUISearchModifier modifier = {
+@@ -2693,7 +2693,7 @@ const CJUISearchModifier* GetCJUISearchModifier()
+     return &modifier;
+ }
+ 
+-const ArkUISearchCustomModifier* GetSearchCustomModifier()
++const ArkUISearchCustomModifier* GetSearchCustomModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const ArkUISearchCustomModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_module.cpp b/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_module.cpp
+index 5d0b8c53116..acaaa120fbb 100644
+--- a/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/search/bridge/search_dynamic_module.cpp
+@@ -36,8 +36,8 @@ namespace OHOS::Ace {
+ namespace NG {
+ namespace NodeModifier {
+ const ArkUISearchModifier* GetSearchDynamicModifier();
+-const CJUISearchModifier* GetCJUISearchModifier();
+-const ArkUISearchCustomModifier* GetSearchCustomModifier();
++const CJUISearchModifier* GetCJUISearchModifierStatic();
++const ArkUISearchCustomModifier* GetSearchCustomModifierStatic();
+ } // namespace NodeModifier
+ #ifdef INCLUDE_GENERATED_SOURCES
+ namespace GeneratedModifier {
+@@ -67,7 +67,7 @@ const void* SearchDynamicModule::GetStaticModifier()
+ 
+ const void* SearchDynamicModule::GetCjModifier()
+ {
+-    return NG::NodeModifier::GetCJUISearchModifier();
++    return NG::NodeModifier::GetCJUISearchModifierStatic();
+ }
+ 
+ void* SearchDynamicModule::GetModel()
+@@ -78,6 +78,6 @@ void* SearchDynamicModule::GetModel()
+ 
+ const void* SearchDynamicModule::GetCustomModifier(const std::string& name)
+ {
+-    return NG::NodeModifier::GetSearchCustomModifier();
++    return NG::NodeModifier::GetSearchCustomModifierStatic();
+ }
+ } // namespace OHOS::Ace
+\ No newline at end of file
 diff --git a/frameworks/core/components_ng/pattern/slider/bridge/slider_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/slider/bridge/slider_dynamic_modifier.cpp
 index 40f842f1e90..ad1df897be1 100644
 --- a/frameworks/core/components_ng/pattern/slider/bridge/slider_dynamic_modifier.cpp
@@ -635,6 +944,61 @@ index f50650ecfb1..66f62d29723 100644
          return true;
      }
      stageNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+diff --git a/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_modifier.cpp
+index 4cd0b7b1ea5..ec555667863 100644
+--- a/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_modifier.cpp
+@@ -492,7 +492,7 @@ const ArkUISymbolGlyphModifier* GetSymbolGlyphDynamicModifier()
+     return &modifier;
+ }
+ 
+-const CJUISymbolGlyphModifier* GetCJUISymbolGlyphModifier()
++const CJUISymbolGlyphModifier* GetCJUISymbolGlyphModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUISymbolGlyphModifier modifier = {
+@@ -526,7 +526,7 @@ const CJUISymbolGlyphModifier* GetCJUISymbolGlyphModifier()
+ 
+     return &modifier;
+ }
+-const ArkUISymbolGlyphCustomModifier* GetSymbolGlyphCustomModifier()
++const ArkUISymbolGlyphCustomModifier* GetSymbolGlyphCustomModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const ArkUISymbolGlyphCustomModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_module.cpp b/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_module.cpp
+index d160edd7b21..a1caff8179b 100644
+--- a/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/symbol/bridge/symbol_glyph_dynamic_module.cpp
+@@ -35,8 +35,8 @@ namespace OHOS::Ace {
+ namespace NG {
+ namespace NodeModifier {
+ const ArkUISymbolGlyphModifier* GetSymbolGlyphDynamicModifier();
+-const CJUISymbolGlyphModifier* GetCJUISymbolGlyphModifier();
+-const ArkUISymbolGlyphCustomModifier* GetSymbolGlyphCustomModifier();
++const CJUISymbolGlyphModifier* GetCJUISymbolGlyphModifierStatic();
++const ArkUISymbolGlyphCustomModifier* GetSymbolGlyphCustomModifierStatic();
+ }
+ #ifdef INCLUDE_GENERATED_SOURCES
+ namespace GeneratedModifier {
+@@ -66,7 +66,7 @@ const void* SymbolGlyphDynamicModule::GetStaticModifier()
+ 
+ const void* SymbolGlyphDynamicModule::GetCjModifier()
+ {
+-    return NG::NodeModifier::GetCJUISymbolGlyphModifier();
++    return NG::NodeModifier::GetCJUISymbolGlyphModifierStatic();
+ }
+ 
+ void* SymbolGlyphDynamicModule::GetModel()
+@@ -77,7 +77,7 @@ void* SymbolGlyphDynamicModule::GetModel()
+ 
+ const void* SymbolGlyphDynamicModule::GetCustomModifier(const std::string& name)
+ {
+-    return NG::NodeModifier::GetSymbolGlyphCustomModifier();
++    return NG::NodeModifier::GetSymbolGlyphCustomModifierStatic();
+ }
+ 
+ } // namespace OHOS::Ace
 diff --git a/frameworks/core/components_ng/pattern/text_field/text_field_pattern.cpp b/frameworks/core/components_ng/pattern/text_field/text_field_pattern.cpp
 index 22190ee7e47..902f0571520 100644
 --- a/frameworks/core/components_ng/pattern/text_field/text_field_pattern.cpp
@@ -687,6 +1051,41 @@ index 22190ee7e47..902f0571520 100644
  }
  
  bool TextFieldPattern::RepeatClickCaret(const Offset& offset, int32_t lastCaretIndex)
+diff --git a/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_modifier.cpp b/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_modifier.cpp
+index 9b8403c2595..fa5631defcd 100644
+--- a/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_modifier.cpp
++++ b/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_modifier.cpp
+@@ -1735,7 +1735,7 @@ const ArkUIWaterFlowModifier* GetWaterFlowDynamicModifier()
+     return &modifier;
+ }
+ 
+-const CJUIWaterFlowModifier* GetCJUIWaterFlowModifier()
++const CJUIWaterFlowModifier* GetCJUIWaterFlowModifierStatic()
+ {
+     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
+     static const CJUIWaterFlowModifier modifier = {
+diff --git a/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_module.cpp b/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_module.cpp
+index 725d78f235c..efb0815185c 100644
+--- a/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_module.cpp
++++ b/frameworks/core/components_ng/pattern/waterflow/bridge/waterflow/water_flow_dynamic_module.cpp
+@@ -30,7 +30,7 @@ namespace OHOS::Ace {
+ namespace NG {
+ namespace NodeModifier {
+ const ArkUIWaterFlowModifier* GetWaterFlowDynamicModifier();
+-const CJUIWaterFlowModifier* GetCJUIWaterFlowModifier();
++const CJUIWaterFlowModifier* GetCJUIWaterFlowModifierStatic();
+ } // namespace NodeModifier
+ 
+ #ifdef INCLUDE_GENERATED_SOURCES
+@@ -63,7 +63,7 @@ const void* WaterFlowDynamicModule::GetStaticModifier()
+ 
+ const void* WaterFlowDynamicModule::GetCjModifier()
+ {
+-    return NG::NodeModifier::GetCJUIWaterFlowModifier();
++    return NG::NodeModifier::GetCJUIWaterFlowModifierStatic();
+ }
+ 
+ 
 diff --git a/frameworks/core/components_ng/render/adapter/rosen_window.cpp b/frameworks/core/components_ng/render/adapter/rosen_window.cpp
 index 086a3e22416..c3b81968871 100644
 --- a/frameworks/core/components_ng/render/adapter/rosen_window.cpp
