@@ -776,3 +776,1117 @@ index 00000000..e9d8dad1
 +  subsystem_name = "plugins"
 +  part_name = "intl"
 +}
+diff --git a/web/webview/BUILD.gn b/web/webview/BUILD.gn
+index 79a38da7..c7f5f3c0 100644
+--- a/web/webview/BUILD.gn
++++ b/web/webview/BUILD.gn
+@@ -62,6 +62,8 @@ template("plugin_web_webview_static") {
+       deps += [ "android/java:web_webview_android_jni" ]
+     } else if (platform == "ios") {
+       deps += [ "ios:web_webview_ios" ]
++    } else if (platform == "mac") {
++      deps += [ "macos:web_webview_macos" ]
+     }
+ 
+     subsystem_name = "plugins"
+diff --git a/web/webview/macos/BUILD.gn b/web/webview/macos/BUILD.gn
+new file mode 100644
+index 00000000..e7eb3a93
+--- /dev/null
++++ b/web/webview/macos/BUILD.gn
+@@ -0,0 +1,45 @@
++# Copyright (c) 2026 Huawei Device Co., Ltd.
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++import("//build/ohos.gni")
++import("//plugins/web/webview/web_webview.gni")
++
++# macOS @ohos.web.webview platform glue (ported from ios/). Drives the WKWebView-backed
++# AceWeb objects in adapter/macos/capability/web via the same controller/cookie/download
++# /message-port contracts as iOS.
++ohos_source_set("web_webview_macos") {
++  sources = [
++    "web_cookie_manager_mac.mm",
++    "web_data_base_mac.cpp",
++    "web_download_manager_mac.cpp",
++    "web_message_port_mac.cpp",
++    "webview_controller_mac.cpp",
++  ]
++  include_dirs = web_include
++  include_dirs += [ "${WEB_PLUGIN_ROOT_DIR}" ]
++  include_dirs +=
++      [ "//foundation/arkui/ace_engine/adapter/macos/capability/web/" ]
++  defines = [ "MAC_PLATFORM" ]
++  cflags_objc = [
++    "-fvisibility=default",
++    "-fobjc-weak",
++  ]
++  cflags_objcc = cflags_objc
++  frameworks = [
++    "WebKit.framework",
++    "AppKit.framework",
++  ]
++  deps = [ "//plugins/interfaces/native:ace_plugin_util_mac" ]
++  subsystem_name = "plugins"
++  part_name = "web_webview"
++}
+diff --git a/web/webview/macos/web_cookie_manager_mac.h b/web/webview/macos/web_cookie_manager_mac.h
+new file mode 100644
+index 00000000..b9a6902a
+--- /dev/null
++++ b/web/webview/macos/web_cookie_manager_mac.h
+@@ -0,0 +1,37 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef PLUGINS_WEB_WEBVIEW_IOS_WEB_COOKIE_MANAGER_IOS_H
++#define PLUGINS_WEB_WEBVIEW_IOS_WEB_COOKIE_MANAGER_IOS_H
++
++#include <map>
++#include <memory>
++
++#include "web_errors.h"
++#include "plugins/web/webview/web_cookie_manager.h"
++
++namespace OHOS::Plugin {
++class WebCookieManagerIOS final {
++public:
++    WebCookieManagerIOS() = delete;
++    ~WebCookieManagerIOS() = delete;
++    static ErrCode ConfigCookie(const std::string& url, const std::string& value, int32_t asyncCallbackInfoId);
++    static void FetchCookie(const std::string& url, int32_t asyncCallbackInfoId);
++    static void ClearAllCookies(int32_t asyncCallbackInfoId);
++    static bool ExistCookie(bool incognito);
++    static void ClearSessionCookie(int32_t asyncCallbackInfoId);
++};
++} // namespace OHOS::Plugin
++#endif
+\ No newline at end of file
+diff --git a/web/webview/macos/web_cookie_manager_mac.mm b/web/webview/macos/web_cookie_manager_mac.mm
+new file mode 100644
+index 00000000..49fdf294
+--- /dev/null
++++ b/web/webview/macos/web_cookie_manager_mac.mm
+@@ -0,0 +1,167 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#import <WebKit/WebKit.h>
++#include "web_cookie_manager_mac.h"
++#import <Foundation/Foundation.h>
++using namespace OHOS::NWebError;
++
++namespace OHOS::Plugin {
++bool SetCookie(const std::string& url, std::map<std::string, std::string> cookieAttr,
++    std::map<std::string, std::string> cookieValue)
++{
++    NSString* ocUrl = [NSString stringWithCString:url.c_str() encoding:NSUTF8StringEncoding];
++    NSString* urlHost = [[NSURL URLWithString:ocUrl] host];
++    if (ocUrl == nil || urlHost == nil) {
++        return false;
++    }
++    for (auto iter = cookieValue.begin(); iter != cookieValue.end(); iter++) {
++        NSString* key = (0 == iter->first.length()) ? (@"") : (@(iter->first.c_str()));
++        NSString* value = (0 == iter->second.length()) ? (@"") : (@(iter->second.c_str()));
++        NSString* path = [NSString stringWithCString:cookieAttr["path"].c_str() encoding:NSUTF8StringEncoding];
++        NSString* domain = [NSString stringWithCString:cookieAttr["domain"].c_str() encoding:NSUTF8StringEncoding];
++        NSString* expiresDate =
++            [NSString stringWithCString:cookieAttr["expires"].c_str() encoding:NSUTF8StringEncoding];
++        NSString* maxAge = [NSString stringWithCString:cookieAttr["max-age"].c_str() encoding:NSUTF8StringEncoding];
++        NSString* sameSite = [NSString stringWithCString:cookieAttr["samesite"].c_str() encoding:NSUTF8StringEncoding];
++        NSString* isSecure = [NSString stringWithCString:cookieAttr["secure"].c_str() encoding:NSUTF8StringEncoding];
++        NSMutableDictionary* cookieProperties = [NSMutableDictionary dictionary];
++        if (key == nil || value == nil || key.length == 0 || value.length == 0) {
++            break;
++        }
++        [cookieProperties setObject:key forKey:NSHTTPCookieName];
++        [cookieProperties setObject:value forKey:NSHTTPCookieValue];
++        if (path != nil && path.length != 0) {
++            [cookieProperties setObject:path forKey:NSHTTPCookiePath];
++        } else {
++            [cookieProperties setObject:@"/" forKey:NSHTTPCookiePath];
++        }
++        if (domain != nil && domain.length != 0) {
++            [cookieProperties setObject:domain forKey:NSHTTPCookieDomain];
++        } else {
++            [cookieProperties setObject:urlHost forKey:NSHTTPCookieDomain];
++        }
++        if (expiresDate != nil && expiresDate.length != 0) {
++            [cookieProperties setObject:expiresDate forKey:NSHTTPCookieExpires];
++        }
++        if (maxAge != nil && maxAge.length != 0) {
++            [cookieProperties setObject:maxAge forKey:NSHTTPCookieMaximumAge];
++        }
++        if (isSecure != nil && [isSecure boolValue]) {
++            [cookieProperties setObject:@"TRUE" forKey:NSHTTPCookieSecure];
++        }
++        if (sameSite != nil && sameSite.length != 0) {
++            [cookieProperties setObject:sameSite forKey:NSHTTPCookieSameSitePolicy];
++        }
++        NSHTTPCookie* cookie = [NSHTTPCookie cookieWithProperties:cookieProperties];
++        [NSHTTPCookieStorage.sharedHTTPCookieStorage setCookie:cookie];
++    }
++    return true;
++}
++
++ErrCode WebCookieManagerIOS::ConfigCookie(const std::string& url, const std::string& value, int32_t asyncCallbackInfoId)
++{
++    NSArray* cookieAttribute = @[
++        @"domain", @"path", @"expires", @"max-age", @"size", @"httponly", @"secure", @"samesite", @"partitioned",
++        @"priority"
++    ];
++    NSString* ocUrl = [NSString stringWithCString:url.c_str() encoding:NSUTF8StringEncoding];
++    NSString* ocString = [NSString stringWithCString:value.c_str() encoding:NSUTF8StringEncoding];
++    NSArray* array = [ocString componentsSeparatedByString:@";"];
++    std::map<std::string, std::string> cookieValueDict;
++    std::map<std::string, std::string> cookieAttrDict;
++    for (NSString* key_value in array) {
++        NSRange range = [key_value rangeOfString:@"="];
++        if (range.location != NSNotFound) {
++            NSArray* keyValueArray = [key_value componentsSeparatedByString:@"="];
++            NSString* cookieName = [keyValueArray objectAtIndex:0];
++            NSString* cookieValue = [keyValueArray objectAtIndex:1];
++            BOOL contains = [cookieAttribute containsObject:[cookieName lowercaseString]];
++            if (contains) {
++                cookieAttrDict.insert(
++                    std::map<std::string, std::string>::value_type([cookieName UTF8String], [cookieValue UTF8String]));
++            } else {
++                cookieValueDict.insert(
++                    std::map<std::string, std::string>::value_type([cookieName UTF8String], [cookieValue UTF8String]));
++            }
++        }
++    }
++    WebCookieManager::OnConfigReceiveValue(SetCookie(url, cookieAttrDict, cookieValueDict), asyncCallbackInfoId);
++    return NO_ERROR;
++}
++
++void WebCookieManagerIOS::FetchCookie(const std::string& url, int32_t asyncCallbackInfoId)
++{
++    NSString* ocUrl = [NSString stringWithCString:url.c_str() encoding:NSUTF8StringEncoding];
++    NSString* urlHost = [[NSURL URLWithString:ocUrl] host];
++    NSString* cookieValue = @"";
++    NSArray* cookies = NSHTTPCookieStorage.sharedHTTPCookieStorage.cookies;
++    for (int i = 0; i < cookies.count; i++) {
++        NSHTTPCookie* cookie = cookies[i];
++        if ([urlHost hasSuffix:cookie.domain] ||
++            [[NSString stringWithFormat:@".\\%@", urlHost] hasSuffix:cookie.domain]) {
++            NSString* nameValue = [NSString stringWithFormat:@"%@=%@", cookie.name, cookie.value];
++            if (cookieValue.length > 0) {
++                cookieValue = [NSString stringWithFormat:@"%@;%@", cookieValue, nameValue];
++            } else {
++                cookieValue = nameValue;
++            }
++        }
++    }
++
++    WebCookieManager::OnFetchReceiveValue([cookieValue UTF8String], asyncCallbackInfoId);
++}
++
++void WebCookieManagerIOS::ClearAllCookies(int32_t asyncCallbackInfoId)
++{
++    NSHTTPCookieStorage* sharedHTTPCookieStorage = NSHTTPCookieStorage.sharedHTTPCookieStorage;
++    NSArray* cookies = sharedHTTPCookieStorage.cookies;
++    for (int i = 0; i < (int)cookies.count; i++) {
++        [sharedHTTPCookieStorage deleteCookie:cookies[i]];
++    }
++    WebCookieManager::OnClearReceiveValue(asyncCallbackInfoId);
++}
++
++bool WebCookieManagerIOS::ExistCookie(bool incognito)
++{
++    NSHTTPCookieStorage* sharedHTTPCookieStorage = NSHTTPCookieStorage.sharedHTTPCookieStorage;
++    NSArray* cookies = sharedHTTPCookieStorage.cookies;
++    return cookies && [cookies count] > 0;
++}
++
++void WebCookieManagerIOS::ClearSessionCookie(int32_t asyncCallbackInfoId)
++{
++#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_11_0
++    if (@available(iOS 11.0, *)) {
++        WKWebsiteDataStore *defaultDataStore = [WKWebsiteDataStore defaultDataStore];
++        WKHTTPCookieStore *wkHTTPCookieStorage = [defaultDataStore httpCookieStore];
++        [wkHTTPCookieStorage getAllCookies:^(NSArray<NSHTTPCookie *> * _Nonnull cookies) {
++            for (NSHTTPCookie *cookie in cookies) {
++                if ([cookie isSessionOnly]) {
++                    [wkHTTPCookieStorage deleteCookie:cookie completionHandler:nil];
++                }
++            }
++        }];
++    }
++#endif
++    NSHTTPCookieStorage *sharedHTTPCookieStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
++    NSArray<NSHTTPCookie *> * cookies = [sharedHTTPCookieStorage.cookies copy];
++    for (NSHTTPCookie *cookie in cookies) {
++        if ([cookie isSessionOnly]) {
++            [sharedHTTPCookieStorage deleteCookie:cookie];
++        }
++    }
++    WebCookieManager::OnClearReceiveValue(asyncCallbackInfoId);
++}
++} // namespace OHOS::Plugin
+diff --git a/web/webview/macos/web_data_base_mac.cpp b/web/webview/macos/web_data_base_mac.cpp
+new file mode 100644
+index 00000000..c9fea3d3
+--- /dev/null
++++ b/web/webview/macos/web_data_base_mac.cpp
+@@ -0,0 +1,54 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "web_data_base_mac.h"
++#include "AceWebControllerBridge.h"
++using namespace OHOS::NWebError;
++
++namespace OHOS::Plugin {
++bool WebDataBaseIOS::ExistHttpAuthCredentials()
++{
++    return existHttpAuthCredentialsOC();
++}
++
++ErrCode WebDataBaseIOS::DeleteHttpAuthCredentials()
++{
++    bool result = deleteHttpAuthCredentialsOC();
++    if (!result) {
++        return INIT_ERROR;
++    }
++    return NO_ERROR;
++}
++
++ErrCode WebDataBaseIOS::SaveHttpAuthCredentials(const std::string& host, const std::string& realm,
++    const std::string& username, const char* password)
++{
++    bool result = saveHttpAuthCredentialsOC(host, realm, username, password);
++    if (!result) {
++        return INIT_ERROR;
++    }
++    return NO_ERROR;
++}
++
++ErrCode WebDataBaseIOS::GetHttpAuthCredentials(const std::string& host, const std::string& realm,
++    std::string& username, char* password, uint32_t passwordSize)
++{
++    bool result = getHttpAuthCredentialsOC(host, realm, username, password, passwordSize);
++    if (!result) {
++        return INIT_ERROR;
++    }
++    return NO_ERROR;
++}
++} // namespace OHOS::Plugin
+\ No newline at end of file
+diff --git a/web/webview/macos/web_data_base_mac.h b/web/webview/macos/web_data_base_mac.h
+new file mode 100644
+index 00000000..44de1109
+--- /dev/null
++++ b/web/webview/macos/web_data_base_mac.h
+@@ -0,0 +1,36 @@
++/*
++ * Copyright (c) 2023 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef PLUGINS_WEB_WEBVIEW_IOS_WEB_DATA_BASE_IOS_H
++#define PLUGINS_WEB_WEBVIEW_IOS_WEB_DATA_BASE_IOS_H
++
++#include <memory>
++#include <map>
++#include "web_errors.h"
++
++namespace OHOS::Plugin {
++class WebDataBaseIOS final {
++public:
++    WebDataBaseIOS() = delete;
++    ~WebDataBaseIOS() = delete;
++    static bool ExistHttpAuthCredentials();
++    static ErrCode DeleteHttpAuthCredentials();
++    static ErrCode SaveHttpAuthCredentials(const std::string& host, const std::string& realm,
++        const std::string& username, const char* password);
++    static ErrCode GetHttpAuthCredentials(const std::string& host, const std::string& realm,
++        std::string& username, char* password, uint32_t passwordSize);
++};
++} // namespace OHOS::Plugin
++#endif
+\ No newline at end of file
+diff --git a/web/webview/macos/web_download_manager_mac.cpp b/web/webview/macos/web_download_manager_mac.cpp
+new file mode 100644
+index 00000000..f1cc62f8
+--- /dev/null
++++ b/web/webview/macos/web_download_manager_mac.cpp
+@@ -0,0 +1,130 @@
++/*
++ * Copyright (c) 2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#include "web_download_manager_mac.h"
++#include "AceWebControllerBridge.h"
++#include "AceWebDownloadImpl.h"
++#include "log.h"
++
++namespace OHOS::Plugin {
++WebDownloadDelegate* GetDownloadDelegate(int32_t webId) {
++    WebDownloadDelegate* webDownloadDelegate = WebDownloadManager::GetWebDownloadDelegate(webId);
++    if (!webDownloadDelegate) {
++        LOGW("can't found delegate for nweb.");
++        return nullptr;
++    }
++    return webDownloadDelegate;
++}
++
++void AssignWebDownloadManagerByObject(int32_t webId, WebDownloadItem* webDownloadItem,
++    const std::shared_ptr<AceWebDownloadImpl> webDownloadImpl)
++{
++    if (webDownloadItem == nullptr) {
++        LOGE("webDownloadItem or object is nullptr can't assign");
++        return;
++    }
++    std::string guid = webDownloadImpl->GetGuid();
++    webDownloadItem->guid = guid;
++    webDownloadItem->currentSpeed = webDownloadImpl->GetCurrentSpeed();
++    webDownloadItem->percentComplete = webDownloadImpl->GetPercentComplete();
++    webDownloadItem->totalBytes = webDownloadImpl->GetTotalBytes();
++    webDownloadItem->state = static_cast<PluginWebDownloadItemState>(webDownloadImpl->GetState());
++    webDownloadItem->lastErrorCode = webDownloadImpl->GetLastErrorCode();
++    webDownloadItem->method = webDownloadImpl->GetMethod();
++    webDownloadItem->mimeType = webDownloadImpl->GetMimeType();
++    webDownloadItem->url = webDownloadImpl->GetUrl();
++    webDownloadItem->suggestedFileName = webDownloadImpl->GetSuggestedFileName();
++    webDownloadItem->receivedBytes = webDownloadImpl->GetReceivedBytes();
++    webDownloadItem->fullPath = webDownloadImpl->GetFullPath();
++
++    webDownloadItem->beforeCallback = [webId, guid](const std::string path)->void {
++        webDownloadItemStartOC(webId, guid, path);
++    };
++    webDownloadItem->downloadCancelCallback = [webId, guid]()->void {
++        webDownloadItemCancelOC(webId, guid);
++    };
++    webDownloadItem->downloadPauseCallback = [webId, guid]()->int {
++        webDownloadItemPauseOC(webId, guid);
++        return 0;
++    };
++    webDownloadItem->downloadResumeCallback = [webId, guid]()->int {
++        webDownloadItemResumeOC(webId, guid);
++        return 0;
++    };
++}
++
++void OnDownloadBeforeStart(int32_t webId, const std::shared_ptr<AceWebDownloadImpl> webDownloadImpl)
++{
++    WebDownloadDelegate* webDownloadDelegate = GetDownloadDelegate(webId);
++    if (webDownloadDelegate) {
++        WebDownloadItem* webDownloadItem = new(std::nothrow) WebDownloadItem(webDownloadDelegate->GetEnv());
++        if (!webDownloadItem) {
++            LOGE("webDownloadItem is null");
++            return;
++        }
++        AssignWebDownloadManagerByObject(webId, webDownloadItem, webDownloadImpl);
++        webDownloadDelegate->DownloadBeforeStart(webDownloadItem);
++    }
++}
++
++void OnDownloadUpdated(int32_t webId, const std::shared_ptr<AceWebDownloadImpl> webDownloadImpl)
++{
++    WebDownloadDelegate* webDownloadDelegate = GetDownloadDelegate(webId);
++    if (webDownloadDelegate) {
++        WebDownloadItem* webDownloadItem = new(std::nothrow) WebDownloadItem(webDownloadDelegate->GetEnv());
++        if (!webDownloadItem) {
++            LOGE("webDownloadItem is null");
++            return;
++        }
++        AssignWebDownloadManagerByObject(webId, webDownloadItem, webDownloadImpl);
++        webDownloadDelegate->DownloadDidUpdate(webDownloadItem);
++    }
++}
++
++void OnDownloadFailed(int32_t webId, const std::shared_ptr<AceWebDownloadImpl> webDownloadImpl)
++{
++    WebDownloadDelegate* webDownloadDelegate = GetDownloadDelegate(webId);
++    if (webDownloadDelegate) {
++        WebDownloadItem* webDownloadItem = new(std::nothrow) WebDownloadItem(webDownloadDelegate->GetEnv());
++        if (!webDownloadItem) {
++            LOGE("webDownloadItem is null");
++            return;
++        }
++        AssignWebDownloadManagerByObject(webId, webDownloadItem, webDownloadImpl);
++        webDownloadDelegate->DownloadDidFail(webDownloadItem);
++    }
++}
++
++void OnDownloadFinish(int32_t webId, const std::shared_ptr<AceWebDownloadImpl> webDownloadImpl)
++{
++    WebDownloadDelegate* webDownloadDelegate = GetDownloadDelegate(webId);
++    if (webDownloadDelegate) {
++        WebDownloadItem* webDownloadItem = new(std::nothrow) WebDownloadItem(webDownloadDelegate->GetEnv());
++        if (!webDownloadItem) {
++            LOGE("webDownloadItem is null");
++            return;
++        }
++        AssignWebDownloadManagerByObject(webId, webDownloadItem, webDownloadImpl);
++        webDownloadDelegate->DownloadDidFinish(webDownloadItem);
++    }
++}
++
++void WebDownloadManagerIOS::RegisterDownloadCallback(int32_t webId)
++{
++    onDownloadBeforeStartOC(webId, OnDownloadBeforeStart);
++    onDownloadUpdatedOC(webId, OnDownloadUpdated);
++    onDownloadFailedOC(webId, OnDownloadFailed);
++    onDownloadFinishOC(webId, OnDownloadFinish);
++}
++} // namespace OHOS::Plugin
+\ No newline at end of file
+diff --git a/web/webview/macos/web_download_manager_mac.h b/web/webview/macos/web_download_manager_mac.h
+new file mode 100644
+index 00000000..aa262858
+--- /dev/null
++++ b/web/webview/macos/web_download_manager_mac.h
+@@ -0,0 +1,29 @@
++/*
++ * Copyright (c) 2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#ifndef PLUGINS_WEB_WEBVIEW_IOS_WEB_DOWNLOAD_MANAGER_IOS_H
++#define PLUGINS_WEB_WEBVIEW_IOS_WEB_DOWNLOAD_MANAGER_IOS_H
++
++#include "plugins/web/webview/web_download_manager.h"
++#include "plugins/web/webview/web_download_item.h"
++
++namespace OHOS::Plugin {
++class WebDownloadManagerIOS final {
++public:
++    WebDownloadManagerIOS() = delete;
++    ~WebDownloadManagerIOS() = delete;
++    static void RegisterDownloadCallback(int32_t webId);
++};
++} // namespace OHOS::Plugin
++#endif
+\ No newline at end of file
+diff --git a/web/webview/macos/web_message_port_mac.cpp b/web/webview/macos/web_message_port_mac.cpp
+new file mode 100644
+index 00000000..b4078499
+--- /dev/null
++++ b/web/webview/macos/web_message_port_mac.cpp
+@@ -0,0 +1,172 @@
++/*
++ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "web_message_port_mac.h"
++#include "AceWebControllerBridge.h"
++#include "AceWebMessageExtImpl.h"
++#include "log.h"
++
++using namespace OHOS::NWebError;
++
++namespace OHOS::Plugin {
++WebMessagePortIOS::WebMessagePortIOS(int32_t webId, const std::string& portHandle, bool isExtentionType) :
++    WebMessagePort(webId, portHandle, isExtentionType) {}
++
++void OnMessageExtOC(int32_t webId, const std::string& portHandle, 
++    const std::shared_ptr<AceWebMessageExtImpl> webMessageExtImpl)
++{
++    if (webMessageExtImpl == nullptr) {
++        LOGE("WebMessagePort OnMessageExt webMessageExtImpl is null.");
++        return;
++    }
++    auto webMessage = std::make_shared<WebMessage>(WebValue::Type::NONE);
++    auto webMessageExt = std::make_shared<WebMessageExt>(webMessage);
++    if (!webMessage || !webMessageExt) {
++        LOGE("WebMessagePort OnMessageExt webMessage or webMessageExt is null.");
++        return;
++    }
++    switch (webMessageExtImpl->GetType()) {
++        case AceWebMessageType::BOOLEAN:
++            webMessageExt->SetBoolean(webMessageExtImpl->GetBoolean());
++            break;
++        case AceWebMessageType::INTEGER:
++            webMessageExt->SetNumber(webMessageExtImpl->GetInt());
++            break;
++        case AceWebMessageType::DOUBLE:
++            webMessageExt->SetNumber(webMessageExtImpl->GetDouble());
++            break;
++        case AceWebMessageType::STRING:
++            webMessageExt->SetString(webMessageExtImpl->GetString());
++            break;
++        case AceWebMessageType::ERROR: {
++            auto error = webMessageExtImpl->GetError();
++            webMessageExt->SetError(error.first, error.second);
++            break;
++        }
++        case AceWebMessageType::STRINGARRAY:
++            webMessageExt->SetStringArray(webMessageExtImpl->GetStringArray());
++            break;
++        case AceWebMessageType::BOOLEANARRAY:
++            webMessageExt->SetBooleanArray(webMessageExtImpl->GetBooleanArray());
++            break;
++        case AceWebMessageType::DOUBLEARRAY:
++            webMessageExt->SetDoubleArray(webMessageExtImpl->GetDoubleArray());
++            break;
++        case AceWebMessageType::INT64ARRAY:
++            webMessageExt->SetInt64Array(webMessageExtImpl->GetInt64Array());
++            break;
++        default:
++            break;
++    }
++    WebMessagePort::OnMessageExt(webId, portHandle, webMessageExt);
++}
++
++void WebMessagePortIOS::ClosePort()
++{
++    SetPortHandle("");
++    closePortOC(GetWebId());
++}
++
++ErrCode WebMessagePortIOS::PostMessageEvent(const std::string& webMessage)
++{
++    std::string portHandle = GetPortHandle();
++    if (portHandle.empty() || portHandle == "" || !postMessageEventOC(GetWebId(), webMessage)) {
++        return CAN_NOT_POST_MESSAGE;
++    }
++    return NO_ERROR;
++}
++
++ErrCode WebMessagePortIOS::PostMessageEventExt(WebMessageExt* webMessageExt)
++{
++    std::string portHandle = GetPortHandle();
++    auto webMessageExtImpl = std::make_shared<AceWebMessageExtImpl>();
++    if (!webMessageExtImpl.get() || portHandle.empty() || portHandle == "") {
++        return CAN_NOT_POST_MESSAGE;
++    }
++    int msgType = webMessageExt->GetType();
++    switch (msgType) {
++        case static_cast<int32_t>(WebMessageType::BOOLEAN): {
++            webMessageExtImpl->SetType(AceWebMessageType::BOOLEAN);
++            webMessageExtImpl->SetBoolean(webMessageExt->GetBoolean());
++            break;
++        }
++        case static_cast<int32_t>(WebMessageType::NUMBER): {
++            webMessageExtImpl->SetType(AceWebMessageType::DOUBLE);
++            webMessageExtImpl->SetDouble(webMessageExt->GetNumber());
++            break;
++        }
++        case static_cast<int32_t>(WebMessageType::STRING): {
++            webMessageExtImpl->SetType(AceWebMessageType::STRING);
++            webMessageExtImpl->SetString(webMessageExt->GetString());
++            break;
++        }
++        case static_cast<int32_t>(WebMessageType::ARRAY): {
++            WebValue::Type arrayType = webMessageExt->GetArrayType();
++            switch (arrayType) {
++                case WebValue::Type::STRINGARRAY: {
++                    webMessageExtImpl->SetType(AceWebMessageType::STRINGARRAY);
++                    webMessageExtImpl->SetStringArray(webMessageExt->GetStringArray());
++                    break;
++                }
++                case WebValue::Type::BOOLEANARRAY: {
++                    webMessageExtImpl->SetType(AceWebMessageType::BOOLEANARRAY);
++                    webMessageExtImpl->SetBooleanArray(webMessageExt->GetBooleanArray());
++                    break;
++                }
++                case WebValue::Type::DOUBLEARRAY: {
++                    webMessageExtImpl->SetType(AceWebMessageType::DOUBLEARRAY);
++                    webMessageExtImpl->SetDoubleArray(webMessageExt->GetDoubleArray());
++                    break;
++                }
++                case WebValue::Type::INT64ARRAY: {
++                    webMessageExtImpl->SetType(AceWebMessageType::INT64ARRAY);
++                    webMessageExtImpl->SetInt64Array(webMessageExt->GetInt64Array());
++                    break;
++                }
++                default:
++                    break;
++            }
++            break;
++        }
++        case static_cast<int32_t>(WebMessageType::ARRAYBUFFER): {
++            webMessageExtImpl->SetType(AceWebMessageType::BINARY);
++            std::vector<uint8_t> value = webMessageExt->GetArrayBuffer();
++            webMessageExtImpl->SetArrayBuffer(value);
++            break;
++        }
++        case static_cast<int32_t>(WebMessageType::ERROR): {
++            webMessageExtImpl->SetType(AceWebMessageType::ERROR);
++            auto error = webMessageExt->GetError();
++            webMessageExtImpl->SetError(error.first, error.second);
++            break;
++        }
++        default:
++            break;
++    }
++    return postMessageEventExtOC(GetWebId(), webMessageExtImpl) ? NO_ERROR : CAN_NOT_POST_MESSAGE;
++}
++
++ErrCode WebMessagePortIOS::OnMessageEvent()
++{
++    onMessageEventOC(GetWebId(),GetPortHandle(),WebMessagePort::OnMessage);
++    return NO_ERROR;
++}
++
++ErrCode WebMessagePortIOS::OnMessageEventExt()
++{
++    onMessageEventExtOC(GetWebId(), GetPortHandle(), OnMessageExtOC);
++    return NO_ERROR;
++}
++} // namespace OHOS::Plugin
+diff --git a/web/webview/macos/web_message_port_mac.h b/web/webview/macos/web_message_port_mac.h
+new file mode 100644
+index 00000000..4d586f78
+--- /dev/null
++++ b/web/webview/macos/web_message_port_mac.h
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef PLUGINS_WEB_WEBVIEW_IOS_WEB_MESSAGE_PORT_IOS_H
++#define PLUGINS_WEB_WEBVIEW_IOS_WEB_MESSAGE_PORT_IOS_H
++
++#include "plugins/web/webview/web_message_port.h"
++
++namespace OHOS::Plugin {
++class WebMessagePortIOS : public WebMessagePort {
++public:
++    WebMessagePortIOS(int32_t webId, const std::string& portHandle, bool isExtentionType);
++    ~WebMessagePortIOS() = default;
++    void ClosePort() override;
++    ErrCode PostMessageEvent(const std::string& webMessage) override;
++    ErrCode PostMessageEventExt(WebMessageExt* WebMessageExt) override;
++    ErrCode OnMessageEvent() override;
++    ErrCode OnMessageEventExt() override;
++};
++} // namespace OHOS::Plugin
++
++#endif // PLUGINS_WEB_WEBVIEW_IOS_WEB_MESSAGE_PORT_IOS_H
+diff --git a/web/webview/macos/webview_controller_mac.cpp b/web/webview/macos/webview_controller_mac.cpp
+new file mode 100644
+index 00000000..75060297
+--- /dev/null
++++ b/web/webview/macos/webview_controller_mac.cpp
+@@ -0,0 +1,256 @@
++/*
++ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "webview_controller_mac.h"
++#include "AceWebControllerBridge.h"
++#include "log.h"
++using namespace OHOS::NWebError;
++
++namespace OHOS::Plugin {
++WebviewControllerIOS::~WebviewControllerIOS() {}
++
++ErrCode WebviewControllerIOS::LoadUrl(const std::string& url)
++{
++    loadUrlOC(webId_, url, std::map<std::string, std::string>());
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::LoadUrl(const std::string& url, const std::map<std::string, std::string>& httpHeaders)
++{
++    loadUrlOC(webId_, url, httpHeaders);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::LoadData(const std::string& data, const std::string& mimeType,
++    const std::string& encoding, const std::string& baseUrl, const std::string& historyUrl)
++{
++    loadDataOC(webId_, data, mimeType, encoding, baseUrl, historyUrl);
++    return NO_ERROR;
++}
++
++std::string WebviewControllerIOS::GetUrl()
++{
++    return getUrlOC(webId_);
++}
++
++bool WebviewControllerIOS::AccessBackward()
++{
++    return accessBackwardOC(webId_);
++}
++
++bool WebviewControllerIOS::AccessForward()
++{
++    return accessForwardOC(webId_);
++}
++
++ErrCode WebviewControllerIOS::Backward()
++{
++    backwardOC(webId_);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::Forward()
++{
++    forwardOC(webId_);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::Refresh()
++{
++    refreshOC(webId_);
++    return NO_ERROR;
++}
++
++void WebviewControllerIOS::EvaluateJavaScript(const std::string& script, int32_t asyncCallbackInfoId)
++{
++    evaluateJavaScriptOC(webId_, script, asyncCallbackInfoId, WebviewController::OnReceiveValue);
++}
++
++void WebviewControllerIOS::EvaluateJavaScriptExt(const std::string& script, int32_t asyncCallbackInfoId)
++{
++    evaluateJavaScriptExtOC(webId_, script, asyncCallbackInfoId, WebviewController::OnReceiveRunJavaScriptExtValue);
++}
++
++void WebviewControllerIOS::RemoveCache(bool value)
++{
++    removeCacheOC(webId_, value);
++}
++
++void WebviewControllerIOS::BackOrForward(int32_t step){
++    backOrForwardOC(webId_, step);
++}
++
++std::string WebviewControllerIOS::GetTitle(){
++    return getTitleOC(webId_);
++}
++
++int32_t WebviewControllerIOS::GetPageHeight(){
++    return getPageHeightOC(webId_);
++}
++
++std::shared_ptr<WebHistoryList> WebviewControllerIOS::GetBackForwardEntries()
++{
++    std::shared_ptr<WebHistoryList> historyList = std::make_shared<WebHistoryList>();
++    BackForwardResult backForwardResult = getBackForwardEntriesOC(webId_);
++    historyList->SetCurrentIndex(backForwardResult.currentIndex);
++    historyList->SetListSize(backForwardResult.backForwardItemList.size());
++    for (const auto& item : backForwardResult.backForwardItemList) {
++        std::shared_ptr<WebHistoryItem> webHistoryItem = std::make_shared<WebHistoryItem>();
++        webHistoryItem->historyUrl = item.URL;
++        webHistoryItem->title = item.title;
++        webHistoryItem->historyRawUrl = item.initialURL;
++        historyList->InsertHistoryItem(webHistoryItem);
++    }
++    return historyList;
++}
++
++void WebviewControllerIOS::CreateWebMessagePorts(std::vector<std::string>& ports)
++{
++    createWebMessagePortsOC(webId_, ports);
++}
++
++void WebviewControllerIOS::PostWebMessage(std::string& message, std::vector<std::string>& ports, std::string& targetUrl)
++{
++    postWebMessageOC(webId_, message, ports, targetUrl);
++}
++
++ErrCode WebviewControllerIOS::ScrollTo(float x, float y)
++{
++    scrollToOC(webId_, x, y);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::ScrollBy(float deltaX, float deltaY)
++{
++    scrollByOC(webId_, deltaX, deltaY);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::Zoom(float factor)
++{
++    zoomOC(webId_, factor);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::ZoomIn()
++{
++    bool accessStatus = isZoomAccessOC(webId_);
++    if(accessStatus) {
++        zoomInOC(webId_);
++        return NO_ERROR;
++    }
++    return FUNCTION_NOT_ENABLE;
++}
++
++ErrCode WebviewControllerIOS::ZoomOut()
++{
++    bool accessStatus = isZoomAccessOC(webId_);
++    if(accessStatus) {
++        zoomOutOC(webId_);
++        return NO_ERROR;
++    }
++    return FUNCTION_NOT_ENABLE;
++}
++
++ErrCode WebviewControllerIOS::Stop()
++{
++    stopOC(webId_);
++    return NO_ERROR;
++}
++
++std::string WebviewControllerIOS::GetOriginalUrl()
++{
++    return getOriginalUrlOC(webId_);
++}
++
++ErrCode WebviewControllerIOS::PageUp(bool top)
++{
++    pageUpOC(webId_, top);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::SetCustomUserAgent(const std::string& userAgent)
++{
++    setCustomUserAgentOC(webId_, userAgent);
++    return NO_ERROR;
++}
++
++std::string WebviewControllerIOS::GetCustomUserAgent()
++{
++    return getCustomUserAgentOC(webId_);
++}
++
++bool WebviewControllerIOS::AccessStep(int32_t step)
++{
++    return accessStepOC(webId_, step);
++}
++
++bool WebviewControllerIOS::IsInit()
++{
++    return webId_ != -1;
++}
++
++void WebviewControllerIOS::SetWebDebuggingAccess(bool webDebuggingAccess)
++{
++    setWebDebuggingAccessOC(webDebuggingAccess);
++}
++
++ErrCode WebviewControllerIOS::PageDown(bool bottom)
++{
++    pageDownOC(webId_, bottom);
++    return NO_ERROR;
++}
++
++ErrCode WebviewControllerIOS::PostUrl(const std::string& url, const std::vector<uint8_t>& postData)
++{
++    postUrlOC(webId_, url, postData);
++    return NO_ERROR;
++}
++
++void WebviewControllerIOS::StartDownload(const std::string& url)
++{
++    startDownloadOC(webId_, url);
++}
++
++void WebviewControllerIOS::RegisterJavaScriptProxy(const RegisterJavaScriptProxyParam& param)
++{
++    registerJavaScriptProxyOC(webId_, param.objName, param.syncMethodList, param.asyncMethodList,
++        WebviewController::OnReceiveJavascriptExecuteCall);
++}
++
++void WebviewControllerIOS::DeleteJavaScriptRegister(const std::string& objName)
++{
++    deleteJavaScriptRegisterOC(webId_, objName);
++}
++
++bool WebviewControllerIOS::SetWebSchemeHandler(const char* scheme, WebSchemeHandler* handler)
++{
++    if (!handler || !scheme) {
++        return false;
++    }
++    auto arkHandler = WebSchemeHandler::GetArkWebSchemeHandler(handler);
++    return setWebSchemeHandlerOC(webId_, scheme, arkHandler);
++}
++
++bool WebviewControllerIOS::ClearWebSchemeHandler()
++{
++    return clearWebSchemeHandlerOC(webId_);
++}
++
++std::string WebviewControllerIOS::GetUserAgent()
++{
++    return getUserAgentOC();
++}
++} // namespace OHOS::Plugin
+diff --git a/web/webview/macos/webview_controller_mac.h b/web/webview/macos/webview_controller_mac.h
+new file mode 100644
+index 00000000..260d1043
+--- /dev/null
++++ b/web/webview/macos/webview_controller_mac.h
+@@ -0,0 +1,70 @@
++/*
++ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef PLUGINS_WEB_WEBVIEW_IOS_WEBVIEW_CONTROLLER_IOS_H
++#define PLUGINS_WEB_WEBVIEW_IOS_WEBVIEW_CONTROLLER_IOS_H
++
++#include "plugins/web/webview/webview_controller.h"
++#include "plugins/web/webview/web_download_delegate.h"
++#include "plugins/web/webview/web_scheme_handler_request.h"
++
++namespace OHOS::Plugin {
++class WebviewControllerIOS : public WebviewController {
++public:
++    WebviewControllerIOS() = default;
++    ~WebviewControllerIOS() override;
++    bool IsInit() override;
++    ErrCode LoadUrl(const std::string& url) override;
++    ErrCode LoadUrl(const std::string& url, const std::map<std::string, std::string>& httpHeaders) override;
++    ErrCode LoadData(const std::string& data, const std::string& mimeType, const std::string& encoding,
++        const std::string& baseUrl, const std::string& historyUrl) override;
++    ErrCode Backward() override;
++    ErrCode Forward() override;
++    ErrCode Refresh() override;
++    std::string GetUrl() override;
++    bool AccessBackward() override;
++    bool AccessForward() override;
++    void EvaluateJavaScript(const std::string& script, int32_t asyncCallbackInfoId) override;
++    void EvaluateJavaScriptExt(const std::string& script, int32_t asyncCallbackInfoId) override;
++    ErrCode ScrollTo(float x, float y) override;
++    ErrCode ScrollBy(float deltaX, float deltaY) override;
++    ErrCode Zoom(float factor) override;
++    ErrCode ZoomIn() override;
++    ErrCode ZoomOut() override;
++    ErrCode Stop() override;
++    std::string GetOriginalUrl() override;
++    ErrCode PageUp(bool top) override;
++    ErrCode SetCustomUserAgent(const std::string& userAgent) override;
++    std::string GetCustomUserAgent() override;
++    bool AccessStep(int32_t step) override;
++    void RemoveCache(bool value) override;
++    void BackOrForward(int32_t step) override;
++    std::string GetTitle() override;
++    int32_t GetPageHeight() override;
++    std::shared_ptr<WebHistoryList> GetBackForwardEntries() override;
++    void CreateWebMessagePorts(std::vector<std::string>& ports) override;
++    void PostWebMessage(std::string& message, std::vector<std::string>& ports, std::string& targetUrl) override;
++    static void SetWebDebuggingAccess(bool webDebuggingAccess);
++    ErrCode PageDown(bool bottom) override;
++    ErrCode PostUrl(const std::string& url, const std::vector<uint8_t>& postData) override;
++    void StartDownload(const std::string& url) override;
++    void RegisterJavaScriptProxy(const RegisterJavaScriptProxyParam& param) override;
++    void DeleteJavaScriptRegister(const std::string& objName) override;
++    bool SetWebSchemeHandler(const char* scheme, WebSchemeHandler* handler) override;
++    bool ClearWebSchemeHandler() override;
++    std::string GetUserAgent() override;
++};
++} // namespace OHOS::Plugin
++#endif

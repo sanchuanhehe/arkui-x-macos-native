@@ -40,10 +40,10 @@ index 5168ec96d72..899c379ae51 100644
        enhanced_opt) {
      if (ace_engine_feature_enable_pgo) {
 diff --git a/adapter/preview/build/config_mac.gni b/adapter/preview/build/config_mac.gni
-index 5bdfafed3cd..1e4f247fa9e 100644
+index 5bdfafed3cd..38fc3be6bbb 100644
 --- a/adapter/preview/build/config_mac.gni
 +++ b/adapter/preview/build/config_mac.gni
-@@ -12,9 +12,99 @@
+@@ -12,9 +12,109 @@
  # limitations under the License.
  
  import("preview_common.gni")
@@ -91,6 +91,12 @@ index 5bdfafed3cd..1e4f247fa9e 100644
 +  # Path X is the appframework/iOS-style backend, not the previewer.
 +  build_for_preview = false
 +
++  # M5 Web carrier: enable the Web/Video component bindings (js_web.cpp / WebModelNG /
++  # WebPattern) the same way adapter/ios/build/config.gni does. Without this the ArkTS
++  # `Web({...})` component has no native binding (JSWeb::JSBind not compiled) so no
++  # WebPattern is created and the WKWebView is never instantiated.
++  web_components_support = true
++
 +  # Static ICU like iOS (the shared ICU isn't built for the standalone app; the
 +  # static target also supplies the unicode/* include path).
 +  use_external_icu = "static"
@@ -112,6 +118,10 @@ index 5bdfafed3cd..1e4f247fa9e 100644
 +    "ENABLE_ROSEN_BACKEND",
 +    "QUICK_PUSH_TRANSITION",
 +    "ACE_ENABLE_GL",
++
++    # M5 Web carrier: gate macro for JSWeb::JSBind / web component code paths (mirrors
++    # adapter/ios/build/config.gni which adds WEB_SUPPORTED when web_components_support).
++    "WEB_SUPPORTED",
 +
 +    # Phase 0 path X: the macos uicontent reuses the iOS ace_view_sg.cpp, which
 +    # calls PipelineBase::OnTouchTargetHitTest — a method declared only under
@@ -160,6 +170,22 @@ index eb25f0049ec..ca804727826 100644
      config = {
        import("config_mac.gni")
      }
+diff --git a/frameworks/core/components_ng/components.gni b/frameworks/core/components_ng/components.gni
+index 7f1bd368d49..e51261f5925 100644
+--- a/frameworks/core/components_ng/components.gni
++++ b/frameworks/core/components_ng/components.gni
+@@ -159,6 +159,11 @@ template("build_component_ng") {
+           ]
+         }
+         defines += [ "CROSS_PLATFORM" ]
++        if (platform == "mac") {
++          # M5 Web carrier: the web pattern / WebDelegateCross gate their cross-platform
++          # delegate-create path on IOS_PLATFORM||ANDROID_PLATFORM; macOS needs the same path.
++          defines += [ "MAC_PLATFORM" ]
++        }
+       }
+       if (!is_arkui_x && defined(config.enable_drag_framework) &&
+           config.enable_drag_framework) {
 diff --git a/interfaces/inner_api/drawable_descriptor/BUILD.gn b/interfaces/inner_api/drawable_descriptor/BUILD.gn
 index e58f8e0b0a1..0a812c0f2a1 100644
 --- a/interfaces/inner_api/drawable_descriptor/BUILD.gn
