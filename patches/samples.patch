@@ -27,10 +27,10 @@ index c6621661..6d61450b 100644
        if (err.code) {
          hilog.error(0x0000, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
 diff --git a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
-index 61af322f..61461790 100644
+index 61af322f..4e748bac 100644
 --- a/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
 +++ b/BasicFeature/HelloWorld/entry/src/main/ets/pages/Index.ets
-@@ -1,45 +1,72 @@
+@@ -1,45 +1,87 @@
 -/*
 - * Copyright (c) 2023 Huawei Device Co., Ltd.
 - * Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,6 +55,7 @@ index 61af322f..61461790 100644
 +  @State rating: number = 3
 +  @State sel: number = 1
 +  @State counter: number = 5
++  @State searchText: string = ''
 +
    build() {
 -    Row() {
@@ -66,56 +67,70 @@ index 61af322f..61461790 100644
 -          Text($r('app.string.click_me'))
 -            .fontSize(25)
 +    Scroll() {
-+      Column({ space: 16 }) {
-+        Text('M6 组件广度 · 静态链接(实测渲染)')
++      Column({ space: 14 }) {
++        Text('M6 组件广度 · 静态链接(9 组件实测渲染)')
 +          .fontSize(18).fontWeight(FontWeight.Bold).fontColor(Color.Black)
 +
-+        Row({ space: 20 }) {
-+          // 左列
-+          Column({ space: 14 }) {
-+            Column({ space: 4 }) {
-+              Text('Slider: ' + Math.round(this.sliderVal)).fontSize(13).fontColor(Color.Black)
++        Row({ space: 24 }) {
++          // 左列:基础表单组件
++          Column({ space: 12 }) {
++            Column({ space: 2 }) {
++              Text('Slider: ' + Math.round(this.sliderVal)).fontSize(12).fontColor(Color.Black)
 +              Slider({ value: this.sliderVal, min: 0, max: 100 })
-+                .width(180).onChange((v: number) => { this.sliderVal = v })
++                .width(170).onChange((v: number) => { this.sliderVal = v })
 +            }
 +            Row({ space: 8 }) {
-+              Checkbox().select(this.checked).width(24).height(24)
++              Checkbox().select(this.checked).width(22).height(22)
 +                .onChange((v: boolean) => { this.checked = v })
-+              Text(this.checked ? '已勾选' : '未勾选').fontSize(13).fontColor(Color.Black)
++              Text(this.checked ? '已勾选' : '未勾选').fontSize(12).fontColor(Color.Black)
 +            }
-+            Column({ space: 4 }) {
-+              Text('Rating: ' + this.rating).fontSize(13).fontColor(Color.Black)
++            Column({ space: 2 }) {
++              Text('Rating: ' + this.rating).fontSize(12).fontColor(Color.Black)
 +              Rating({ rating: this.rating, indicator: false })
-+                .stars(5).width(140).height(28)
++                .stars(5).width(130).height(26)
 +                .onChange((v: number) => { this.rating = v })
 +            }
 +            Row({ space: 10 }) {
-+              Radio({ value: 'a', group: 'g' }).checked(this.sel === 0).width(24).height(24)
++              Radio({ value: 'a', group: 'g' }).checked(this.sel === 0).width(22).height(22)
 +                .onChange(() => { this.sel = 0 })
-+              Text('A').fontSize(13).fontColor(Color.Black)
-+              Radio({ value: 'b', group: 'g' }).checked(this.sel === 1).width(24).height(24)
++              Text('A').fontSize(12).fontColor(Color.Black)
++              Radio({ value: 'b', group: 'g' }).checked(this.sel === 1).width(22).height(22)
 +                .onChange(() => { this.sel = 1 })
-+              Text('B').fontSize(13).fontColor(Color.Black)
-+            }
-+          }
-+
-+          // 右列
-+          Column({ space: 14 }) {
-+            Column({ space: 2 }) {
-+              Text('Gauge').fontSize(13).fontColor(Color.Black)
-+              Gauge({ value: this.sliderVal, min: 0, max: 100 }).width(100).height(100)
-+            }
-+            Column({ space: 2 }) {
-+              Text('DataPanel').fontSize(13).fontColor(Color.Black)
-+              DataPanel({ values: [25, 20, 15, 10], max: 100 }).width(100).height(100)
++              Text('B').fontSize(12).fontColor(Color.Black)
 +            }
 +            Row({ space: 8 }) {
-+              Text('Counter:').fontSize(13).fontColor(Color.Black)
++              Text('Counter:').fontSize(12).fontColor(Color.Black)
 +              Counter() {
-+                Text(this.counter.toString()).fontSize(14).fontColor(Color.Black)
++                Text(this.counter.toString()).fontSize(13).fontColor(Color.Black)
 +              }
 +              .onInc(() => { this.counter++ })
 +              .onDec(() => { this.counter-- })
++            }
++          }
++
++          // 右列:图形 + HARD 类
++          Column({ space: 10 }) {
++            Row({ space: 12 }) {
++              Column({ space: 2 }) {
++                Text('Gauge').fontSize(12).fontColor(Color.Black)
++                Gauge({ value: this.sliderVal, min: 0, max: 100 }).width(84).height(84)
++              }
++              Column({ space: 2 }) {
++                Text('DataPanel').fontSize(12).fontColor(Color.Black)
++                DataPanel({ values: [25, 20, 15, 10], max: 100 }).width(84).height(84)
++              }
++            }
++            // HARD 类去重后渲染
++            Column({ space: 2 }) {
++              Text('Search (HARD)').fontSize(12).fontColor(Color.Black)
++              Search({ value: this.searchText, placeholder: '搜索' })
++                .width(200).height(36)
++                .onChange((v: string) => { this.searchText = v })
++            }
++            Column({ space: 2 }) {
++              Text('Marquee (HARD)').fontSize(12).fontColor(Color.Black)
++              Marquee({ start: true, src: 'ArkUI-X macOS 跑马灯 · ', step: 8, loop: -1, fromStart: true })
++                .width(200).height(30).fontColor(Color.Blue).fontSize(15)
 +            }
 +          }
          }
@@ -131,7 +146,7 @@ index 61af322f..61461790 100644
 -        })
        }
 -      .width('100%')
-+      .width('100%').padding(20)
++      .width('100%').padding(18)
 +      .justifyContent(FlexAlign.Start)
 +      .backgroundColor(Color.White)
      }
