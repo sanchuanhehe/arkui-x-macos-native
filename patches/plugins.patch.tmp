@@ -1,17 +1,3 @@
-diff --git a/file/picker/filepicker/BUILD.gn b/file/picker/filepicker/BUILD.gn
-index 3f9d7735..85d2dbad 100644
---- a/file/picker/filepicker/BUILD.gn
-+++ b/file/picker/filepicker/BUILD.gn
-@@ -81,6 +81,9 @@ ohos_source_set("file_picker_static") {
-   } else if (target_os == "android") {
-     defines = [ "ANDROID_PLATFORM" ]
-     deps += [ "android/java:filepicker_anroid_jni" ]
-+  } else if (target_os == "mac") {
-+    defines = [ "MAC_PLATFORM" ]
-+    deps += [ "macos:filepicker_macos" ]
-   }
- 
-   subsystem_name = "plugins"
 diff --git a/file/picker/filepicker/macos/BUILD.gn b/file/picker/filepicker/macos/BUILD.gn
 new file mode 100644
 index 00000000..ad225af3
@@ -255,23 +241,6 @@ index 00000000..016fe11b
 +}
 +
 +} // namespace OHOS::Plugin
-diff --git a/file/picker/filepicker/module_ohos_picker.cpp b/file/picker/filepicker/module_ohos_picker.cpp
-index 4f3ca9cb..051c11c5 100644
---- a/file/picker/filepicker/module_ohos_picker.cpp
-+++ b/file/picker/filepicker/module_ohos_picker.cpp
-@@ -75,7 +75,11 @@ static napi_module_with_js g_module = {
- /*
-  * module register
-  */
--extern "C" __attribute__((constructor)) void RegisterModule()
-+// Renamed from the generic `RegisterModule` to a plugin-unique name: on macOS every
-+// plugin/kit is statically linked into the single ace_macos binary (vs iOS per-dylib),
-+// so a bare `RegisterModule` collides with other plugins' constructors (e.g.
-+// performancemonitor kit). The constructor attribute still runs it at startup.
-+extern "C" __attribute__((constructor)) void RegisterFilePickerModule()
- {
-     LOGI("ohos.picker RegisterModule enter");
- #ifdef ANDROID_PLATFORM
 diff --git a/i18n/BUILD.gn b/i18n/BUILD.gn
 index 3c57ece7..92be41fd 100644
 --- a/i18n/BUILD.gn
