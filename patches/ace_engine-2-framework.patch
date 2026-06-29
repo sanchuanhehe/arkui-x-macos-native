@@ -14,6 +14,24 @@ index 20b15499ef9..6002ad91115 100644
        deps += [ ":gen_obj_src_js_mock_system_plugin" ]
      } else {
        if (defined(config.plugin_components_support) &&
+diff --git a/frameworks/bridge/declarative_frontend/ark_component/src/ArkComponent.ts b/frameworks/bridge/declarative_frontend/ark_component/src/ArkComponent.ts
+index 4e90f98e220..e5e6bfee75f 100644
+--- a/frameworks/bridge/declarative_frontend/ark_component/src/ArkComponent.ts
++++ b/frameworks/bridge/declarative_frontend/ark_component/src/ArkComponent.ts
+@@ -6175,6 +6175,13 @@ class ArkComponent {
+   }
+ }
+ (globalThis as any).__ArkComponent__ = ArkComponent;
++// 把 ModifierWithKey 暴露到 globalThis:部分组件(columnsplit/rowsplit/hyperlink/menu/
++// waterflow 等)的 ark<x>.js 在模块顶层 `class XModifier extends ModifierWithKey`,模块加载即
++// 求值,而非像 search/marquee 那样延迟到 loadComponent()。这些组件作为 native module abc 经
++// require() 执行时,若 ModifierWithKey 不是全局,顶层 extends 立即抛 ReferenceError →
++// "Cannot execute panda file from memory",整个 abc 执行失败、组件不渲染。挂到全局即修复
++// 全部这类「旧模式」组件(iOS 因 abc 执行上下文不同未暴露此问题)。
++(globalThis as any).ModifierWithKey = ModifierWithKey;
+ 
+ const isNull = (val: any) => typeof val === 'object' && val === null;
+ const isArray = (val: any) => Array.isArray(val);
 diff --git a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp b/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp
 index 3d1be9d56f3..47345bc9fac 100644
 --- a/frameworks/bridge/declarative_frontend/engine/bindings_implementation.cpp

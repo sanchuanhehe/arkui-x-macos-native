@@ -84,6 +84,8 @@ node $ARKUIX/.../ace_tools.js build bundle
 ```
 把 `.arkui-x/.../arkui-x/<module>/` 拷到 `out/arkui-x/arkui/ace_engine/arkui-x/<module>/`,并把 `MacAppDelegate.mm` 里的 `BUNDLE_NAME/MODULE_NAME/ABILITY_NAME` 指向你的应用。系统模块 `.abc`(uiability/hilog/context/uicontext/arktheme/resmgr 及全套 `arkui.components.*`)从 `out/.../ace_engine_cross/*.abc` 拷进 `arkui-x/systemres/abc/`(本仓 `assets/systemres_abc/` 附了一组示例 + 重建说明)。
 
+> **必须额外拷 `arkComponent.abc`(易漏)**:`PreloadArkComponent` 从 `systemres/abc/arkComponent.abc` 加载 ArkUI 组件基类(含 `ModifierWithKey`)。它**不在 `ace_engine_cross/`**(只编到 `out/.../obj/foundation/arkui/ace_engine/frameworks/bridge/declarative_frontend/engine/jsi/arkComponent.abc`),故上面的 `ace_engine_cross/*.abc` 通配拷不到它 —— 须单独 `ninja -C out/arkui-x gen_arkComponent_abc` 后把该 abc 拷进 `systemres/abc/`。**缺它的后果**:`Failed to open the file!`(FATAL)→ `__ArkComponent__`/`ModifierWithKey` 全局未设 → 旧模式组件(ColumnSplit/RowSplit/Hyperlink/Menu/WaterFlow/RichEditor/CalendarPicker/AlphabetIndexer 等,`ark<x>.js` 顶层 `class … extends ModifierWithKey`)执行 `ark<x>.abc` 抛 `ReferenceError: ModifierWithKey is not defined` → `Cannot execute panda file from memory`,组件不渲染。配套代码修复见 `ace_engine-2-framework.patch` 的 `ArkComponent.ts`(把 `ModifierWithKey` 挂 `globalThis`)。
+
 ### 4. 跑
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
